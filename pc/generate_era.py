@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate an Era TSV from input TSVs."""
+"""Generate an Era in Firestore from input TSVs."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from itertools import cycle
 from pathlib import Path
 from typing import Iterable, Sequence
+
+from firestore_service import create_era, create_incursion, create_period, era_exists
 
 
 @dataclass(frozen=True)
@@ -31,11 +33,11 @@ class Layout:
 
 def require_columns(fieldnames: Sequence[str] | None, required: Iterable[str], path: Path) -> None:
     if fieldnames is None:
-        raise ValueError(f"TSV sin cabecera: {path}")
+        raise ValueError(f"TSV missing header: {path}")
     missing = [name for name in required if name not in fieldnames]
     if missing:
         missing_list = ", ".join(missing)
-        raise ValueError(f"Faltan columnas en {path}: {missing_list}")
+        raise ValueError(f"Missing columns in {path}: {missing_list}")
 
 
 def load_spirits(path: Path) -> list[Spirit]:
@@ -83,9 +85,9 @@ def load_layouts(path: Path) -> list[Layout]:
 def generate_round_robin(spirits: Sequence[Spirit]) -> list[list[tuple[Spirit, Spirit]]]:
     total = len(spirits)
     if total < 2:
-        raise ValueError("Se necesitan al menos 2 espíritus para generar jornadas")
+        raise ValueError("At least 2 spirits are required to generate rounds")
     if total % 2 != 0:
-        raise ValueError("El número de espíritus debe ser par para formar parejas")
+        raise ValueError("The number of spirits must be even to form pairs")
 
     order = list(spirits)
     rounds: list[list[tuple[Spirit, Spirit]]] = []
@@ -109,9 +111,9 @@ def generate_round_robin(spirits: Sequence[Spirit]) -> list[list[tuple[Spirit, S
 def generate_board_rounds(boards: Sequence[Board]) -> list[list[tuple[Board, Board]]]:
     total = len(boards)
     if total < 2:
-        raise ValueError("Se necesitan al menos 2 tableros para generar rondas")
+        raise ValueError("At least 2 boards are required to generate rounds")
     if total % 2 != 0:
-        raise ValueError("El número de tableros debe ser par para formar parejas")
+        raise ValueError("The number of boards must be even to form pairs")
 
     order = list(boards)
     rounds: list[list[tuple[Board, Board]]] = []
@@ -138,12 +140,12 @@ def assign_boards(
     rng: random.Random,
 ) -> list[tuple[Board, Board]]:
     if len(boards) < 2:
-        raise ValueError("Se necesitan al menos 2 tableros para asignar por incursión")
+        raise ValueError("At least 2 boards are required to assign per incursion")
     slots = match_count * 2
     if slots < len(boards):
-        raise ValueError("No hay suficientes incursiones para usar todos los tableros en el periodo")
+        raise ValueError("Not enough incursions to use all boards in the period")
     if slots % len(boards) != 0:
-        raise ValueError("Los tableros no pueden balancearse perfectamente en el periodo")
+        raise ValueError("Boards cannot be perfectly balanced in the period")
 
     repetitions = slots // len(boards)
     rounds = generate_board_rounds(boards)
@@ -169,7 +171,7 @@ def assign_boards(
 def select_layouts(layouts: Sequence[Layout]) -> list[Layout]:
     filtered = [layout for layout in layouts if layout.player_count == 2 and layout.is_active == 1]
     if not filtered:
-        raise ValueError("No hay layouts activos para 2 jugadores")
+        raise ValueError("No active layouts found for 2 players")
     return filtered
 
 
@@ -249,39 +251,92 @@ def write_era_tsv(
                 )
 
 
+def write_era_firestore(
+    era_id: str,
+    rounds: Sequence[Sequence[tuple[Spirit, Spirit]]],
+    boards: Sequence[Board],
+    layouts: Sequence[Layout],
+    rng: random.Random,
+) -> None:
+    if era_exists(era_id):
+        raise ValueError(f"Era already exists: {era_id}")
+
+    create_era(era_id)
+
+    shuffled_rounds = list(rounds)
+    rng.shuffle(shuffled_rounds)
+
+    for period_index, pairs in enumerate(shuffled_rounds, start=1):
+        period_id = f"p{period_index:02d}"
+        create_period(era_id, period_id, period_index)
+
+        board_pairs = assign_boards(boards, len(pairs), rng)
+        period_layouts = assign_layouts(layouts, len(pairs), period_index)
+        rng.shuffle(period_layouts)
+
+        incursion_entries = list(zip(pairs, board_pairs))
+        rng.shuffle(incursion_entries)
+
+        for incursion_index, (((spirit_1, spirit_2), (board_1, board_2)), layout) in enumerate(
+            zip(incursion_entries, period_layouts),
+            start=1,
+        ):
+            if rng.random() < 0.5:
+                spirit_1, spirit_2 = spirit_2, spirit_1
+            if rng.random() < 0.5:
+                board_1, board_2 = board_2, board_1
+            incursion_id = f"i{incursion_index:02d}"
+            create_incursion(
+                era_id,
+                period_id,
+                incursion_id,
+                {
+                    "index": incursion_index,
+                    "spirit_1_id": spirit_1.spirit_id,
+                    "spirit_2_id": spirit_2.spirit_id,
+                    "board_1": board_1.board_id,
+                    "board_2": board_2.board_id,
+                    "board_layout": layout.layout_id,
+                    "adversary_id": None,
+                    "started_at": None,
+                    "ended_at": None,
+                    "exported": False,
+                },
+            )
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Genera un TSV de Era desde ficheros TSV de entrada.")
-    parser.add_argument("--era-id", required=True, help="Identificador de Era (era_id).")
-    parser.add_argument("--seed", type=int, help="Seed opcional para randomización reproducible.")
+    parser = argparse.ArgumentParser(description="Generate an Era in Firestore from input TSV files.")
+    parser.add_argument("--era-id", required=True, help="Era identifier (era_id).")
+    parser.add_argument("--seed", type=int, help="Optional seed for reproducible randomization.")
     parser.add_argument(
         "--spirits",
         type=Path,
         default=Path("pc/data/input/spirits.tsv"),
-        help="Ruta al TSV de espíritus.",
+        help="Path to the spirits TSV.",
     )
     parser.add_argument(
         "--boards",
         type=Path,
         default=Path("pc/data/input/boards.tsv"),
-        help="Ruta al TSV de tableros.",
+        help="Path to the boards TSV.",
     )
     parser.add_argument(
         "--adversaries",
         type=Path,
         default=Path("pc/data/input/adversaries.tsv"),
-        help="Ruta al TSV de adversarios (solo validación de estructura).",
+        help="Path to the adversaries TSV (structure validation only).",
     )
     parser.add_argument(
         "--layouts",
         type=Path,
         default=Path("pc/data/input/layouts.tsv"),
-        help="Ruta al TSV de layouts.",
+        help="Path to the layouts TSV.",
     )
     parser.add_argument(
-        "--output",
+        "--debug-tsv",
         type=Path,
-        default=Path("pc/data/output/era.tsv"),
-        help="Ruta de salida del TSV de Era.",
+        help="Optional TSV debug output path.",
     )
     return parser.parse_args()
 
@@ -301,7 +356,9 @@ def main() -> None:
     layouts = select_layouts(load_layouts(args.layouts))
 
     rounds = generate_round_robin(spirits)
-    write_era_tsv(args.output, args.era_id, rounds, boards, layouts, rng)
+    write_era_firestore(args.era_id, rounds, boards, layouts, rng)
+    if args.debug_tsv:
+        write_era_tsv(args.debug_tsv, args.era_id, rounds, boards, layouts, rng)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import random
 from dataclasses import dataclass
 from itertools import cycle
 from pathlib import Path
@@ -162,6 +163,7 @@ def write_era_tsv(
     rounds: Sequence[Sequence[tuple[Spirit, Spirit]]],
     boards: Sequence[Board],
     layouts: Sequence[Layout],
+    rng: random.Random,
 ) -> None:
     headers = [
         "era_id",
@@ -179,13 +181,25 @@ def write_era_tsv(
         writer = csv.writer(handle, delimiter="\t")
         writer.writerow(headers)
 
-        for period_index, pairs in enumerate(rounds, start=1):
+        shuffled_rounds = list(rounds)
+        rng.shuffle(shuffled_rounds)
+
+        for period_index, pairs in enumerate(shuffled_rounds, start=1):
             board_pairs = assign_boards(boards, len(pairs), period_index)
             period_layouts = assign_layouts(layouts, len(pairs), period_index)
-            for incursion_index, ((spirit_1, spirit_2), (board_1, board_2), layout) in enumerate(
-                zip(pairs, board_pairs, period_layouts),
+            rng.shuffle(period_layouts)
+
+            incursion_entries = list(zip(pairs, board_pairs))
+            rng.shuffle(incursion_entries)
+
+            for incursion_index, (((spirit_1, spirit_2), (board_1, board_2)), layout) in enumerate(
+                zip(incursion_entries, period_layouts),
                 start=1,
             ):
+                if rng.random() < 0.5:
+                    spirit_1, spirit_2 = spirit_2, spirit_1
+                if rng.random() < 0.5:
+                    board_1, board_2 = board_2, board_1
                 writer.writerow(
                     [
                         era_id,
@@ -203,6 +217,7 @@ def write_era_tsv(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Genera un TSV de Era desde ficheros TSV de entrada.")
     parser.add_argument("--era-id", required=True, help="Identificador de Era (era_id).")
+    parser.add_argument("--seed", type=int, help="Seed opcional para randomización reproducible.")
     parser.add_argument(
         "--spirits",
         type=Path,
@@ -238,6 +253,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.seed is None:
+        seed = random.SystemRandom().randint(0, 2**32 - 1)
+        print(seed)
+    else:
+        seed = args.seed
+    rng = random.Random(seed)
 
     spirits = load_spirits(args.spirits)
     boards = load_boards(args.boards)
@@ -245,7 +266,7 @@ def main() -> None:
     layouts = select_layouts(load_layouts(args.layouts))
 
     rounds = generate_round_robin(spirits)
-    write_era_tsv(args.output, args.era_id, rounds, boards, layouts)
+    write_era_tsv(args.output, args.era_id, rounds, boards, layouts, rng)
 
 
 if __name__ == "__main__":

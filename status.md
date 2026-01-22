@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-- Generador de Era en Python funcional.
+- Generador de Era en Python funcional y conectado a Firestore.
 - Estructura validada:
   - Round-robin de espíritus (2 espíritus por incursión).
   - Boards equilibrados por periodo:
@@ -10,31 +10,39 @@
     - máxima variedad de parejas por periodo.
   - Layouts equilibrados y variados.
   - Randomización superficial determinista mediante seed explícito.
-- El generador actualmente exporta TSV SOLO como output de test/debug.
-- El generador NO se considera finalizado.
+- El generador:
+  - escribe directamente en Firestore (Era, Periodos, Incursiones)
+  - usa IDs deterministas
+  - aborta si la Era ya existe
+- Exportación TSV:
+  - mantenida solo como output de test/debug
+  - no es formato persistente ni fuente de verdad.
 
 ## Decisiones cerradas
 
-- Firestore será la única fuente de verdad.
-- Android (Flet):
-  - consume y actualiza estado
-  - NO genera estructura de Era.
-- PC (Python):
-  - genera estructura inicial
-  - realiza tareas de administración.
+- Firestore (Spark) es la única fuente de verdad.
+- Modelo de datos en Firestore:
+  - definido
+  - validado
+  - alineado con el README.
+- Separación de responsabilidades:
+  - Android (Flet):
+    - consume y actualiza estado
+    - NO genera estructura de Era.
+  - PC (Python):
+    - genera estructura inicial de la Era
+    - realiza tareas de administración.
 - TSV no es formato final ni persistente.
 
-## Pendiente / Próximo paso
+## Próximo foco
 
-- Definir el modelo de datos en Firestore para:
-  - Era
-  - Periodo
-  - Incursión
-- Migrar la generación de Era a Firestore.
-- Eliminar la dependencia de TSV como output principal.
+- Desarrollo de la app Android (Flet):
+  - lecturas desde Firestore
+  - escrituras controladas según reglas del README
+  - gestión de estado (revelar Periodos, iniciar/finalizar Incursiones, sesiones).
 
 ## Fuera de alcance (por ahora)
 
-- Exportación final a BGG.
+- Exportación directa a BGG.
 - Estadísticas avanzadas.
 - Soporte multijugador.

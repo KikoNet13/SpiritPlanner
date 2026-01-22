@@ -89,6 +89,8 @@ Reglas:
 
 - `adversary_id` (string | null)
 
+> Al revelar un Periodo, el adversario se asigna **a cada Incursión del Periodo**.
+
 #### Al iniciar la Incursion
 
 - `adversary_level` (string | null)
@@ -133,7 +135,7 @@ Reglas:
 
 - Múltiples sesiones por Incursion
 - Solo una sesión abierta a la vez
-- No se borran desde Android
+- No se borran sesiones desde Android
 - Duración total = suma de sesiones
 
 ---
@@ -148,7 +150,7 @@ Reglas:
 ### Revelar Periodo (Android)
 
 - Fija `revealed_at`
-- Asigna `adversary_id`
+- Asigna `adversary_id` a **todas las Incursiones del Periodo**
 
 ### Iniciar Incursion (Android)
 
@@ -160,7 +162,7 @@ Reglas:
 
 - Fija `ended_at`
 - Calcula y guarda `score`
-- Finaliza Periodo si es la última
+- Finaliza Periodo si es la última Incursión pendiente
 
 PC puede modificar cualquier campo sin restricciones.
 
@@ -168,10 +170,10 @@ PC puede modificar cualquier campo sin restricciones.
 
 ## Navegación y vistas
 
-1. Vista principal → Eras  
-2. Vista de Era → Periodos  
-3. Vista de Periodo → Incursions  
-4. Vista de Incursion → Sesiones y resultado  
+1. Vista principal → Eras
+2. Vista de Era → Periodos
+3. Vista de Periodo → Incursions
+4. Vista de Incursion → Sesiones y resultado
 
 Reglas de UI:
 

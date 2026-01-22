@@ -3,21 +3,25 @@ from __future__ import annotations
 import flet as ft
 
 from app.services.firestore_service import FirestoreService
+from app.screens.data_lookup import (
+    get_adversary_name,
+    get_board_name,
+    get_layout_name,
+    get_spirit_name,
+)
 
 
 def incursions_view(
     page: ft.Page, service: FirestoreService, era_id: str, period_id: str
 ) -> ft.View:
     title = ft.Text("Incursiones", size=22, weight=ft.FontWeight.BOLD)
-    incursions_column = ft.Column(spacing=10)
+    incursions_list = ft.ListView(spacing=12, expand=True)
 
     def load_incursions() -> None:
-        incursions_column.controls.clear()
+        incursions_list.controls.clear()
         incursions = service.list_incursions(era_id, period_id)
         if not incursions:
-            incursions_column.controls.append(
-                ft.Text("No hay incursiones disponibles.")
-            )
+            incursions_list.controls.append(ft.Text("No hay incursiones disponibles."))
             page.update()
             return
         for incursion in incursions:
@@ -27,33 +31,42 @@ def incursions_view(
                 status = "Finalizado"
             elif incursion.get("started_at"):
                 status = "Activo"
-            spirit_info = f"{incursion.get('spirit_1_id', '')} / {incursion.get('spirit_2_id', '')}"
-            board_info = (
-                f"{incursion.get('board_1', '')} + {incursion.get('board_2', '')}"
+            spirit_info = (
+                f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
+                f"{get_spirit_name(incursion.get('spirit_2_id'))}"
             )
+            board_info = (
+                f"{get_board_name(incursion.get('board_1'))} + "
+                f"{get_board_name(incursion.get('board_2'))}"
+            )
+            layout_info = get_layout_name(incursion.get("board_layout"))
+            adversary_info = get_adversary_name(incursion.get("adversary_id"))
 
-            incursions_column.controls.append(
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Text(
-                                f"Incursión {incursion.get('index', 0)}",
-                                weight=ft.FontWeight.BOLD,
-                            ),
-                            ft.Text(f"Espíritus: {spirit_info}"),
-                            ft.Text(f"Tableros: {board_info}"),
-                            ft.Text(f"Estado: {status}"),
-                            ft.ElevatedButton(
-                                "Abrir",
-                                on_click=lambda event, iid=incursion_id: page.go(
-                                    f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
+            incursions_list.controls.append(
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column(
+                            [
+                                ft.Text(
+                                    f"Incursión {incursion.get('index', 0)}",
+                                    weight=ft.FontWeight.BOLD,
                                 ),
-                            ),
-                        ]
-                    ),
-                    padding=10,
-                    border=ft.border.all(1, ft.Colors.GREY_300),
-                    border_radius=6,
+                                ft.Text(f"Espíritus: {spirit_info}"),
+                                ft.Text(f"Tableros: {board_info}"),
+                                ft.Text(f"Distribución: {layout_info}"),
+                                ft.Text(f"Adversario: {adversary_info}"),
+                                ft.Text(f"Estado: {status}"),
+                                ft.ElevatedButton(
+                                    "Abrir",
+                                    on_click=lambda event, iid=incursion_id: page.go(
+                                        f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
+                                    ),
+                                ),
+                            ],
+                            spacing=6,
+                        ),
+                        padding=12,
+                    )
                 )
             )
         page.update()
@@ -68,7 +81,7 @@ def incursions_view(
                 content=ft.Column(
                     [
                         title,
-                        incursions_column,
+                        incursions_list,
                     ],
                     expand=True,
                 ),

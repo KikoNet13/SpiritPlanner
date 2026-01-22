@@ -99,7 +99,7 @@ class FirestoreService:
                     return ActiveIncursion(era_id, period_id, incursion["id"])
         return None
 
-    def reveal_period(self, era_id: str, period_id: str, adversary_id: str) -> None:
+    def reveal_period(self, era_id: str, period_id: str) -> None:
         periods = self.list_periods(era_id)
         target_index: int | None = None
         for idx, period in enumerate(periods):
@@ -128,7 +128,6 @@ class FirestoreService:
         if period_data.get("revealed_at"):
             raise ValueError("Este periodo ya esta revelado.")
         period_ref.update({"revealed_at": self._utc_now()})
-        _ = adversary_id
 
     def set_incursion_adversary(
         self, era_id: str, period_id: str, incursion_id: str, adversary_id: str | None
@@ -170,8 +169,6 @@ class FirestoreService:
         period_data = period_snapshot.to_dict() or {}
         if not period_data.get("revealed_at"):
             raise ValueError("No puedes iniciar una incursion sin revelar el periodo.")
-        if period_data.get("started_at"):
-            raise ValueError("El periodo ya esta iniciado.")
         if period_data.get("ended_at"):
             raise ValueError("El periodo ya esta finalizado.")
 
@@ -279,7 +276,6 @@ class FirestoreService:
         invader_cards_out_of_deck: int,
         dahan_alive: int,
         blight_on_island: int,
-        score: int | None = None,
     ) -> None:
         incursion_ref = (
             self.db.collection("eras")

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 from dataclasses import dataclass
+from itertools import cycle
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -18,6 +19,13 @@ class Spirit:
 @dataclass(frozen=True)
 class Board:
     board_id: str
+
+
+@dataclass(frozen=True)
+class Layout:
+    layout_id: str
+    player_count: int
+    is_active: int
 
 
 def require_columns(fieldnames: Sequence[str] | None, required: Iterable[str], path: Path) -> None:
@@ -49,6 +57,28 @@ def validate_adversaries(path: Path) -> None:
         require_columns(reader.fieldnames, ["adversary_id"], path)
 
 
+def load_layouts(path: Path) -> list[Layout]:
+    layouts: list[Layout] = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.reader(handle, delimiter="\t")
+        for row in reader:
+            if len(row) < 4:
+                continue
+            try:
+                player_count = int(row[2])
+                is_active = int(row[3])
+            except ValueError:
+                continue
+            layouts.append(
+                Layout(
+                    layout_id=row[0].strip(),
+                    player_count=player_count,
+                    is_active=is_active,
+                )
+            )
+    return layouts
+
+
 def generate_round_robin(spirits: Sequence[Spirit]) -> list[list[tuple[Spirit, Spirit]]]:
     total = len(spirits)
     if total < 2:
@@ -75,29 +105,55 @@ def generate_round_robin(spirits: Sequence[Spirit]) -> list[list[tuple[Spirit, S
     return rounds
 
 
-def assign_boards(boards: Sequence[Board], match_count: int) -> list[tuple[Board, Board]]:
+def assign_boards(
+    boards: Sequence[Board],
+    match_count: int,
+    period_index: int,
+) -> list[tuple[Board, Board]]:
     if len(boards) < 2:
         raise ValueError("Se necesitan al menos 2 tableros para asignar por incursión")
     slots = match_count * 2
-    base = slots // len(boards)
-    remainder = slots % len(boards)
+    if slots < len(boards):
+        raise ValueError("No hay suficientes incursiones para usar todos los tableros en el periodo")
+    if slots % len(boards) != 0:
+        raise ValueError("Los tableros no pueden balancearse perfectamente en el periodo")
 
-    sequence: list[Board] = []
-    for index, board in enumerate(boards):
-        repetitions = base + (1 if index < remainder else 0)
-        sequence.extend([board] * repetitions)
+    shift = (period_index - 1) % len(boards)
+    permutation = list(boards[shift:]) + list(boards[:shift])
+    repetitions = slots // len(boards)
+    sequence = permutation * repetitions
 
-    first_half = sequence[:match_count]
-    second_half = sequence[match_count:]
-    if len(second_half) != match_count:
-        raise ValueError("No hay suficientes tableros para completar la jornada")
+    pairs: list[tuple[Board, Board]] = []
+    for idx in range(0, slots, 2):
+        pairs.append((sequence[idx], sequence[idx + 1]))
 
-    for idx in range(match_count):
-        if first_half[idx] == second_half[idx]:
-            swap_idx = (idx + 1) % len(second_half)
-            second_half[idx], second_half[swap_idx] = second_half[swap_idx], second_half[idx]
+    return pairs
 
-    return list(zip(first_half, second_half))
+
+def select_layouts(layouts: Sequence[Layout]) -> list[Layout]:
+    filtered = [layout for layout in layouts if layout.player_count == 2 and layout.is_active == 1]
+    if not filtered:
+        raise ValueError("No hay layouts activos para 2 jugadores")
+    return filtered
+
+
+def assign_layouts(
+    layouts: Sequence[Layout],
+    match_count: int,
+    period_index: int,
+) -> list[Layout]:
+    if match_count <= 0:
+        return []
+    shift = (period_index - 1) % len(layouts)
+    permutation = list(layouts[shift:]) + list(layouts[:shift])
+    if match_count <= len(layouts):
+        return permutation[:match_count]
+    selection: list[Layout] = []
+    for layout in cycle(permutation):
+        selection.append(layout)
+        if len(selection) >= match_count:
+            break
+    return selection
 
 
 def write_era_tsv(
@@ -105,6 +161,7 @@ def write_era_tsv(
     era_id: str,
     rounds: Sequence[Sequence[tuple[Spirit, Spirit]]],
     boards: Sequence[Board],
+    layouts: Sequence[Layout],
 ) -> None:
     headers = [
         "era_id",
@@ -115,7 +172,6 @@ def write_era_tsv(
         "board_1",
         "board_2",
         "board_layout",
-        "adversary_id",
     ]
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,9 +180,10 @@ def write_era_tsv(
         writer.writerow(headers)
 
         for period_index, pairs in enumerate(rounds, start=1):
-            board_pairs = assign_boards(boards, len(pairs))
-            for incursion_index, ((spirit_1, spirit_2), (board_1, board_2)) in enumerate(
-                zip(pairs, board_pairs),
+            board_pairs = assign_boards(boards, len(pairs), period_index)
+            period_layouts = assign_layouts(layouts, len(pairs), period_index)
+            for incursion_index, ((spirit_1, spirit_2), (board_1, board_2), layout) in enumerate(
+                zip(pairs, board_pairs, period_layouts),
                 start=1,
             ):
                 writer.writerow(
@@ -138,8 +195,7 @@ def write_era_tsv(
                         spirit_2.spirit_id,
                         board_1.board_id,
                         board_2.board_id,
-                        "",
-                        "",
+                        layout.layout_id,
                     ]
                 )
 
@@ -166,6 +222,12 @@ def parse_args() -> argparse.Namespace:
         help="Ruta al TSV de adversarios (solo validación de estructura).",
     )
     parser.add_argument(
+        "--layouts",
+        type=Path,
+        default=Path("pc/data/input/layouts.tsv"),
+        help="Ruta al TSV de layouts.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("pc/data/output/era.tsv"),
@@ -180,9 +242,10 @@ def main() -> None:
     spirits = load_spirits(args.spirits)
     boards = load_boards(args.boards)
     validate_adversaries(args.adversaries)
+    layouts = select_layouts(load_layouts(args.layouts))
 
     rounds = generate_round_robin(spirits)
-    write_era_tsv(args.output, args.era_id, rounds, boards)
+    write_era_tsv(args.output, args.era_id, rounds, boards, layouts)
 
 
 if __name__ == "__main__":

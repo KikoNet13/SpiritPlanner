@@ -222,19 +222,18 @@ Columnas:
 6. `board_1`
 7. `board_2`
 8. `board_layout`
-9. `adversary_id`
-10. `adversary_level`
-11. `difficulty`
-12. `player_count`
-13. `result`
-14. `invader_cards_remaining`
-15. `invader_cards_out_of_deck`
-16. `dahan_alive`
-17. `blight_on_island`
-18. `started_at`
-19. `ended_at`
-20. `duration_minutes`
-21. `score`
+9. `adversary_level`
+10. `difficulty`
+11. `player_count`
+12. `result`
+13. `invader_cards_remaining`
+14. `invader_cards_out_of_deck`
+15. `dahan_alive`
+16. `blight_on_island`
+17. `started_at`
+18. `ended_at`
+19. `duration_minutes`
+20. `score`
 
 ---
 

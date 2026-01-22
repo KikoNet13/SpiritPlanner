@@ -84,6 +84,14 @@ class FirestoreService:
         return sessions
 
     def get_active_incursion(self, era_id: str) -> ActiveIncursion | None:
+        era_ref = self.db.collection("eras").document(era_id)
+        era_data = era_ref.get().to_dict() or {}
+        active_data = era_data.get("active_incursion") or {}
+        period_id = active_data.get("period_id")
+        incursion_id = active_data.get("incursion_id")
+        if period_id and incursion_id:
+            return ActiveIncursion(era_id, period_id, incursion_id)
+
         for period in self.list_periods(era_id):
             period_id = period["id"]
             for incursion in self.list_incursions(era_id, period_id):
@@ -113,13 +121,38 @@ class FirestoreService:
             .collection("periods")
             .document(period_id)
         )
+        snapshot = period_ref.get()
+        if not snapshot.exists:
+            raise ValueError("Periodo no encontrado.")
+        period_data = snapshot.to_dict() or {}
+        if period_data.get("revealed_at"):
+            raise ValueError("Este periodo ya esta revelado.")
         period_ref.update({"revealed_at": self._utc_now()})
+        _ = adversary_id
 
-        incursions_ref = period_ref.collection("incursions")
-        batch = self.db.batch()
-        for doc in incursions_ref.stream():
-            batch.update(doc.reference, {"adversary_id": adversary_id})
-        batch.commit()
+    def set_incursion_adversary(
+        self, era_id: str, period_id: str, incursion_id: str, adversary_id: str | None
+    ) -> None:
+        period_ref = (
+            self.db.collection("eras")
+            .document(era_id)
+            .collection("periods")
+            .document(period_id)
+        )
+        period_snapshot = period_ref.get()
+        if not period_snapshot.exists:
+            raise ValueError("Periodo no encontrado.")
+        period_data = period_snapshot.to_dict() or {}
+        if period_data.get("started_at"):
+            raise ValueError(
+                "No puedes modificar adversarios cuando el periodo ya esta iniciado."
+            )
+
+        incursion_ref = period_ref.collection("incursions").document(incursion_id)
+        incursion_snapshot = incursion_ref.get()
+        if not incursion_snapshot.exists:
+            raise ValueError("Incursion no encontrada.")
+        incursion_ref.update({"adversary_id": adversary_id})
 
     def start_incursion(
         self,
@@ -129,17 +162,49 @@ class FirestoreService:
         adversary_level: str,
         difficulty: int,
     ) -> None:
-        if self.get_active_incursion(era_id):
+        era_ref = self.db.collection("eras").document(era_id)
+        period_ref = era_ref.collection("periods").document(period_id)
+        period_snapshot = period_ref.get()
+        if not period_snapshot.exists:
+            raise ValueError("Periodo no encontrado.")
+        period_data = period_snapshot.to_dict() or {}
+        if not period_data.get("revealed_at"):
+            raise ValueError("No puedes iniciar una incursion sin revelar el periodo.")
+        if period_data.get("started_at"):
+            raise ValueError("El periodo ya esta iniciado.")
+        if period_data.get("ended_at"):
+            raise ValueError("El periodo ya esta finalizado.")
+
+        active_incursion = self.get_active_incursion(era_id)
+        if active_incursion and (
+            active_incursion.period_id != period_id
+            or active_incursion.incursion_id != incursion_id
+        ):
             raise ValueError("Ya existe una incursion activa en esta Era.")
 
         incursion_ref = (
-            self.db.collection("eras")
-            .document(era_id)
-            .collection("periods")
-            .document(period_id)
-            .collection("incursions")
-            .document(incursion_id)
+            period_ref.collection("incursions").document(incursion_id)
         )
+        incursion_snapshot = incursion_ref.get()
+        if not incursion_snapshot.exists:
+            raise ValueError("Incursion no encontrada.")
+        incursion_data = incursion_snapshot.to_dict() or {}
+        if incursion_data.get("ended_at"):
+            raise ValueError("La incursion ya esta finalizada.")
+        if incursion_data.get("started_at"):
+            raise ValueError("La incursion ya esta iniciada.")
+
+        incursions = self.list_incursions(era_id, period_id)
+        if len(incursions) != 4:
+            raise ValueError("El periodo debe tener exactamente 4 incursiones.")
+        adversaries = [incursion.get("adversary_id") for incursion in incursions]
+        if any(not adversary for adversary in adversaries):
+            raise ValueError(
+                "Todas las incursiones deben tener un adversario asignado."
+            )
+        if len(set(adversaries)) != 4:
+            raise ValueError("Los adversarios del periodo deben ser distintos.")
+
         incursion_ref.update(
             {
                 "started_at": self._utc_now(),
@@ -148,6 +213,14 @@ class FirestoreService:
             }
         )
         self._ensure_period_started(era_id, period_id)
+        era_ref.update(
+            {
+                "active_incursion": {
+                    "period_id": period_id,
+                    "incursion_id": incursion_id,
+                }
+            }
+        )
         self._create_session(incursion_ref)
 
     def resume_incursion(self, era_id: str, period_id: str, incursion_id: str) -> None:
@@ -165,6 +238,15 @@ class FirestoreService:
             .collection("incursions")
             .document(incursion_id)
         )
+        incursion_snapshot = incursion_ref.get()
+        if not incursion_snapshot.exists:
+            raise ValueError("Incursion no encontrada.")
+        incursion_data = incursion_snapshot.to_dict() or {}
+        if incursion_data.get("ended_at"):
+            raise ValueError("No puedes reanudar una incursion finalizada.")
+        if not incursion_data.get("started_at"):
+            raise ValueError("No puedes reanudar una incursion sin iniciar.")
+
         open_sessions = list(
             incursion_ref.collection("sessions").where("ended_at", "==", None).stream()
         )
@@ -197,6 +279,7 @@ class FirestoreService:
         invader_cards_out_of_deck: int,
         dahan_alive: int,
         blight_on_island: int,
+        score: int | None = None,
     ) -> None:
         incursion_ref = (
             self.db.collection("eras")
@@ -234,6 +317,9 @@ class FirestoreService:
                 "blight_on_island": blight_on_island,
                 "score": score,
             }
+        )
+        self.db.collection("eras").document(era_id).update(
+            {"active_incursion": firestore.DELETE_FIELD}
         )
         if self._period_complete(era_id, period_id):
             self.db.collection("eras").document(era_id).collection("periods").document(

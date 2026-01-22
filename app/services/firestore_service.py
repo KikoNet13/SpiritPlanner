@@ -108,7 +108,10 @@ class FirestoreService:
                 )
 
         period_ref = (
-            self.db.collection("eras").document(era_id).collection("periods").document(period_id)
+            self.db.collection("eras")
+            .document(era_id)
+            .collection("periods")
+            .document(period_id)
         )
         period_ref.update({"revealed_at": self._utc_now()})
 
@@ -238,15 +241,20 @@ class FirestoreService:
             ).update({"ended_at": self._utc_now()})
 
     def _create_session(self, incursion_ref: firestore.DocumentReference) -> None:
-        incursion_ref.collection("sessions").add({"started_at": self._utc_now(), "ended_at": None})
+        incursion_ref.collection("sessions").add(
+            {"started_at": self._utc_now(), "ended_at": None}
+        )
 
     def _period_complete(self, era_id: str, period_id: str) -> bool:
         incursions = self.list_incursions(era_id, period_id)
         return all(incursion.get("ended_at") for incursion in incursions)
 
     def _ensure_period_started(self, era_id: str, period_id: str) -> None:
-        period_ref = self.db.collection("eras").document(era_id).collection("periods").document(
-            period_id
+        period_ref = (
+            self.db.collection("eras")
+            .document(era_id)
+            .collection("periods")
+            .document(period_id)
         )
         snapshot = period_ref.get()
         data = snapshot.to_dict() or {}

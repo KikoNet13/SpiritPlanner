@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 import flet as ft
 
-from services.firestore_service import FirestoreService
-from services.score_service import calculate_score
+from app.services.firestore_service import FirestoreService
+from app.services.score_service import calculate_score
 
 
 def incursion_detail_view(

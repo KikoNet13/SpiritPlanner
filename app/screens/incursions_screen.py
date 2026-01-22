@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import flet as ft
 
-from services.firestore_service import FirestoreService
+from app.services.firestore_service import FirestoreService
 
 
 def incursions_view(

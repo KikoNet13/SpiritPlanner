@@ -54,6 +54,19 @@ eras/{era_id}
 - `is_active` (bool)
 - `created_at` (timestamp UTC)
 
+#### Estado derivado
+
+- `active_incursion` (object | null)
+  - `period_id` (string)
+  - `incursion_id` (string)
+
+Reglas:
+
+- `active_incursion` identifica la Incursión activa actual
+- Se escribe al iniciar una Incursión
+- Se elimina al finalizar una Incursión
+- Es un estado derivado para optimización; Firestore sigue siendo la única fuente de verdad
+
 ---
 
 ### Period (`periods/{period_id}`)
@@ -68,6 +81,8 @@ Reglas:
 
 - Los Periodos se revelan **secuencialmente**
 - Solo se puede revelar un Periodo si el anterior está finalizado
+- Un Periodo solo puede iniciarse tras haber sido revelado
+- Una vez iniciado un Periodo, su configuración estratégica queda bloqueada
 
 ---
 
@@ -85,44 +100,58 @@ Reglas:
 - `board_2` (string)
 - `board_layout` (string)
 
-#### Asignación estratégica (al revelar Periodo)
+#### Asignación estratégica (tras revelar Periodo)
 
 - `adversary_id` (string | null)
 
-> Al revelar un Periodo, el adversario se asigna **a cada Incursión del Periodo**.
+Reglas de asignación:
 
-#### Al iniciar la Incursion
+- Cada Incursión del Periodo debe tener un `adversary_id` asignado antes de iniciar el Periodo
+- En un mismo Periodo:
+  - deben existir exactamente **4 Incursiones**
+  - las 4 deben tener `adversary_id` no nulo
+  - los 4 `adversary_id` deben ser **distintos**
+  - `"scenario"` cuenta como un adversario válido más
+- Una vez el Periodo está iniciado (`started_at != null`), la asignación de adversarios queda **bloqueada**
+
+#### Al iniciar la Incursión
 
 - `adversary_level` (string | null)
 - `difficulty` (int)
 
-> Escenarios se tratan como adversarios.  
-> El nivel es texto libre (ej. “Base”, “Nivel 3”, “Rituales de terror”).
+Notas:
+
+- Los escenarios se tratan como adversarios
+- El nivel es texto libre (ej. “Base”, “Nivel 3”, “Rituales de terror”)
 
 #### Estado temporal
 
 - `started_at` (timestamp | null)
 - `ended_at` (timestamp | null)
 
+Reglas:
+
+- Solo puede existir **una Incursión activa** en toda la Era
+- Las Incursiones de un Periodo pueden jugarse en cualquier orden
+
 #### Score
 
 - `result` (`"win"` / `"loss"`)
-- `player_count` (int) — actualmente 2
+- `player_count` (int)
 - `invader_cards_remaining` (int)
 - `invader_cards_out_of_deck` (int)
 - `dahan_alive` (int)
 - `blight_on_island` (int)
-- `score` (int, calculado al finalizar)
+- `score` (int)
+
+Reglas:
+
+- El score se calcula **al finalizar** la Incursión según la fórmula definida
+- El score es **inmutable** tras finalizar
 
 #### Exportación
 
 - `exported` (bool)
-
-Reglas:
-
-- Solo **una Incursion activa** en toda la Era
-- Orden libre dentro del Periodo
-- `score` es inmutable tras finalizar
 
 ---
 
@@ -133,10 +162,10 @@ Reglas:
 
 Reglas:
 
-- Múltiples sesiones por Incursion
+- Una Incursión puede tener múltiples sesiones
 - Solo una sesión abierta a la vez
 - No se borran sesiones desde Android
-- Duración total = suma de sesiones
+- La duración total es la suma de todas las sesiones
 
 ---
 
@@ -145,24 +174,28 @@ Reglas:
 ### Generar Era (PC)
 
 - Crea Era, Periodos e Incursions
-- Solo setup base
+- Solo setup base (sin estado de juego)
 
 ### Revelar Periodo (Android)
 
 - Fija `revealed_at`
-- Asigna `adversary_id` a **todas las Incursiones del Periodo**
+- Habilita la asignación de adversarios a las Incursiones del Periodo
 
-### Iniciar Incursion (Android)
+### Iniciar Incursión (Android)
 
+- Valida que el Periodo está revelado
+- Valida la asignación correcta de adversarios del Periodo
 - Fija `started_at`
 - Asigna `adversary_level`
 - Calcula y guarda `difficulty`
+- Registra la Incursión activa en la Era
 
-### Finalizar Incursion (Android)
+### Finalizar Incursión (Android)
 
 - Fija `ended_at`
 - Calcula y guarda `score`
-- Finaliza Periodo si es la última Incursión pendiente
+- Elimina la Incursión activa de la Era
+- Finaliza el Periodo si es la última Incursión pendiente
 
 PC puede modificar cualquier campo sin restricciones.
 
@@ -180,7 +213,7 @@ Reglas de UI:
 - Navegación libre
 - Estados indicados visualmente
 - Acceso rápido a Incursion activa
-- Restricción dura: no iniciar otra Incursion si hay una activa
+- Restricción dura: no iniciar otra Incursión si hay una activa
 
 ---
 

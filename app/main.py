@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import flet as ft
 
-from screens.eras_screen import eras_view
-from screens.incursion_detail_screen import incursion_detail_view
-from screens.incursions_screen import incursions_view
-from screens.periods_screen import periods_view
-from services.firestore_service import FirestoreService
+from app.screens.eras_screen import eras_view
+from app.screens.incursion_detail_screen import incursion_detail_view
+from app.screens.incursions_screen import incursions_view
+from app.screens.periods_screen import periods_view
+from app.services.firestore_service import FirestoreService
 
 
 def main(page: ft.Page) -> None:

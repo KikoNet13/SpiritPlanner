@@ -20,7 +20,7 @@ sweden	Suecia	3	6	6
 sweden	Suecia	4	7	7
 sweden	Suecia	5	8	8
 sweden	Suecia	6	9	9
-scenario	Ataque por sorpresa	Ataque por sorpresa	0	0
-scenario	Proteger el corazón de la isla	Proteger el corazón de la isla	0	0
-scenario	Rituales de terror	Rituales de terror	3	3
-scenario	La insurrección de los dahan	La insurrección de los dahan	4	4
+scenario	Escenario	Ataque por sorpresa	0	0
+scenario	Escenario	Proteger el corazón de la isla	0	0
+scenario	Escenario	Rituales de terror	3	3
+scenario	Escenario	La insurrección de los dahan	4	4

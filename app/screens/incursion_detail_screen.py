@@ -51,7 +51,9 @@ def incursion_detail_view(
         sessions_column.controls.clear()
 
         incursions = service.list_incursions(era_id, period_id)
-        incursion = next((item for item in incursions if item["id"] == incursion_id), None)
+        incursion = next(
+            (item for item in incursions if item["id"] == incursion_id), None
+        )
         if not incursion:
             content_column.controls.append(ft.Text("Incursión no encontrada."))
             page.update()
@@ -100,7 +102,9 @@ def incursion_detail_view(
 
         if not incursion.get("started_at"):
             adversary_level = ft.TextField(label="Nivel del adversario")
-            difficulty = ft.TextField(label="Dificultad", keyboard_type=ft.KeyboardType.NUMBER)
+            difficulty = ft.TextField(
+                label="Dificultad", keyboard_type=ft.KeyboardType.NUMBER
+            )
 
             def handle_start(event: ft.ControlEvent) -> None:
                 if not adversary_level.value or not difficulty.value:
@@ -123,7 +127,7 @@ def incursion_detail_view(
             content_column.controls.append(adversary_level)
             content_column.controls.append(difficulty)
             content_column.controls.append(
-                ft.ElevatedButton(text="Iniciar incursión", on_click=handle_start)
+                ft.ElevatedButton("Iniciar incursión", on_click=handle_start)
             )
         elif not incursion.get("ended_at"):
 
@@ -141,7 +145,9 @@ def incursion_detail_view(
                 dialog.open = False
                 page.update()
 
-            def handle_finalize(dialog: ft.AlertDialog, fields: dict[str, ft.TextField]) -> None:
+            def handle_finalize(
+                dialog: ft.AlertDialog, fields: dict[str, ft.TextField]
+            ) -> None:
                 if not fields["result"].value:
                     show_message("Debes indicar el resultado.")
                     return
@@ -149,8 +155,12 @@ def incursion_detail_view(
                     score = calculate_score(
                         difficulty=int(incursion.get("difficulty", 0)),
                         result=fields["result"].value,
-                        invader_cards_remaining=int(fields["invader_cards_remaining"].value or 0),
-                        invader_cards_out_of_deck=int(fields["invader_cards_out_of_deck"].value or 0),
+                        invader_cards_remaining=int(
+                            fields["invader_cards_remaining"].value or 0
+                        ),
+                        invader_cards_out_of_deck=int(
+                            fields["invader_cards_out_of_deck"].value or 0
+                        ),
                         player_count=int(fields["player_count"].value or 2),
                         dahan_alive=int(fields["dahan_alive"].value or 0),
                         blight_on_island=int(fields["blight_on_island"].value or 0),
@@ -165,8 +175,12 @@ def incursion_detail_view(
                     incursion_id=incursion_id,
                     result=fields["result"].value,
                     player_count=int(fields["player_count"].value or 2),
-                    invader_cards_remaining=int(fields["invader_cards_remaining"].value or 0),
-                    invader_cards_out_of_deck=int(fields["invader_cards_out_of_deck"].value or 0),
+                    invader_cards_remaining=int(
+                        fields["invader_cards_remaining"].value or 0
+                    ),
+                    invader_cards_out_of_deck=int(
+                        fields["invader_cards_out_of_deck"].value or 0
+                    ),
                     dahan_alive=int(fields["dahan_alive"].value or 0),
                     blight_on_island=int(fields["blight_on_island"].value or 0),
                     score=score,
@@ -209,9 +223,13 @@ def incursion_detail_view(
                 dialog = ft.AlertDialog(
                     modal=True,
                     title=ft.Text("Finalizar incursión"),
-                    content=ft.Column(list(fields.values()), tight=True, scroll=ft.ScrollMode.AUTO),
+                    content=ft.Column(
+                        list(fields.values()), tight=True, scroll=ft.ScrollMode.AUTO
+                    ),
                     actions=[
-                        ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog)),
+                        ft.TextButton(
+                            "Cancelar", on_click=lambda event: close_dialog(dialog)
+                        ),
                         ft.ElevatedButton(
                             "Guardar",
                             on_click=lambda event: handle_finalize(dialog, fields),
@@ -224,14 +242,14 @@ def incursion_detail_view(
 
             if open_session:
                 content_column.controls.append(
-                    ft.ElevatedButton(text="Pausar sesión", on_click=handle_pause)
+                    ft.ElevatedButton("Pausar sesión", on_click=handle_pause)
                 )
             else:
                 content_column.controls.append(
-                    ft.ElevatedButton(text="Reanudar sesión", on_click=handle_resume)
+                    ft.ElevatedButton("Reanudar sesión", on_click=handle_resume)
                 )
             content_column.controls.append(
-                ft.OutlinedButton(text="Finalizar incursión", on_click=open_finalize_dialog)
+                ft.OutlinedButton("Finalizar incursión", on_click=open_finalize_dialog)
             )
 
         sessions_column.controls.append(ft.Text("Sesiones", weight=ft.FontWeight.BOLD))

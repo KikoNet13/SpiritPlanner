@@ -15,7 +15,9 @@ def incursions_view(
         incursions_column.controls.clear()
         incursions = service.list_incursions(era_id, period_id)
         if not incursions:
-            incursions_column.controls.append(ft.Text("No hay incursiones disponibles."))
+            incursions_column.controls.append(
+                ft.Text("No hay incursiones disponibles.")
+            )
             page.update()
             return
         for incursion in incursions:
@@ -26,7 +28,9 @@ def incursions_view(
             elif incursion.get("started_at"):
                 status = "Activo"
             spirit_info = f"{incursion.get('spirit_1_id', '')} / {incursion.get('spirit_2_id', '')}"
-            board_info = f"{incursion.get('board_1', '')} + {incursion.get('board_2', '')}"
+            board_info = (
+                f"{incursion.get('board_1', '')} + {incursion.get('board_2', '')}"
+            )
 
             incursions_column.controls.append(
                 ft.Container(
@@ -40,7 +44,7 @@ def incursions_view(
                             ft.Text(f"Tableros: {board_info}"),
                             ft.Text(f"Estado: {status}"),
                             ft.ElevatedButton(
-                                text="Abrir",
+                                "Abrir",
                                 on_click=lambda event, iid=incursion_id: page.go(
                                     f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
                                 ),
@@ -48,7 +52,7 @@ def incursions_view(
                         ]
                     ),
                     padding=10,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=6,
                 )
             )

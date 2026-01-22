@@ -15,7 +15,9 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
         previous = periods[index - 1]
         return bool(previous.get("ended_at"))
 
-    def handle_reveal(period_id: str, dialog: ft.AlertDialog, field: ft.TextField) -> None:
+    def handle_reveal(
+        period_id: str, dialog: ft.AlertDialog, field: ft.TextField
+    ) -> None:
         if not field.value:
             field.error_text = "Debes indicar el adversario."
             page.update()
@@ -35,7 +37,9 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
                 ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog)),
                 ft.ElevatedButton(
                     "Revelar",
-                    on_click=lambda event: handle_reveal(period_id, dialog, adversary_field),
+                    on_click=lambda event: handle_reveal(
+                        period_id, dialog, adversary_field
+                    ),
                 ),
             ],
         )
@@ -66,7 +70,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
 
             actions = [
                 ft.ElevatedButton(
-                    text="Ver incursiones",
+                    "Ver incursiones",
                     on_click=lambda event, pid=period_id: page.go(
                         f"/eras/{era_id}/periods/{pid}"
                     ),
@@ -75,7 +79,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
             if not period.get("revealed_at") and can_reveal(periods, idx):
                 actions.append(
                     ft.OutlinedButton(
-                        text="Revelar periodo",
+                        "Revelar periodo",
                         on_click=lambda event, pid=period_id: open_reveal_dialog(pid),
                     )
                 )
@@ -93,7 +97,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
                         ]
                     ),
                     padding=10,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=6,
                 )
             )

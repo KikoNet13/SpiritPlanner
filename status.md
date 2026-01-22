@@ -2,47 +2,41 @@
 
 ## Estado actual
 
-- Generador de Era en Python funcional y conectado a Firestore.
-- Estructura validada:
-  - Round-robin de espíritus (2 espíritus por incursión).
-  - Boards equilibrados por periodo:
-    - cada board aparece exactamente 2 veces
-    - máxima variedad de parejas por periodo.
-  - Layouts equilibrados y variados.
-  - Randomización superficial determinista mediante seed explícito.
-- El generador:
-  - escribe directamente en Firestore (Era, Periodos, Incursiones)
-  - usa IDs deterministas
-  - aborta si la Era ya existe
-- Exportación TSV:
-  - mantenida solo como output de test/debug
-  - no es formato persistente ni fuente de verdad.
+- Backend Android (FirestoreService):
+  - Implementado y validado contra el README.
+  - Reglas duras enforced en backend.
+  - Campo derivado `active_incursion` funcionando.
+- Generador de Era (PC):
+  - Funcional y estable.
+  - Escribe directamente en Firestore.
+- Script de pruebas manuales:
+  - Ejecutado con éxito contra Firestore real.
+  - Flujos válidos e inválidos comprobados.
+
+- App Android (Flet):
+  - Generada automáticamente por Codex.
+  - Estructura básica de pantallas existente.
+  - **Pendiente de revisión funcional y pruebas manuales**.
 
 ## Decisiones cerradas
 
 - Firestore (Spark) es la única fuente de verdad.
-- Modelo de datos en Firestore:
-  - definido
-  - validado
-  - alineado con el README.
-- Separación de responsabilidades:
-  - Android (Flet):
-    - consume y actualiza estado
-    - NO genera estructura de Era.
-  - PC (Python):
-    - genera estructura inicial de la Era
-    - realiza tareas de administración.
-- TSV no es formato final ni persistente.
+- Backend Android es la barrera de validación (no la UI).
+- Modelo de datos y reglas cerrados según README.
+- Tests automáticos fuera de alcance por ahora.
+- Tests manuales mediante scripts Python aceptados.
 
-## Próximo foco
+## Foco actual
 
-- Desarrollo de la app Android (Flet):
-  - lecturas desde Firestore
-  - escrituras controladas según reglas del README
-  - gestión de estado (revelar Periodos, iniciar/finalizar Incursiones, sesiones).
+- Revisión y ajuste de pantallas Flet:
+  - comprobar que leen/escriben correctamente
+  - detectar incoherencias con README
+  - eliminar o corregir flujos inválidos
+- Pruebas manuales de la app Android contra Firestore real.
 
 ## Fuera de alcance (por ahora)
 
 - Exportación directa a BGG.
 - Estadísticas avanzadas.
 - Soporte multijugador.
+- Optimización de rendimiento.

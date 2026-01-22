@@ -22,7 +22,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
             is_active = era.get("is_active")
             subtitle = "Activa" if is_active else "Inactiva"
             button = ft.ElevatedButton(
-                text="Ver periodos",
+                "Ver periodos",
                 on_click=lambda event, era_id=era_id: page.go(f"/eras/{era_id}"),
             )
             eras_column.controls.append(
@@ -35,7 +35,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
                         ]
                     ),
                     padding=10,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=6,
                 )
             )
@@ -66,7 +66,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
                     [
                         title,
                         ft.ElevatedButton(
-                            text="Ir a incursión activa",
+                            "Ir a incursión activa",
                             on_click=lambda event: go_to_active_incursion(),
                         ),
                         eras_column,

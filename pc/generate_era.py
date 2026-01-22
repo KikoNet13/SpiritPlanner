@@ -13,6 +13,10 @@ from typing import Iterable, Sequence
 
 from firestore_service import create_era, create_incursion, create_period, era_exists
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 @dataclass(frozen=True)
 class Spirit:
@@ -31,7 +35,9 @@ class Layout:
     is_active: int
 
 
-def require_columns(fieldnames: Sequence[str] | None, required: Iterable[str], path: Path) -> None:
+def require_columns(
+    fieldnames: Sequence[str] | None, required: Iterable[str], path: Path
+) -> None:
     if fieldnames is None:
         raise ValueError(f"TSV missing header: {path}")
     missing = [name for name in required if name not in fieldnames]
@@ -44,14 +50,22 @@ def load_spirits(path: Path) -> list[Spirit]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         require_columns(reader.fieldnames, ["spirit_id"], path)
-        return [Spirit(spirit_id=row["spirit_id"].strip()) for row in reader if row.get("spirit_id")]
+        return [
+            Spirit(spirit_id=row["spirit_id"].strip())
+            for row in reader
+            if row.get("spirit_id")
+        ]
 
 
 def load_boards(path: Path) -> list[Board]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         require_columns(reader.fieldnames, ["board_id"], path)
-        return [Board(board_id=row["board_id"].strip()) for row in reader if row.get("board_id")]
+        return [
+            Board(board_id=row["board_id"].strip())
+            for row in reader
+            if row.get("board_id")
+        ]
 
 
 def validate_adversaries(path: Path) -> None:
@@ -82,7 +96,9 @@ def load_layouts(path: Path) -> list[Layout]:
     return layouts
 
 
-def generate_round_robin(spirits: Sequence[Spirit]) -> list[list[tuple[Spirit, Spirit]]]:
+def generate_round_robin(
+    spirits: Sequence[Spirit],
+) -> list[list[tuple[Spirit, Spirit]]]:
     total = len(spirits)
     if total < 2:
         raise ValueError("At least 2 spirits are required to generate rounds")
@@ -169,7 +185,11 @@ def assign_boards(
 
 
 def select_layouts(layouts: Sequence[Layout]) -> list[Layout]:
-    filtered = [layout for layout in layouts if layout.player_count == 2 and layout.is_active == 1]
+    filtered = [
+        layout
+        for layout in layouts
+        if layout.player_count == 2 and layout.is_active == 1
+    ]
     if not filtered:
         raise ValueError("No active layouts found for 2 players")
     return filtered
@@ -229,7 +249,10 @@ def write_era_tsv(
             incursion_entries = list(zip(pairs, board_pairs))
             rng.shuffle(incursion_entries)
 
-            for incursion_index, (((spirit_1, spirit_2), (board_1, board_2)), layout) in enumerate(
+            for incursion_index, (
+                ((spirit_1, spirit_2), (board_1, board_2)),
+                layout,
+            ) in enumerate(
                 zip(incursion_entries, period_layouts),
                 start=1,
             ):
@@ -277,7 +300,10 @@ def write_era_firestore(
         incursion_entries = list(zip(pairs, board_pairs))
         rng.shuffle(incursion_entries)
 
-        for incursion_index, (((spirit_1, spirit_2), (board_1, board_2)), layout) in enumerate(
+        for incursion_index, (
+            ((spirit_1, spirit_2), (board_1, board_2)),
+            layout,
+        ) in enumerate(
             zip(incursion_entries, period_layouts),
             start=1,
         ):
@@ -306,9 +332,13 @@ def write_era_firestore(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate an Era in Firestore from input TSV files.")
+    parser = argparse.ArgumentParser(
+        description="Generate an Era in Firestore from input TSV files."
+    )
     parser.add_argument("--era-id", required=True, help="Era identifier (era_id).")
-    parser.add_argument("--seed", type=int, help="Optional seed for reproducible randomization.")
+    parser.add_argument(
+        "--seed", type=int, help="Optional seed for reproducible randomization."
+    )
     parser.add_argument(
         "--spirits",
         type=Path,

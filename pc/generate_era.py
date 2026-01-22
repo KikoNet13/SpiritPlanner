@@ -106,10 +106,36 @@ def generate_round_robin(spirits: Sequence[Spirit]) -> list[list[tuple[Spirit, S
     return rounds
 
 
+def generate_board_rounds(boards: Sequence[Board]) -> list[list[tuple[Board, Board]]]:
+    total = len(boards)
+    if total < 2:
+        raise ValueError("Se necesitan al menos 2 tableros para generar rondas")
+    if total % 2 != 0:
+        raise ValueError("El número de tableros debe ser par para formar parejas")
+
+    order = list(boards)
+    rounds: list[list[tuple[Board, Board]]] = []
+
+    for _ in range(total - 1):
+        pairs: list[tuple[Board, Board]] = []
+        for idx in range(total // 2):
+            board_1 = order[idx]
+            board_2 = order[total - 1 - idx]
+            pairs.append((board_1, board_2))
+        rounds.append(pairs)
+
+        fixed = order[0]
+        remaining = order[1:]
+        remaining = [remaining[-1]] + remaining[:-1]
+        order = [fixed] + remaining
+
+    return rounds
+
+
 def assign_boards(
     boards: Sequence[Board],
     match_count: int,
-    period_index: int,
+    rng: random.Random,
 ) -> list[tuple[Board, Board]]:
     if len(boards) < 2:
         raise ValueError("Se necesitan al menos 2 tableros para asignar por incursión")
@@ -119,14 +145,23 @@ def assign_boards(
     if slots % len(boards) != 0:
         raise ValueError("Los tableros no pueden balancearse perfectamente en el periodo")
 
-    shift = (period_index - 1) % len(boards)
-    permutation = list(boards[shift:]) + list(boards[:shift])
     repetitions = slots // len(boards)
-    sequence = permutation * repetitions
+    rounds = generate_board_rounds(boards)
+    round_pool = list(rounds)
+    rng.shuffle(round_pool)
+
+    selected_rounds: list[list[tuple[Board, Board]]] = []
+    if repetitions <= len(round_pool):
+        selected_rounds = round_pool[:repetitions]
+    else:
+        for board_round in cycle(round_pool):
+            selected_rounds.append(board_round)
+            if len(selected_rounds) >= repetitions:
+                break
 
     pairs: list[tuple[Board, Board]] = []
-    for idx in range(0, slots, 2):
-        pairs.append((sequence[idx], sequence[idx + 1]))
+    for board_round in selected_rounds:
+        pairs.extend(board_round)
 
     return pairs
 
@@ -185,7 +220,7 @@ def write_era_tsv(
         rng.shuffle(shuffled_rounds)
 
         for period_index, pairs in enumerate(shuffled_rounds, start=1):
-            board_pairs = assign_boards(boards, len(pairs), period_index)
+            board_pairs = assign_boards(boards, len(pairs), rng)
             period_layouts = assign_layouts(layouts, len(pairs), period_index)
             rng.shuffle(period_layouts)
 

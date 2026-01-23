@@ -72,7 +72,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
             ),
             actions=[ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog))],
         )
-        page.dialog = dialog
+        page.overlay.append(dialog)
         dialog.open = True
         page.update()
 

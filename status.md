@@ -14,6 +14,12 @@
 
 - App Android (Flet):
   - Estructura básica existente.
+  - Navegación en refactor:
+    - eliminada la clase `Navigator`
+    - navegación basada en funciones async
+    - uso de factories de handlers (closure)
+    - sin `lambda` ni `partial`
+    - utilidades de navegación en `app/utils/`
   - Pendiente de:
     - flujo correcto de Periodos
     - pantalla/modal de asignación de adversarios
@@ -38,9 +44,10 @@
 ## Foco actual
 
 1. Alinear código con README actualizado.
-2. Implementar asignación de adversarios.
-3. Ajustar lista de Periodos al flujo.
-4. Pruebas manuales end-to-end.
+2. Finalizar refactor de navegación y verificar ausencia de warnings.
+3. Implementar asignación de adversarios.
+4. Ajustar lista de Periodos al flujo.
+5. Pruebas manuales end-to-end.
 
 ---
 

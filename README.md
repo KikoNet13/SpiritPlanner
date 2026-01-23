@@ -74,15 +74,24 @@ Reglas:
 - `index` (int)
 - `created_at` (timestamp UTC)
 - `revealed_at` (timestamp | null)
-- `started_at` (timestamp | null)
+- `adversaries_assigned_at` (timestamp | null)
 - `ended_at` (timestamp | null)
+
+Significado de estados:
+
+- `revealed_at`:
+  - marca el **inicio real del Periodo**
+- `adversaries_assigned_at`:
+  - confirma que los adversarios han sido asignados correctamente
+- `ended_at`:
+  - el Periodo está completamente finalizado
 
 Reglas:
 
 - Los Periodos se revelan **secuencialmente**
 - Solo se puede revelar un Periodo si el anterior está finalizado
-- Un Periodo solo puede iniciarse tras haber sido revelado
-- Una vez iniciado un Periodo, su configuración estratégica queda bloqueada
+- La asignación de adversarios solo es posible tras revelar el Periodo
+- Una vez `adversaries_assigned_at != null`, la asignación queda bloqueada
 
 ---
 
@@ -100,19 +109,17 @@ Reglas:
 - `board_2` (string)
 - `board_layout` (string)
 
-#### Asignación estratégica (tras revelar Periodo)
+#### Asignación estratégica
 
 - `adversary_id` (string | null)
 
-Reglas de asignación:
+Reglas de asignación (a nivel de Periodo):
 
-- Cada Incursión del Periodo debe tener un `adversary_id` asignado antes de iniciar el Periodo
-- En un mismo Periodo:
-  - deben existir exactamente **4 Incursiones**
-  - las 4 deben tener `adversary_id` no nulo
-  - los 4 `adversary_id` deben ser **distintos**
-  - `"scenario"` cuenta como un adversario válido más
-- Una vez el Periodo está iniciado (`started_at != null`), la asignación de adversarios queda **bloqueada**
+- Cada Periodo tiene **exactamente 4 Incursiones**
+- Las 4 deben tener `adversary_id` no nulo
+- Los 4 `adversary_id` deben ser **distintos**
+- `"scenario"` cuenta como adversario válido
+- La asignación queda bloqueada tras `adversaries_assigned_at`
 
 #### Al iniciar la Incursión
 
@@ -122,7 +129,7 @@ Reglas de asignación:
 Notas:
 
 - Los escenarios se tratan como adversarios
-- El nivel es texto libre (ej. “Base”, “Nivel 3”, “Rituales de terror”)
+- El nivel es texto libre
 
 #### Estado temporal
 
@@ -146,8 +153,8 @@ Reglas:
 
 Reglas:
 
-- El score se calcula **al finalizar** la Incursión según la fórmula definida
-- El score es **inmutable** tras finalizar
+- El score se calcula **al finalizar**
+- El score es **inmutable**
 
 #### Exportación
 
@@ -162,10 +169,10 @@ Reglas:
 
 Reglas:
 
-- Una Incursión puede tener múltiples sesiones
-- Solo una sesión abierta a la vez
+- Múltiples sesiones por Incursión
+- Solo una sesión abierta
 - No se borran sesiones desde Android
-- La duración total es la suma de todas las sesiones
+- Duración total = suma de sesiones
 
 ---
 
@@ -174,28 +181,37 @@ Reglas:
 ### Generar Era (PC)
 
 - Crea Era, Periodos e Incursions
-- Solo setup base (sin estado de juego)
+- Solo setup base
+- No escribe campos de estado
 
 ### Revelar Periodo (Android)
 
 - Fija `revealed_at`
-- Habilita la asignación de adversarios a las Incursiones del Periodo
+
+### Asignar adversarios (Android)
+
+- Escribe `adversary_id` en las 4 Incursiones
+- Valida reglas
+- Si es correcto:
+  - fija `adversaries_assigned_at`
 
 ### Iniciar Incursión (Android)
 
-- Valida que el Periodo está revelado
-- Valida la asignación correcta de adversarios del Periodo
+- Valida:
+  - Periodo revelado
+  - adversarios asignados
+  - no hay Incursión activa
 - Fija `started_at`
 - Asigna `adversary_level`
-- Calcula y guarda `difficulty`
-- Registra la Incursión activa en la Era
+- Calcula `difficulty`
+- Registra Incursión activa en la Era
 
 ### Finalizar Incursión (Android)
 
 - Fija `ended_at`
-- Calcula y guarda `score`
-- Elimina la Incursión activa de la Era
-- Finaliza el Periodo si es la última Incursión pendiente
+- Calcula `score`
+- Elimina Incursión activa
+- Finaliza el Periodo si procede
 
 PC puede modificar cualquier campo sin restricciones.
 
@@ -203,34 +219,34 @@ PC puede modificar cualquier campo sin restricciones.
 
 ## Navegación y vistas
 
-1. Vista principal → Eras
-2. Vista de Era → Periodos
-3. Vista de Periodo → Incursions
-4. Vista de Incursion → Sesiones y resultado
+1. Eras
+2. Periodos
+3. Incursiones
+4. Incursión (sesiones y resultado)
 
 Reglas de UI:
 
-- Navegación libre
-- Estados indicados visualmente
-- Acceso rápido a Incursion activa
-- Restricción dura: no iniciar otra Incursión si hay una activa
+- Flujo guiado por **un único botón por Periodo**
+- El botón representa el estado
+- No hay textos explícitos de estado
+- Restricción dura: una Incursión activa
 
 ---
 
 ## Puntuación
 
-### Victoria
+Victoria:
 
 - `5 × difficulty`
 - `+10`
 - `+2 × invader_cards_remaining`
 
-### Derrota
+Derrota:
 
 - `2 × difficulty`
 - `+1 × invader_cards_out_of_deck`
 
-### Siempre
+Siempre:
 
 - `+ player_count × dahan_alive`
 - `− player_count × blight_on_island`
@@ -239,36 +255,11 @@ Reglas de UI:
 
 ## Exportación TSV
 
-Reglas:
-
-- Una fila = Incursion finalizada
+- Una fila = Incursión finalizada
 - Solo `ended_at != null`
-- Archivo sobrescrito siempre
-- Orden: Era → Periodo → Incursion
-- Timestamps en **ISO 8601 UTC (Z)**
-
-Columnas:
-
-1. `era_id`
-2. `period_index`
-3. `incursion_index`
-4. `spirit_1_id`
-5. `spirit_2_id`
-6. `board_1`
-7. `board_2`
-8. `board_layout`
-9. `adversary_level`
-10. `difficulty`
-11. `player_count`
-12. `result`
-13. `invader_cards_remaining`
-14. `invader_cards_out_of_deck`
-15. `dahan_alive`
-16. `blight_on_island`
-17. `started_at`
-18. `ended_at`
-19. `duration_minutes`
-20. `score`
+- Archivo sobrescrito
+- Orden: Era → Periodo → Incursión
+- Timestamps ISO 8601 UTC
 
 ---
 

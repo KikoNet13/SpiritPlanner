@@ -3,40 +3,50 @@
 ## Estado actual
 
 - Backend Android (FirestoreService):
-  - Implementado y validado contra el README.
-  - Reglas duras enforced en backend.
-  - Campo derivado `active_incursion` funcionando.
+  - Implementado contra versión anterior del README.
+  - Requiere ajustes por:
+    - eliminación de `started_at` en Period
+    - incorporación de `adversaries_assigned_at`
+
 - Generador de Era (PC):
-  - Funcional y estable.
-  - Escribe directamente en Firestore.
-- Script de pruebas manuales:
-  - Ejecutado con éxito contra Firestore real.
-  - Flujos válidos e inválidos comprobados.
+  - Funcional.
+  - Debe revisarse para asegurar compatibilidad con el modelo actualizado.
 
 - App Android (Flet):
-  - Generada automáticamente por Codex.
-  - Estructura básica de pantallas existente.
-  - **Pendiente de revisión funcional y pruebas manuales**.
+  - Estructura básica existente.
+  - Pendiente de:
+    - flujo correcto de Periodos
+    - pantalla/modal de asignación de adversarios
+    - botones únicos por estado
+
+- Scripts de pruebas manuales:
+  - Revisión necesaria si referencian campos antiguos.
+
+---
 
 ## Decisiones cerradas
 
-- Firestore (Spark) es la única fuente de verdad.
-- Backend Android es la barrera de validación (no la UI).
-- Modelo de datos y reglas cerrados según README.
-- Tests automáticos fuera de alcance por ahora.
-- Tests manuales mediante scripts Python aceptados.
+- Firestore es almacenamiento, sin Security Rules.
+- El flujo se controla desde UI + código.
+- `revealed_at` es el inicio real del Periodo.
+- No existe `started_at` en Period.
+- La asignación de adversarios es un paso explícito.
+- El botón visible define el estado.
+
+---
 
 ## Foco actual
 
-- Revisión y ajuste de pantallas Flet:
-  - comprobar que leen/escriben correctamente
-  - detectar incoherencias con README
-  - eliminar o corregir flujos inválidos
-- Pruebas manuales de la app Android contra Firestore real.
+1. Alinear código con README actualizado.
+2. Implementar asignación de adversarios.
+3. Ajustar lista de Periodos al flujo.
+4. Pruebas manuales end-to-end.
 
-## Fuera de alcance (por ahora)
+---
 
-- Exportación directa a BGG.
-- Estadísticas avanzadas.
-- Soporte multijugador.
-- Optimización de rendimiento.
+## Fuera de alcance
+
+- Exportación directa a BGG
+- Estadísticas avanzadas
+- Multijugador
+- Optimización

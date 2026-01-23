@@ -12,6 +12,9 @@ from app.screens.data_lookup import (
     get_layout_name,
     get_spirit_name,
 )
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def incursion_detail_view(
@@ -21,6 +24,12 @@ def incursion_detail_view(
     period_id: str,
     incursion_id: str,
 ) -> ft.Control:
+    logger.debug(
+        "Entering incursion_detail_view era_id=%s period_id=%s incursion_id=%s",
+        era_id,
+        period_id,
+        incursion_id,
+    )
     title = ft.Text("Detalle de incursión", size=22, weight=ft.FontWeight.BOLD)
     header_container = ft.Container(
         padding=12,
@@ -32,6 +41,7 @@ def incursion_detail_view(
     result_column = ft.ListView(spacing=12, expand=True)
 
     def status_chip(label: str, color: str) -> ft.Container:
+        logger.debug("Building status_chip label=%s color=%s", label, color)
         return ft.Container(
             content=ft.Text(label, size=12, color=ft.Colors.WHITE),
             bgcolor=color,
@@ -40,6 +50,7 @@ def incursion_detail_view(
         )
 
     def format_ts(value: datetime | None) -> str:
+        logger.debug("Formatting timestamp value=%s", value)
         if not value:
             return "—"
         if value.tzinfo is None:
@@ -47,6 +58,7 @@ def incursion_detail_view(
         return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     def total_minutes(sessions: list[dict]) -> int:
+        logger.debug("Calculating total minutes sessions_count=%s", len(sessions))
         total_seconds = 0
         now = datetime.now(timezone.utc)
         for session in sessions:
@@ -62,15 +74,18 @@ def incursion_detail_view(
         return int(total_seconds // 60)
 
     def show_message(text: str) -> None:
+        logger.info("User message shown: %s", text)
         page.snack_bar = ft.SnackBar(ft.Text(text))
         page.snack_bar.open = True
         page.update()
 
     def close_dialog(dialog: ft.AlertDialog) -> None:
+        logger.debug("Closing dialog title=%s", dialog.title)
         dialog.open = False
         page.update()
 
     def load_detail() -> None:
+        logger.debug("Loading incursion detail")
         setup_column.controls.clear()
         sessions_column.controls.clear()
         result_column.controls.clear()
@@ -80,6 +95,7 @@ def incursion_detail_view(
             (item for item in incursions if item["id"] == incursion_id), None
         )
         if not incursion:
+            logger.warning("Incursion not found incursion_id=%s", incursion_id)
             setup_column.controls.append(ft.Text("Incursión no encontrada."))
             page.update()
             return
@@ -90,9 +106,15 @@ def incursion_detail_view(
         period_adversaries_assigned = bool(
             period and period.get("adversaries_assigned_at")
         )
+        logger.debug(
+            "Period adversaries assigned=%s period_id=%s",
+            period_adversaries_assigned,
+            period_id,
+        )
 
         sessions = service.list_sessions(era_id, period_id, incursion_id)
         open_session = any(session.get("ended_at") is None for session in sessions)
+        logger.debug("Sessions loaded count=%s open_session=%s", len(sessions), open_session)
 
         status = "No iniciado"
         status_color = ft.Colors.GREY_500
@@ -102,6 +124,7 @@ def incursion_detail_view(
         elif incursion.get("started_at"):
             status = "Activo"
             status_color = ft.Colors.GREEN_600
+        logger.debug("Incursion status=%s", status)
 
         header_container.content = ft.Column(
             [
@@ -197,6 +220,11 @@ def incursion_detail_view(
             difficulty_text = ft.Text("Dificultad: —")
 
             def update_difficulty(event: ft.ControlEvent | None = None) -> None:
+                logger.debug(
+                    "Updating difficulty adversary_id=%s level=%s",
+                    adversary_id,
+                    adversary_level.value,
+                )
                 difficulty_value = get_adversary_difficulty(
                     adversary_id, adversary_level.value
                 )
@@ -211,16 +239,25 @@ def incursion_detail_view(
             update_difficulty()
 
             def handle_start(event: ft.ControlEvent) -> None:
+                logger.info(
+                    "Start incursion requested era_id=%s period_id=%s incursion_id=%s",
+                    era_id,
+                    period_id,
+                    incursion_id,
+                )
                 if not period_adversaries_assigned:
+                    logger.warning("Cannot start incursion; adversaries not assigned")
                     show_message("Debes asignar adversarios del periodo.")
                     return
                 if not adversary_id:
+                    logger.warning("Cannot start incursion; adversary not selected")
                     show_message("Debes asignar un adversario.")
                     return
                 difficulty_value = get_adversary_difficulty(
                     adversary_id, adversary_level.value
                 )
                 if not adversary_level.value or difficulty_value is None:
+                    logger.warning("Cannot start incursion; invalid adversary level")
                     show_message("Debes seleccionar un nivel válido.")
                     return
                 try:
@@ -232,10 +269,14 @@ def incursion_detail_view(
                         difficulty_value,
                     )
                 except ValueError as exc:
+                    logger.error(
+                        "Failed to start incursion error=%s", exc, exc_info=True
+                    )
                     show_message(str(exc))
                     return
                 load_detail()
                 page.update()
+                logger.info("Incursion started incursion_id=%s", incursion_id)
 
             setup_column.controls.append(
                 ft.Container(
@@ -262,14 +303,18 @@ def incursion_detail_view(
         if incursion.get("started_at") and not incursion.get("ended_at"):
 
             def handle_pause(event: ft.ControlEvent) -> None:
+                logger.info("Pause session clicked incursion_id=%s", incursion_id)
                 service.pause_incursion(era_id, period_id, incursion_id)
                 load_detail()
                 page.update()
+                logger.debug("Session paused incursion_id=%s", incursion_id)
 
             def handle_resume(event: ft.ControlEvent) -> None:
+                logger.info("Resume session clicked incursion_id=%s", incursion_id)
                 service.resume_incursion(era_id, period_id, incursion_id)
                 load_detail()
                 page.update()
+                logger.debug("Session resumed incursion_id=%s", incursion_id)
 
             sessions_column.controls.append(
                 ft.Row(
@@ -310,7 +355,13 @@ def incursion_detail_view(
         def handle_finalize(
             dialog: ft.AlertDialog, fields: dict[str, ft.TextField]
         ) -> None:
+            logger.info(
+                "Finalize incursion requested incursion_id=%s result=%s",
+                incursion_id,
+                fields["result"].value,
+            )
             if not fields["result"].value:
+                logger.warning("Finalize blocked; missing result incursion_id=%s", incursion_id)
                 show_message("Debes indicar el resultado.")
                 return
             try:
@@ -330,13 +381,20 @@ def incursion_detail_view(
                     blight_on_island=int(fields["blight_on_island"].value or 0),
                 )
             except ValueError:
+                logger.error(
+                    "Finalize incursion failed due to numeric validation incursion_id=%s",
+                    incursion_id,
+                    exc_info=True,
+                )
                 show_message("Revisa los valores numéricos.")
                 return
             dialog.open = False
             load_detail()
             page.update()
+            logger.info("Incursion finalized incursion_id=%s", incursion_id)
 
         def open_finalize_dialog(event: ft.ControlEvent) -> None:
+            logger.info("Opening finalize dialog incursion_id=%s", incursion_id)
             fields = {
                 "result": ft.Dropdown(
                     label="Resultado",
@@ -369,6 +427,7 @@ def incursion_detail_view(
             }
 
             def handle_cancel_click(event: ft.ControlEvent) -> None:
+                logger.info("Finalize dialog cancelled incursion_id=%s", incursion_id)
                 close_dialog(dialog)
 
             def handle_save_click(event: ft.ControlEvent) -> None:
@@ -391,6 +450,7 @@ def incursion_detail_view(
             page.dialog = dialog
             dialog.open = True
             page.update()
+            logger.debug("Finalize dialog opened incursion_id=%s", incursion_id)
 
         if incursion.get("ended_at"):
             result_value = incursion.get("result")
@@ -435,9 +495,11 @@ def incursion_detail_view(
             )
 
         page.update()
+        logger.debug("Incursion detail loaded incursion_id=%s", incursion_id)
 
     load_detail()
 
+    logger.debug("Exiting incursion_detail_view incursion_id=%s", incursion_id)
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Incursión"), center_title=True),

@@ -2,25 +2,24 @@ from __future__ import annotations
 
 import flet as ft
 
-from app.navigation.navigator import Navigator
 from app.services.firestore_service import FirestoreService
 from app.screens.data_lookup import (
     get_adversary_catalog,
     get_spirit_name,
 )
+from app.utils.navigation import go_to
 
 
 def periods_view(
     page: ft.Page,
     service: FirestoreService,
-    navigator: Navigator,
     era_id: str,
 ) -> ft.Control:
     title = ft.Text("Era", size=22, weight=ft.FontWeight.BOLD)
     periods_list = ft.ListView(spacing=12, expand=True)
 
     def build_open_period_handler(period_id: str):
-        return lambda event: navigator.go(f"/eras/{era_id}/periods/{period_id}")
+        return go_to(page, f"/eras/{era_id}/periods/{period_id}")
 
     def can_reveal(periods: list[dict], index: int) -> bool:
         if index == 0:
@@ -100,15 +99,21 @@ def periods_view(
             close_dialog(dialog)
             load_periods()
 
+        def handle_cancel_click(event: ft.ControlEvent) -> None:
+            close_dialog(dialog)
+
+        def handle_save_click(event: ft.ControlEvent) -> None:
+            handle_save(dialog)
+
         dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Asignar adversarios"),
             content=list_view,
             actions=[
-                ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog)),
+                ft.TextButton("Cancelar", on_click=handle_cancel_click),
                 ft.ElevatedButton(
                     "Guardar",
-                    on_click=lambda event: handle_save(dialog),
+                    on_click=handle_save_click,
                 ),
             ],
         )
@@ -122,6 +127,20 @@ def periods_view(
 
         load_periods()
         page.update()
+
+    def build_open_assignment_handler(period_id: str):
+        def handler(event: ft.ControlEvent) -> None:
+            open_assignment_dialog(
+                period_id, service.list_incursions(era_id, period_id)
+            )
+
+        return handler
+
+    def build_reveal_period_handler(period_id: str):
+        def handler(event: ft.ControlEvent) -> None:
+            handle_reveal(period_id)
+
+        return handler
 
     def build_incursions_section(period_id: str) -> ft.Control:
         incursions = service.list_incursions(era_id, period_id)
@@ -170,16 +189,14 @@ def periods_view(
                 actions.append(
                     ft.OutlinedButton(
                         "Asignar adversarios",
-                        on_click=lambda event, pid=period_id: open_assignment_dialog(
-                            pid, service.list_incursions(era_id, pid)
-                        ),
+                        on_click=build_open_assignment_handler(period_id),
                     )
                 )
             elif can_reveal(periods, idx):
                 actions.append(
                     ft.OutlinedButton(
                         "Revelar periodo",
-                        on_click=lambda event, pid=period_id: handle_reveal(pid),
+                        on_click=build_reveal_period_handler(period_id),
                     )
                 )
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import flet as ft
 
-from app.navigation.navigator import Navigator
 from app.services.firestore_service import FirestoreService
 from app.screens.data_lookup import (
     get_adversary_name,
@@ -10,12 +9,12 @@ from app.screens.data_lookup import (
     get_layout_name,
     get_spirit_name,
 )
+from app.utils.navigation import go_to
 
 
 def incursions_view(
     page: ft.Page,
     service: FirestoreService,
-    navigator: Navigator,
     era_id: str,
     period_id: str,
 ) -> ft.Control:
@@ -31,8 +30,9 @@ def incursions_view(
         )
 
     def build_open_incursion_handler(incursion_id: str):
-        return lambda event: navigator.go(
-            f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}"
+        return go_to(
+            page,
+            f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
         )
 
     def load_incursions() -> None:

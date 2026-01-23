@@ -12,7 +12,7 @@ from app.screens.data_lookup import (
 )
 
 
-def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.View:
+def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Control:
     title = ft.Text("Era", size=22, weight=ft.FontWeight.BOLD)
     periods_list = ft.ListView(spacing=12, expand=True)
 
@@ -282,9 +282,8 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
 
     load_periods()
 
-    return ft.View(
-        route=f"/eras/{era_id}",
-        controls=[
+    return ft.Column(
+        [
             ft.AppBar(title=ft.Text("Periodos"), center_title=True),
             ft.Container(
                 content=ft.Column(
@@ -295,6 +294,9 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
                     expand=True,
                 ),
                 padding=16,
+                expand=True,
             ),
         ],
+        expand=True,
+        spacing=0,
     )

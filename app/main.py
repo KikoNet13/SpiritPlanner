@@ -16,18 +16,9 @@ def main(page: ft.Page) -> None:
 
     service = FirestoreService()
 
-    def handle_route_change(route: ft.RouteChangeEvent) -> None:
-        page.views.clear()
-        page.views.append(eras_view(page, service))
-
-        parts = [part for part in route.route.split("/") if part]
-        if len(parts) >= 2 and parts[0] == "eras":
-            era_id = parts[1]
-            page.views.append(periods_view(page, service, era_id))
-        if len(parts) >= 4 and parts[0] == "eras" and parts[2] == "periods":
-            era_id = parts[1]
-            period_id = parts[3]
-            page.views.append(incursions_view(page, service, era_id, period_id))
+    def render_route(route: str) -> None:
+        page.controls.clear()
+        parts = [part for part in route.split("/") if part]
         if (
             len(parts) >= 6
             and parts[0] == "eras"
@@ -37,19 +28,27 @@ def main(page: ft.Page) -> None:
             era_id = parts[1]
             period_id = parts[3]
             incursion_id = parts[5]
-            page.views.append(
+            page.controls.append(
                 incursion_detail_view(page, service, era_id, period_id, incursion_id)
             )
+        elif len(parts) >= 4 and parts[0] == "eras" and parts[2] == "periods":
+            era_id = parts[1]
+            period_id = parts[3]
+            page.controls.append(incursions_view(page, service, era_id, period_id))
+        elif len(parts) >= 2 and parts[0] == "eras":
+            era_id = parts[1]
+            page.controls.append(periods_view(page, service, era_id))
+        else:
+            page.controls.append(eras_view(page, service))
         page.update()
 
-    def handle_view_pop(view: ft.ViewPopEvent) -> None:
-        page.views.pop()
-        page.update()
+    def handle_route_change(route: ft.RouteChangeEvent) -> None:
+        render_route(route.route)
 
     page.on_route_change = handle_route_change
-    page.on_view_pop = handle_view_pop
 
-    page.run_task(lambda: page.push_route("/eras"))
+    page.route = "/eras"
+    render_route(page.route)
 
 
 if __name__ == "__main__":

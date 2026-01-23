@@ -13,7 +13,7 @@ from app.screens.data_lookup import (
 
 def incursions_view(
     page: ft.Page, service: FirestoreService, era_id: str, period_id: str
-) -> ft.View:
+) -> ft.Control:
     title = ft.Text("Incursiones", size=22, weight=ft.FontWeight.BOLD)
     incursions_list = ft.ListView(spacing=12, expand=True)
 
@@ -101,9 +101,8 @@ def incursions_view(
 
     load_incursions()
 
-    return ft.View(
-        route=f"/eras/{era_id}/periods/{period_id}",
-        controls=[
+    return ft.Column(
+        [
             ft.AppBar(title=ft.Text("Incursiones"), center_title=True),
             ft.Container(
                 content=ft.Column(
@@ -114,6 +113,9 @@ def incursions_view(
                     expand=True,
                 ),
                 padding=16,
+                expand=True,
             ),
         ],
+        expand=True,
+        spacing=0,
     )

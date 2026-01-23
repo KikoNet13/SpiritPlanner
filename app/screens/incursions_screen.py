@@ -25,8 +25,16 @@ def incursions_view(
             border_radius=12,
         )
 
-    def navigate_to(route: str) -> None:
-        page.push_route(route)
+    async def navigate_to(route: str) -> None:
+        await page.push_route(route)
+
+    def build_open_incursion_handler(incursion_id: str):
+        async def handler(event: ft.ControlEvent) -> None:
+            await navigate_to(
+                f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}"
+            )
+
+        return handler
 
     def load_incursions() -> None:
         incursions_list.controls.clear()
@@ -81,8 +89,8 @@ def incursions_view(
                                 [
                                     ft.ElevatedButton(
                                         "Abrir",
-                                        on_click=lambda event, iid=incursion_id: navigate_to(
-                                            f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
+                                        on_click=build_open_incursion_handler(
+                                            incursion_id
                                         ),
                                     )
                                 ],

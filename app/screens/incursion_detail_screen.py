@@ -367,6 +367,13 @@ def incursion_detail_view(
                     keyboard_type=ft.KeyboardType.NUMBER,
                 ),
             }
+
+            def handle_cancel_click(event: ft.ControlEvent) -> None:
+                close_dialog(dialog)
+
+            def handle_save_click(event: ft.ControlEvent) -> None:
+                handle_finalize(dialog, fields)
+
             dialog = ft.AlertDialog(
                 modal=True,
                 title=ft.Text("Finalizar incursión"),
@@ -374,12 +381,10 @@ def incursion_detail_view(
                     list(fields.values()), tight=True, scroll=ft.ScrollMode.AUTO
                 ),
                 actions=[
-                    ft.TextButton(
-                        "Cancelar", on_click=lambda event: close_dialog(dialog)
-                    ),
+                    ft.TextButton("Cancelar", on_click=handle_cancel_click),
                     ft.ElevatedButton(
                         "Guardar",
-                        on_click=lambda event: handle_finalize(dialog, fields),
+                        on_click=handle_save_click,
                     ),
                 ],
             )

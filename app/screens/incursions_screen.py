@@ -17,6 +17,14 @@ def incursions_view(
     title = ft.Text("Incursiones", size=22, weight=ft.FontWeight.BOLD)
     incursions_list = ft.ListView(spacing=12, expand=True)
 
+    def status_chip(label: str, color: str) -> ft.Container:
+        return ft.Container(
+            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            bgcolor=color,
+            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+            border_radius=12,
+        )
+
     def load_incursions() -> None:
         incursions_list.controls.clear()
         incursions = service.list_incursions(era_id, period_id)
@@ -27,10 +35,13 @@ def incursions_view(
         for incursion in incursions:
             incursion_id = incursion["id"]
             status = "No iniciado"
+            status_color = ft.colors.GREY_500
             if incursion.get("ended_at"):
                 status = "Finalizado"
+                status_color = ft.colors.BLUE_600
             elif incursion.get("started_at"):
                 status = "Activo"
+                status_color = ft.colors.GREEN_600
             spirit_info = (
                 f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
                 f"{get_spirit_name(incursion.get('spirit_2_id'))}"
@@ -43,30 +54,43 @@ def incursions_view(
             adversary_info = get_adversary_name(incursion.get("adversary_id"))
 
             incursions_list.controls.append(
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                ft.Text(
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.ListTile(
+                                leading=ft.Icon(ft.icons.EXPLORE),
+                                title=ft.Text(
                                     f"Incursión {incursion.get('index', 0)}",
                                     weight=ft.FontWeight.BOLD,
                                 ),
-                                ft.Text(f"Espíritus: {spirit_info}"),
-                                ft.Text(f"Tableros: {board_info}"),
-                                ft.Text(f"Distribución: {layout_info}"),
-                                ft.Text(f"Adversario: {adversary_info}"),
-                                ft.Text(f"Estado: {status}"),
-                                ft.ElevatedButton(
-                                    "Abrir",
-                                    on_click=lambda event, iid=incursion_id: page.go(
-                                        f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
-                                    ),
+                                subtitle=ft.Column(
+                                    [
+                                        ft.Text(f"Espíritus: {spirit_info}"),
+                                        ft.Text(f"Tableros: {board_info}"),
+                                        ft.Text(f"Distribución: {layout_info}"),
+                                        ft.Text(f"Adversario: {adversary_info}"),
+                                        status_chip(status, status_color),
+                                    ],
+                                    spacing=4,
                                 ),
-                            ],
-                            spacing=6,
-                        ),
-                        padding=12,
-                    )
+                            ),
+                            ft.Row(
+                                [
+                                    ft.ElevatedButton(
+                                        "Abrir",
+                                        on_click=lambda event, iid=incursion_id: page.go(
+                                            f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
+                                        ),
+                                    )
+                                ],
+                                alignment=ft.MainAxisAlignment.END,
+                            ),
+                        ],
+                        spacing=4,
+                    ),
+                    padding=12,
+                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border_radius=12,
                 )
             )
         page.update()
@@ -76,7 +100,7 @@ def incursions_view(
     return ft.View(
         route=f"/eras/{era_id}/periods/{period_id}",
         controls=[
-            ft.AppBar(title=ft.Text("Incursiones")),
+            ft.AppBar(title=ft.Text("Incursiones"), center_title=True),
             ft.Container(
                 content=ft.Column(
                     [

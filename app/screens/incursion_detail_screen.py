@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Callable
 
 import flet as ft
-
-from typing import Callable
 
 from app.services.firestore_service import FirestoreService
 from app.screens.data_lookup import (
@@ -26,8 +25,22 @@ def incursion_detail_view(
     incursion_id: str,
 ) -> ft.View:
     title = ft.Text("Detalle de incursión", size=22, weight=ft.FontWeight.BOLD)
-    content_column = ft.Column(spacing=12)
-    sessions_column = ft.Column(spacing=8)
+    header_container = ft.Container(
+        padding=12,
+        border=ft.border.all(1, ft.colors.GREY_300),
+        border_radius=12,
+    )
+    setup_column = ft.Column(spacing=12, scroll=ft.ScrollMode.AUTO)
+    sessions_column = ft.Column(spacing=12, scroll=ft.ScrollMode.AUTO)
+    result_column = ft.Column(spacing=12, scroll=ft.ScrollMode.AUTO)
+
+    def status_chip(label: str, color: str) -> ft.Container:
+        return ft.Container(
+            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            bgcolor=color,
+            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+            border_radius=12,
+        )
 
     def format_ts(value: datetime | None) -> str:
         if not value:
@@ -78,13 +91,12 @@ def incursion_detail_view(
 
         for option in options:
             list_view.controls.append(
-                ft.Card(
-                    content=ft.ListTile(
-                        title=ft.Text(option.name),
-                        on_click=lambda event, aid=option.adversary_id: handle_select(
-                            aid
-                        ),
-                    )
+                ft.ListTile(
+                    leading=ft.Icon(ft.icons.SHIELD),
+                    title=ft.Text(option.name),
+                    on_click=lambda event, aid=option.adversary_id: handle_select(
+                        aid
+                    ),
                 )
             )
 
@@ -121,15 +133,16 @@ def incursion_detail_view(
         load_detail()
 
     def load_detail() -> None:
-        content_column.controls.clear()
+        setup_column.controls.clear()
         sessions_column.controls.clear()
+        result_column.controls.clear()
 
         incursions = service.list_incursions(era_id, period_id)
         incursion = next(
             (item for item in incursions if item["id"] == incursion_id), None
         )
         if not incursion:
-            content_column.controls.append(ft.Text("Incursión no encontrada."))
+            setup_column.controls.append(ft.Text("Incursión no encontrada."))
             page.update()
             return
         period = next(
@@ -142,81 +155,99 @@ def incursion_detail_view(
         open_session = any(session.get("ended_at") is None for session in sessions)
 
         status = "No iniciado"
+        status_color = ft.colors.GREY_500
         if incursion.get("ended_at"):
             status = "Finalizado"
+            status_color = ft.colors.BLUE_600
         elif incursion.get("started_at"):
             status = "Activo"
+            status_color = ft.colors.GREEN_600
 
-        header_card = ft.Card(
-            content=ft.Container(
-                content=ft.Column(
+        header_container.content = ft.Column(
+            [
+                ft.Row(
                     [
                         ft.Text(
                             f"Incursión {incursion.get('index', 0)}",
                             weight=ft.FontWeight.BOLD,
+                            size=16,
                         ),
-                        ft.Text(f"Estado: {status}"),
-                        ft.Text(f"Inicio: {format_ts(incursion.get('started_at'))}"),
-                        ft.Text(f"Fin: {format_ts(incursion.get('ended_at'))}"),
+                        status_chip(status, status_color),
                     ],
-                    spacing=6,
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
-                padding=12,
+                ft.Text(f"Inicio: {format_ts(incursion.get('started_at'))}"),
+                ft.Text(f"Fin: {format_ts(incursion.get('ended_at'))}"),
+            ],
+            spacing=6,
+        )
+
+        setup_column.controls.append(
+            ft.ListTile(
+                leading=ft.Icon(ft.icons.GROUP),
+                title=ft.Text("Espíritus"),
+                subtitle=ft.Text(
+                    f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
+                    f"{get_spirit_name(incursion.get('spirit_2_id'))}"
+                ),
             )
         )
-        content_column.controls.append(header_card)
-
-        setup_card = ft.Card(
-            content=ft.Container(
-                content=ft.Column(
-                    [
-                        ft.Text("Configuración", weight=ft.FontWeight.BOLD),
-                        ft.Text(
-                            f"Espíritus: "
-                            f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
-                            f"{get_spirit_name(incursion.get('spirit_2_id'))}"
-                        ),
-                        ft.Text(
-                            f"Tableros: "
-                            f"{get_board_name(incursion.get('board_1'))} + "
-                            f"{get_board_name(incursion.get('board_2'))}"
-                        ),
-                        ft.Text(
-                            f"Distribución: {get_layout_name(incursion.get('board_layout'))}"
-                        ),
-                    ],
-                    spacing=6,
+        setup_column.controls.append(
+            ft.ListTile(
+                leading=ft.Icon(ft.icons.DASHBOARD),
+                title=ft.Text("Tableros"),
+                subtitle=ft.Text(
+                    f"{get_board_name(incursion.get('board_1'))} + "
+                    f"{get_board_name(incursion.get('board_2'))}"
                 ),
-                padding=12,
             )
         )
-        content_column.controls.append(setup_card)
+        setup_column.controls.append(
+            ft.ListTile(
+                leading=ft.Icon(ft.icons.VIEW_QUILT),
+                title=ft.Text("Distribución"),
+                subtitle=ft.Text(get_layout_name(incursion.get("board_layout"))),
+            )
+        )
 
-        strategy_column = ft.Column(spacing=8)
         adversary_label = ft.Text(
             get_adversary_name(incursion.get("adversary_id"))
         )
-        strategy_column.controls.append(
-            ft.Row(
-                [ft.Text("Adversario:"), adversary_label],
+        strategy_section = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Icon(ft.icons.SHIELD),
+                            ft.Text("Adversario", weight=ft.FontWeight.BOLD),
+                        ],
+                        spacing=8,
+                    ),
+                    ft.Row(
+                        [ft.Text("Selección:"), adversary_label],
+                        spacing=6,
+                        wrap=True,
+                    ),
+                    ft.Text(
+                        f"Nivel: {incursion.get('adversary_level', '—')}"
+                    ),
+                    ft.Text(
+                        f"Dificultad: {incursion.get('difficulty') if incursion.get('difficulty') is not None else '—'}"
+                    ),
+                ],
                 spacing=6,
-                wrap=True,
-            )
+            ),
+            padding=12,
+            border=ft.border.all(1, ft.colors.GREY_300),
+            border_radius=12,
         )
-        strategy_column.controls.append(
-            ft.Text(f"Nivel: {incursion.get('adversary_level', '—')}")
-        )
-        difficulty_value = incursion.get("difficulty")
-        strategy_column.controls.append(
-            ft.Text(
-                f"Dificultad: {difficulty_value if difficulty_value is not None else '—'}"
-            )
-        )
+        setup_column.controls.append(strategy_section)
 
         if not incursion.get("started_at") and not period_started:
-            strategy_column.controls.append(
+            setup_column.controls.append(
                 ft.OutlinedButton(
                     "Elegir adversario",
+                    icon=ft.icons.EDIT,
                     on_click=lambda event: open_adversary_selector(
                         incursion,
                         lambda adversary_id: update_adversary(
@@ -225,22 +256,6 @@ def incursion_detail_view(
                     ),
                 )
             )
-
-        if incursion.get("ended_at"):
-            strategy_column.controls.append(
-                ft.Text(f"Resultado: {incursion.get('result')}")
-            )
-            strategy_column.controls.append(
-                ft.Text(f"Score: {incursion.get('score')}")
-            )
-
-        strategy_card = ft.Card(
-            content=ft.Container(
-                content=strategy_column,
-                padding=12,
-            )
-        )
-        content_column.controls.append(strategy_card)
 
         if not incursion.get("started_at"):
             adversary_id = incursion.get("adversary_id")
@@ -293,11 +308,14 @@ def incursion_detail_view(
                 load_detail()
                 page.update()
 
-            start_card = ft.Card(
-                content=ft.Container(
+            setup_column.controls.append(
+                ft.Container(
                     content=ft.Column(
                         [
-                            ft.Text("Inicio de incursión", weight=ft.FontWeight.BOLD),
+                            ft.Text(
+                                "Inicio de incursión",
+                                weight=ft.FontWeight.BOLD,
+                            ),
                             adversary_level,
                             difficulty_text,
                             ft.ElevatedButton(
@@ -307,10 +325,12 @@ def incursion_detail_view(
                         spacing=8,
                     ),
                     padding=12,
+                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border_radius=12,
                 )
             )
-            content_column.controls.append(start_card)
-        elif not incursion.get("ended_at"):
+
+        if incursion.get("started_at") and not incursion.get("ended_at"):
 
             def handle_pause(event: ft.ControlEvent) -> None:
                 service.pause_incursion(era_id, period_id, incursion_id)
@@ -322,116 +342,162 @@ def incursion_detail_view(
                 load_detail()
                 page.update()
 
-            def handle_finalize(
-                dialog: ft.AlertDialog, fields: dict[str, ft.TextField]
-            ) -> None:
-                if not fields["result"].value:
-                    show_message("Debes indicar el resultado.")
-                    return
-                try:
-                    service.finalize_incursion(
-                        era_id=era_id,
-                        period_id=period_id,
-                        incursion_id=incursion_id,
-                        result=fields["result"].value,
-                        player_count=int(fields["player_count"].value or 2),
-                        invader_cards_remaining=int(
-                            fields["invader_cards_remaining"].value or 0
-                        ),
-                        invader_cards_out_of_deck=int(
-                            fields["invader_cards_out_of_deck"].value or 0
-                        ),
-                        dahan_alive=int(fields["dahan_alive"].value or 0),
-                        blight_on_island=int(fields["blight_on_island"].value or 0),
-                    )
-                except ValueError:
-                    show_message("Revisa los valores numéricos.")
-                    return
-                dialog.open = False
-                load_detail()
-                page.update()
-
-            def open_finalize_dialog(event: ft.ControlEvent) -> None:
-                fields = {
-                    "result": ft.Dropdown(
-                        label="Resultado",
-                        options=[
-                            ft.dropdown.Option("win", "Victoria"),
-                            ft.dropdown.Option("loss", "Derrota"),
-                        ],
-                    ),
-                    "player_count": ft.TextField(
-                        label="Jugadores",
-                        value="2",
-                        keyboard_type=ft.KeyboardType.NUMBER,
-                    ),
-                    "invader_cards_remaining": ft.TextField(
-                        label="Cartas invasoras restantes",
-                        keyboard_type=ft.KeyboardType.NUMBER,
-                    ),
-                    "invader_cards_out_of_deck": ft.TextField(
-                        label="Cartas invasoras fuera del mazo",
-                        keyboard_type=ft.KeyboardType.NUMBER,
-                    ),
-                    "dahan_alive": ft.TextField(
-                        label="Dahan vivos",
-                        keyboard_type=ft.KeyboardType.NUMBER,
-                    ),
-                    "blight_on_island": ft.TextField(
-                        label="Plaga en la isla",
-                        keyboard_type=ft.KeyboardType.NUMBER,
-                    ),
-                }
-                dialog = ft.AlertDialog(
-                    modal=True,
-                    title=ft.Text("Finalizar incursión"),
-                    content=ft.Column(
-                        list(fields.values()), tight=True, scroll=ft.ScrollMode.AUTO
-                    ),
-                    actions=[
-                        ft.TextButton(
-                            "Cancelar", on_click=lambda event: close_dialog(dialog)
-                        ),
+            sessions_column.controls.append(
+                ft.Row(
+                    [
                         ft.ElevatedButton(
-                            "Guardar",
-                            on_click=lambda event: handle_finalize(dialog, fields),
+                            "Pausar sesión" if open_session else "Reanudar sesión",
+                            icon=ft.icons.PAUSE if open_session else ft.icons.PLAY_ARROW,
+                            on_click=handle_pause if open_session else handle_resume,
                         ),
                     ],
+                    alignment=ft.MainAxisAlignment.END,
                 )
-                page.dialog = dialog
-                dialog.open = True
-                page.update()
-
-            actions_row = ft.Row(
-                [
-                    ft.ElevatedButton(
-                        "Pausar sesión" if open_session else "Reanudar sesión",
-                        on_click=handle_pause if open_session else handle_resume,
-                    ),
-                    ft.OutlinedButton(
-                        "Finalizar incursión", on_click=open_finalize_dialog
-                    ),
-                ],
-                wrap=True,
             )
-            content_column.controls.append(actions_row)
 
-        sessions_header = ft.Text("Sesiones", weight=ft.FontWeight.BOLD)
+        sessions_column.controls.append(
+            ft.Text("Sesiones registradas", weight=ft.FontWeight.BOLD)
+        )
         sessions_list = ft.ListView(spacing=6, expand=False)
         if not sessions:
             sessions_list.controls.append(ft.Text("No hay sesiones registradas."))
         else:
             for session in sessions:
                 sessions_list.controls.append(
-                    ft.Text(
-                        f"{format_ts(session.get('started_at'))} → {format_ts(session.get('ended_at'))}"
+                    ft.ListTile(
+                        leading=ft.Icon(ft.icons.TIMER),
+                        title=ft.Text(
+                            f"{format_ts(session.get('started_at'))} → {format_ts(session.get('ended_at'))}"
+                        ),
                     )
                 )
-        sessions_column.controls.append(sessions_header)
         sessions_column.controls.append(sessions_list)
         sessions_column.controls.append(
             ft.Text(f"Duración total: {total_minutes(sessions)} min")
         )
+
+        def handle_finalize(
+            dialog: ft.AlertDialog, fields: dict[str, ft.TextField]
+        ) -> None:
+            if not fields["result"].value:
+                show_message("Debes indicar el resultado.")
+                return
+            try:
+                service.finalize_incursion(
+                    era_id=era_id,
+                    period_id=period_id,
+                    incursion_id=incursion_id,
+                    result=fields["result"].value,
+                    player_count=int(fields["player_count"].value or 2),
+                    invader_cards_remaining=int(
+                        fields["invader_cards_remaining"].value or 0
+                    ),
+                    invader_cards_out_of_deck=int(
+                        fields["invader_cards_out_of_deck"].value or 0
+                    ),
+                    dahan_alive=int(fields["dahan_alive"].value or 0),
+                    blight_on_island=int(fields["blight_on_island"].value or 0),
+                )
+            except ValueError:
+                show_message("Revisa los valores numéricos.")
+                return
+            dialog.open = False
+            load_detail()
+            page.update()
+
+        def open_finalize_dialog(event: ft.ControlEvent) -> None:
+            fields = {
+                "result": ft.Dropdown(
+                    label="Resultado",
+                    options=[
+                        ft.dropdown.Option("win", "Victoria"),
+                        ft.dropdown.Option("loss", "Derrota"),
+                    ],
+                ),
+                "player_count": ft.TextField(
+                    label="Jugadores",
+                    value="2",
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                ),
+                "invader_cards_remaining": ft.TextField(
+                    label="Cartas invasoras restantes",
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                ),
+                "invader_cards_out_of_deck": ft.TextField(
+                    label="Cartas invasoras fuera del mazo",
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                ),
+                "dahan_alive": ft.TextField(
+                    label="Dahan vivos",
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                ),
+                "blight_on_island": ft.TextField(
+                    label="Plaga en la isla",
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                ),
+            }
+            dialog = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Finalizar incursión"),
+                content=ft.Column(
+                    list(fields.values()), tight=True, scroll=ft.ScrollMode.AUTO
+                ),
+                actions=[
+                    ft.TextButton(
+                        "Cancelar", on_click=lambda event: close_dialog(dialog)
+                    ),
+                    ft.ElevatedButton(
+                        "Guardar",
+                        on_click=lambda event: handle_finalize(dialog, fields),
+                    ),
+                ],
+            )
+            page.dialog = dialog
+            dialog.open = True
+            page.update()
+
+        if incursion.get("ended_at"):
+            result_value = incursion.get("result")
+            result_label = "Victoria" if result_value == "win" else "Derrota"
+            result_column.controls.append(
+                ft.ListTile(
+                    leading=ft.Icon(ft.icons.EMOJI_EVENTS),
+                    title=ft.Text("Resultado final"),
+                    subtitle=ft.Text(
+                        f"{result_label} · Score {incursion.get('score')}"
+                    ),
+                )
+            )
+        elif incursion.get("started_at"):
+            result_column.controls.append(
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Text(
+                                "Finalización",
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            ft.Text(
+                                "Completa los datos para cerrar la incursión."
+                            ),
+                            ft.ElevatedButton(
+                                "Finalizar incursión",
+                                icon=ft.icons.FLAG,
+                                on_click=open_finalize_dialog,
+                            ),
+                        ],
+                        spacing=8,
+                    ),
+                    padding=12,
+                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border_radius=12,
+                )
+            )
+        else:
+            result_column.controls.append(
+                ft.Text("La incursión aún no ha comenzado.")
+            )
+
         page.update()
 
     load_detail()
@@ -439,16 +505,24 @@ def incursion_detail_view(
     return ft.View(
         route=f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
         controls=[
-            ft.AppBar(title=ft.Text("Incursión")),
+            ft.AppBar(title=ft.Text("Incursión"), center_title=True),
             ft.Container(
                 content=ft.Column(
                     [
                         title,
-                        content_column,
-                        sessions_column,
+                        header_container,
+                        ft.Tabs(
+                            expand=True,
+                            animation_duration=200,
+                            tabs=[
+                                ft.Tab(text="Configuración", content=setup_column),
+                                ft.Tab(text="Sesiones", content=sessions_column),
+                                ft.Tab(text="Resultado", content=result_column),
+                            ],
+                        ),
                     ],
                     expand=True,
-                    scroll=ft.ScrollMode.AUTO,
+                    spacing=12,
                 ),
                 padding=16,
             ),

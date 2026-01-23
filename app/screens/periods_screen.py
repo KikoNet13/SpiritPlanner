@@ -16,6 +16,14 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
     title = ft.Text("Era", size=22, weight=ft.FontWeight.BOLD)
     periods_list = ft.ListView(spacing=12, expand=True)
 
+    def status_chip(label: str, color: str) -> ft.Container:
+        return ft.Container(
+            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            bgcolor=color,
+            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+            border_radius=12,
+        )
+
     def can_reveal(periods: list[dict], index: int) -> bool:
         if index == 0:
             return True
@@ -49,13 +57,12 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
 
         for option in options:
             list_view.controls.append(
-                ft.Card(
-                    content=ft.ListTile(
-                        title=ft.Text(option.name),
-                        on_click=lambda event, aid=option.adversary_id: handle_select(
-                            aid
-                        ),
-                    )
+                ft.ListTile(
+                    leading=ft.Icon(ft.icons.SHIELD),
+                    title=ft.Text(option.name),
+                    on_click=lambda event, aid=option.adversary_id: handle_select(
+                        aid
+                    ),
                 )
             )
 
@@ -95,14 +102,17 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
                 content=ft.Container(
                     content=ft.Column(
                         [
-                            ft.Text(
-                                f"Incursión {incursion.get('index', 0)}",
-                                weight=ft.FontWeight.BOLD,
-                            ),
-                            ft.Text(
-                                f"Espíritus: "
-                                f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
-                                f"{get_spirit_name(incursion.get('spirit_2_id'))}"
+                            ft.ListTile(
+                                leading=ft.Icon(ft.icons.MAP),
+                                title=ft.Text(
+                                    f"Incursión {incursion.get('index', 0)}",
+                                    weight=ft.FontWeight.BOLD,
+                                ),
+                                subtitle=ft.Text(
+                                    f"Espíritus: "
+                                    f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
+                                    f"{get_spirit_name(incursion.get('spirit_2_id'))}"
+                                ),
                             ),
                             ft.Row(
                                 [
@@ -206,12 +216,16 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
         for idx, period in enumerate(periods):
             period_id = period["id"]
             status = "No revelado"
+            status_color = ft.colors.GREY_500
             if period.get("ended_at"):
                 status = "Finalizado"
+                status_color = ft.colors.BLUE_600
             elif period.get("started_at"):
                 status = "Activo"
+                status_color = ft.colors.GREEN_600
             elif period.get("revealed_at"):
                 status = "Revelado"
+                status_color = ft.colors.ORANGE_600
 
             actions: list[ft.Control] = []
             if period.get("revealed_at"):
@@ -232,21 +246,32 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
                 )
 
             periods_list.controls.append(
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                ft.Text(
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.ListTile(
+                                leading=ft.Icon(ft.icons.CALENDAR_TODAY),
+                                title=ft.Text(
                                     f"Periodo {period.get('index', 0)}",
                                     weight=ft.FontWeight.BOLD,
                                 ),
-                                ft.Text(f"Estado: {status}"),
-                                ft.Row(actions, wrap=True),
-                            ],
-                            spacing=8,
-                        ),
-                        padding=12,
-                    )
+                                subtitle=ft.Row(
+                                    [status_chip(status, status_color)],
+                                    spacing=8,
+                                ),
+                            ),
+                            ft.Row(
+                                actions,
+                                wrap=True,
+                                spacing=8,
+                                alignment=ft.MainAxisAlignment.END,
+                            ),
+                        ],
+                        spacing=4,
+                    ),
+                    padding=12,
+                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border_radius=12,
                 )
             )
         page.update()
@@ -256,7 +281,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
     return ft.View(
         route=f"/eras/{era_id}",
         controls=[
-            ft.AppBar(title=ft.Text("Periodos")),
+            ft.AppBar(title=ft.Text("Periodos"), center_title=True),
             ft.Container(
                 content=ft.Column(
                     [

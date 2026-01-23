@@ -25,8 +25,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
         )
 
     def navigate_to(route: str) -> None:
-        page.route = route
-        page.update()
+        page.go(route)
 
     def can_reveal(periods: list[dict], index: int) -> bool:
         if index == 0:
@@ -62,7 +61,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
         for option in options:
             list_view.controls.append(
                 ft.ListTile(
-                    leading=ft.Icon(ft.icons.SHIELD),
+                    leading=ft.Icon(ft.Icons.SECURITY),
                     title=ft.Text(option.name),
                     on_click=lambda event, aid=option.adversary_id: handle_select(
                         aid
@@ -107,7 +106,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                     content=ft.Column(
                         [
                             ft.ListTile(
-                                leading=ft.Icon(ft.icons.MAP),
+                                leading=ft.Icon(ft.Icons.MAP),
                                 title=ft.Text(
                                     f"Incursión {incursion.get('index', 0)}",
                                     weight=ft.FontWeight.BOLD,
@@ -254,7 +253,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                     content=ft.Column(
                         [
                             ft.ListTile(
-                                leading=ft.Icon(ft.icons.CALENDAR_TODAY),
+                                leading=ft.Icon(ft.Icons.CALENDAR_TODAY),
                                 title=ft.Text(
                                     f"Periodo {period.get('index', 0)}",
                                     weight=ft.FontWeight.BOLD,

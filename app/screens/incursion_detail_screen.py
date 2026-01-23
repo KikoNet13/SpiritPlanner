@@ -92,7 +92,7 @@ def incursion_detail_view(
         for option in options:
             list_view.controls.append(
                 ft.ListTile(
-                    leading=ft.Icon(ft.icons.SHIELD),
+                    leading=ft.Icon(ft.Icons.SECURITY),
                     title=ft.Text(option.name),
                     on_click=lambda event, aid=option.adversary_id: handle_select(
                         aid
@@ -184,7 +184,7 @@ def incursion_detail_view(
 
         setup_column.controls.append(
             ft.ListTile(
-                leading=ft.Icon(ft.icons.GROUP),
+                leading=ft.Icon(ft.Icons.GROUP),
                 title=ft.Text("Espíritus"),
                 subtitle=ft.Text(
                     f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
@@ -194,7 +194,7 @@ def incursion_detail_view(
         )
         setup_column.controls.append(
             ft.ListTile(
-                leading=ft.Icon(ft.icons.DASHBOARD),
+                leading=ft.Icon(ft.Icons.DASHBOARD),
                 title=ft.Text("Tableros"),
                 subtitle=ft.Text(
                     f"{get_board_name(incursion.get('board_1'))} + "
@@ -204,7 +204,7 @@ def incursion_detail_view(
         )
         setup_column.controls.append(
             ft.ListTile(
-                leading=ft.Icon(ft.icons.VIEW_QUILT),
+                leading=ft.Icon(ft.Icons.VIEW_QUILT),
                 title=ft.Text("Distribución"),
                 subtitle=ft.Text(get_layout_name(incursion.get("board_layout"))),
             )
@@ -218,7 +218,7 @@ def incursion_detail_view(
                 [
                     ft.Row(
                         [
-                            ft.Icon(ft.icons.SHIELD),
+                            ft.Icon(ft.Icons.SECURITY),
                             ft.Text("Adversario", weight=ft.FontWeight.BOLD),
                         ],
                         spacing=8,
@@ -247,7 +247,7 @@ def incursion_detail_view(
             setup_column.controls.append(
                 ft.OutlinedButton(
                     "Elegir adversario",
-                    icon=ft.icons.EDIT,
+                    icon=ft.Icons.EDIT,
                     on_click=lambda event: open_adversary_selector(
                         incursion,
                         lambda adversary_id: update_adversary(
@@ -347,7 +347,9 @@ def incursion_detail_view(
                     [
                         ft.ElevatedButton(
                             "Pausar sesión" if open_session else "Reanudar sesión",
-                            icon=ft.icons.PAUSE if open_session else ft.icons.PLAY_ARROW,
+                            icon=ft.Icons.PAUSE
+                            if open_session
+                            else ft.Icons.PLAY_ARROW,
                             on_click=handle_pause if open_session else handle_resume,
                         ),
                     ],
@@ -365,7 +367,7 @@ def incursion_detail_view(
             for session in sessions:
                 sessions_list.controls.append(
                     ft.ListTile(
-                        leading=ft.Icon(ft.icons.TIMER),
+                        leading=ft.Icon(ft.Icons.TIMER),
                         title=ft.Text(
                             f"{format_ts(session.get('started_at'))} → {format_ts(session.get('ended_at'))}"
                         ),
@@ -461,7 +463,7 @@ def incursion_detail_view(
             result_label = "Victoria" if result_value == "win" else "Derrota"
             result_column.controls.append(
                 ft.ListTile(
-                    leading=ft.Icon(ft.icons.EMOJI_EVENTS),
+                    leading=ft.Icon(ft.Icons.EMOJI_EVENTS),
                     title=ft.Text("Resultado final"),
                     subtitle=ft.Text(
                         f"{result_label} · Score {incursion.get('score')}"
@@ -482,7 +484,7 @@ def incursion_detail_view(
                             ),
                             ft.ElevatedButton(
                                 "Finalizar incursión",
-                                icon=ft.icons.FLAG,
+                                icon=ft.Icons.FLAG,
                                 on_click=open_finalize_dialog,
                             ),
                         ],

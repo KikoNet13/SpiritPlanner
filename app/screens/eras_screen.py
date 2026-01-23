@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import flet as ft
 
+from app.navigation.navigator import Navigator
 from app.services.firestore_service import FirestoreService
 
 
-def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
+def eras_view(
+    page: ft.Page, service: FirestoreService, navigator: Navigator
+) -> ft.Control:
     title = ft.Text("Eras", size=22, weight=ft.FontWeight.BOLD)
     eras_list = ft.ListView(spacing=12, expand=True)
 
@@ -17,22 +20,13 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
             border_radius=12,
         )
 
-    async def navigate_to(route: str) -> None:
-        await page.push_route(route)
-
     def build_open_periods_handler(era_id: str):
-        async def handler(event: ft.ControlEvent) -> None:
-            await navigate_to(f"/eras/{era_id}")
-
-        return handler
+        return lambda event: navigator.go(f"/eras/{era_id}")
 
     def build_open_active_handler(active_incursion):
-        async def handler(event: ft.ControlEvent) -> None:
-            await navigate_to(
-                f"/eras/{active_incursion.era_id}/periods/{active_incursion.period_id}/incursions/{active_incursion.incursion_id}"
-            )
-
-        return handler
+        return lambda event: navigator.go(
+            f"/eras/{active_incursion.era_id}/periods/{active_incursion.period_id}/incursions/{active_incursion.incursion_id}"
+        )
 
     def show_message(text: str) -> None:
         page.snack_bar = ft.SnackBar(ft.Text(text))

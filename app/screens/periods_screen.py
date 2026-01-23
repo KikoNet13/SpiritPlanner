@@ -60,6 +60,7 @@ def periods_view(
         selections: dict[str, str | None] = {
             incursion["id"]: incursion.get("adversary_id") for incursion in incursions
         }
+        selectors: dict[str, ft.Dropdown] = {}
         options = [
             ft.dropdown.Option(item.adversary_id, item.name)
             for item in sorted(
@@ -73,6 +74,7 @@ def periods_view(
                 options=options,
                 value=selections.get(incursion["id"]),
             )
+            selectors[incursion["id"]] = selector
 
             def handle_select(event: ft.ControlEvent) -> None:
                 logger.info(
@@ -113,6 +115,8 @@ def periods_view(
 
         def handle_save(dialog: ft.AlertDialog) -> None:
             logger.info("Saving adversary assignments period_id=%s", period_id)
+            for incursion_id, selector in selectors.items():
+                selections[incursion_id] = selector.value
             try:
                 service.assign_period_adversaries(
                     era_id,

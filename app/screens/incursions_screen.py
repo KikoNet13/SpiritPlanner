@@ -26,7 +26,7 @@ def incursions_view(
         )
 
     def navigate_to(route: str) -> None:
-        page.go(route)
+        page.push_route(route)
 
     def load_incursions() -> None:
         incursions_list.controls.clear()

@@ -18,7 +18,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
         )
 
     def navigate_to(route: str) -> None:
-        page.go(route)
+        page.push_route(route)
 
     def show_message(text: str) -> None:
         page.snack_bar = ft.SnackBar(ft.Text(text))

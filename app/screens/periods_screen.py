@@ -14,7 +14,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
     periods_list = ft.ListView(spacing=12, expand=True)
 
     def navigate_to(route: str) -> None:
-        page.go(route)
+        page.push_route(route)
 
     def can_reveal(periods: list[dict], index: int) -> bool:
         if index == 0:
@@ -106,37 +106,35 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                 ),
             ],
         )
-        page.dialog = dialog
-        dialog.open = True
-        page.update()
+        page.show_dialog(dialog)
 
-    def handle_reveal(period_id: str, dialog: ft.AlertDialog) -> None:
+    def handle_reveal(period_id: str) -> None:
         try:
             service.reveal_period(era_id, period_id)
-        except ValueError as exc:
-            show_message(str(exc))
+        except ValueError:
             return
 
-        page.pop_dialog()
         load_periods()
         page.update()
 
-    def open_reveal_dialog(period_id: str) -> None:
-        dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Revelar periodo"),
-            content=ft.Text(
-                "Se revelarán las incursiones y podrás asignar adversarios."
-            ),
-            actions=[
-                ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog)),
-                ft.ElevatedButton(
-                    "Revelar",
-                    on_click=lambda event: handle_reveal(period_id, dialog),
-                ),
-            ],
+    def build_incursions_section(period_id: str) -> ft.Control:
+        incursions = service.list_incursions(era_id, period_id)
+        if not incursions:
+            return ft.Container()
+        entries: list[ft.Control] = []
+        for incursion in incursions:
+            spirit_1 = incursion.get("spirit_1_id") or "—"
+            spirit_2 = incursion.get("spirit_2_id") or "—"
+            entries.append(
+                ft.Text(
+                    f"Incursión {incursion.get('index', 0)}: "
+                    f"{spirit_1} / {spirit_2}"
+                )
+            )
+        return ft.Container(
+            content=ft.Column(entries, spacing=4),
+            padding=ft.padding.only(left=12, right=12, bottom=4),
         )
-        page.show_dialog(dialog)
 
     def load_periods() -> None:
         periods_list.controls.clear()
@@ -179,10 +177,15 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                 actions.append(
                     ft.OutlinedButton(
                         "Revelar periodo",
-                        on_click=lambda event, pid=period_id: open_reveal_dialog(pid),
+                        on_click=lambda event, pid=period_id: handle_reveal(pid),
                     )
                 )
 
+            incursions_section = (
+                build_incursions_section(period_id)
+                if period.get("revealed_at")
+                else ft.Container()
+            )
             periods_list.controls.append(
                 ft.Container(
                     content=ft.Column(
@@ -200,6 +203,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                                 spacing=8,
                                 alignment=ft.MainAxisAlignment.END,
                             ),
+                            incursions_section,
                         ],
                         spacing=4,
                     ),

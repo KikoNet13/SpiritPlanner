@@ -23,7 +23,7 @@ def incursion_detail_view(
     era_id: str,
     period_id: str,
     incursion_id: str,
-) -> ft.View:
+) -> ft.Control:
     title = ft.Text("Detalle de incursión", size=22, weight=ft.FontWeight.BOLD)
     header_container = ft.Container(
         padding=12,
@@ -502,9 +502,8 @@ def incursion_detail_view(
 
     load_detail()
 
-    return ft.View(
-        route=f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
-        controls=[
+    return ft.Column(
+        [
             ft.AppBar(title=ft.Text("Incursión"), center_title=True),
             ft.Container(
                 content=ft.Column(
@@ -525,6 +524,9 @@ def incursion_detail_view(
                     spacing=12,
                 ),
                 padding=16,
+                expand=True,
             ),
         ],
+        expand=True,
+        spacing=0,
     )

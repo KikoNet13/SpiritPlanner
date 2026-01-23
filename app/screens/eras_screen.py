@@ -5,7 +5,7 @@ import flet as ft
 from app.services.firestore_service import FirestoreService
 
 
-def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
+def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
     title = ft.Text("Eras", size=22, weight=ft.FontWeight.BOLD)
     eras_list = ft.ListView(spacing=12, expand=True)
 
@@ -121,9 +121,8 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
 
     load_eras()
 
-    return ft.View(
-        route="/eras",
-        controls=[
+    return ft.Column(
+        [
             ft.AppBar(title=ft.Text("Eras"), center_title=True),
             ft.Container(
                 content=ft.Column(
@@ -134,6 +133,9 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
                     expand=True,
                 ),
                 padding=16,
+                expand=True,
             ),
         ],
+        expand=True,
+        spacing=0,
     )

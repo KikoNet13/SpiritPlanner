@@ -9,6 +9,14 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
     title = ft.Text("Eras", size=22, weight=ft.FontWeight.BOLD)
     eras_list = ft.ListView(spacing=12, expand=True)
 
+    def status_chip(label: str, color: str) -> ft.Container:
+        return ft.Container(
+            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            bgcolor=color,
+            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+            border_radius=12,
+        )
+
     def show_message(text: str) -> None:
         page.snack_bar = ft.SnackBar(ft.Text(text))
         page.snack_bar.open = True
@@ -34,6 +42,9 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
             era_id = era["id"]
             is_active = era.get("is_active")
             subtitle = "Activa" if is_active else "Inactiva"
+            status_color = (
+                ft.colors.GREEN_600 if is_active else ft.colors.GREY_500
+            )
             active_count = count_active_incursions(era_id)
             active_incursion = (
                 service.get_active_incursion(era_id) if active_count == 1 else None
@@ -65,18 +76,41 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
                 )
 
             eras_list.controls.append(
-                ft.Card(
-                    content=ft.Container(
-                        content=ft.Column(
-                            [
-                                ft.Text(f"Era {idx}", weight=ft.FontWeight.BOLD),
-                                ft.Text(f"Estado: {subtitle}"),
-                                ft.Row(actions, wrap=True),
-                            ],
-                            spacing=8,
-                        ),
-                        padding=12,
-                    )
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.ListTile(
+                                leading=ft.Icon(ft.icons.AUTO_AWESOME),
+                                title=ft.Text(
+                                    f"Era {idx}", weight=ft.FontWeight.BOLD
+                                ),
+                                subtitle=ft.Column(
+                                    [
+                                        ft.Row(
+                                            [
+                                                status_chip(subtitle, status_color),
+                                                ft.Text(
+                                                    f"Incursiones activas: {active_count}"
+                                                ),
+                                            ],
+                                            spacing=8,
+                                        )
+                                    ],
+                                    spacing=4,
+                                ),
+                            ),
+                            ft.Row(
+                                actions,
+                                wrap=True,
+                                spacing=8,
+                                alignment=ft.MainAxisAlignment.END,
+                            ),
+                        ],
+                        spacing=4,
+                    ),
+                    padding=12,
+                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border_radius=12,
                 )
             )
         page.update()
@@ -86,7 +120,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
     return ft.View(
         route="/eras",
         controls=[
-            ft.AppBar(title=ft.Text("SpiritPlanner")),
+            ft.AppBar(title=ft.Text("Eras"), center_title=True),
             ft.Container(
                 content=ft.Column(
                     [

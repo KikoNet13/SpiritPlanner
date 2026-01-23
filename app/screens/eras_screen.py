@@ -17,6 +17,10 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
             border_radius=12,
         )
 
+    def navigate_to(route: str) -> None:
+        page.route = route
+        page.update()
+
     def show_message(text: str) -> None:
         page.snack_bar = ft.SnackBar(ft.Text(text))
         page.snack_bar.open = True
@@ -52,16 +56,14 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
             actions = [
                 ft.ElevatedButton(
                     "Ver periodos",
-                    on_click=lambda event, era_id=era_id: page.push_route(
-                        f"/eras/{era_id}"
-                    ),
+                    on_click=lambda event, era_id=era_id: navigate_to(f"/eras/{era_id}"),
                 )
             ]
             if active_incursion:
                 actions.append(
                     ft.OutlinedButton(
                         "Ir a incursión activa",
-                        on_click=lambda event, active=active_incursion: page.push_route(
+                        on_click=lambda event, active=active_incursion: navigate_to(
                             f"/eras/{active.era_id}/periods/{active.period_id}/incursions/{active.incursion_id}"
                         ),
                     )

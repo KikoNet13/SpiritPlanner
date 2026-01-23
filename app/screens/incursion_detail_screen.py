@@ -30,9 +30,9 @@ def incursion_detail_view(
         border=ft.border.all(1, ft.Colors.GREY_300),
         border_radius=12,
     )
-    setup_column = ft.Column(spacing=12, scroll=ft.ScrollMode.AUTO)
-    sessions_column = ft.Column(spacing=12, scroll=ft.ScrollMode.AUTO)
-    result_column = ft.Column(spacing=12, scroll=ft.ScrollMode.AUTO)
+    setup_column = ft.ListView(spacing=12, expand=True)
+    sessions_column = ft.ListView(spacing=12, expand=True)
+    result_column = ft.ListView(spacing=12, expand=True)
 
     def status_chip(label: str, color: str) -> ft.Container:
         return ft.Container(

@@ -25,6 +25,10 @@ def incursions_view(
             border_radius=12,
         )
 
+    def navigate_to(route: str) -> None:
+        page.route = route
+        page.update()
+
     def load_incursions() -> None:
         incursions_list.controls.clear()
         incursions = service.list_incursions(era_id, period_id)
@@ -78,7 +82,7 @@ def incursions_view(
                                 [
                                     ft.ElevatedButton(
                                         "Abrir",
-                                        on_click=lambda event, iid=incursion_id: page.push_route(
+                                        on_click=lambda event, iid=incursion_id: navigate_to(
                                             f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
                                         ),
                                     )

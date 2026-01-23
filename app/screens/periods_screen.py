@@ -24,6 +24,10 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
             border_radius=12,
         )
 
+    def navigate_to(route: str) -> None:
+        page.route = route
+        page.update()
+
     def can_reveal(periods: list[dict], index: int) -> bool:
         if index == 0:
             return True
@@ -232,7 +236,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
                 actions.append(
                     ft.ElevatedButton(
                         "Ver incursiones",
-                        on_click=lambda event, pid=period_id: page.push_route(
+                        on_click=lambda event, pid=period_id: navigate_to(
                             f"/eras/{era_id}/periods/{pid}"
                         ),
                     )

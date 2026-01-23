@@ -44,13 +44,13 @@ def main(page: ft.Page) -> None:
 
     def handle_view_pop(view: ft.ViewPopEvent) -> None:
         page.views.pop()
-        top_view = page.views[-1]
-        page.push_route(top_view.route)
+        page.update()
 
     page.on_route_change = handle_route_change
     page.on_view_pop = handle_view_pop
-    page.push_route("/eras")
+
+    page.run_task(lambda: page.push_route("/eras"))
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)

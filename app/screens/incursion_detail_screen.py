@@ -27,7 +27,7 @@ def incursion_detail_view(
     title = ft.Text("Detalle de incursión", size=22, weight=ft.FontWeight.BOLD)
     header_container = ft.Container(
         padding=12,
-        border=ft.border.all(1, ft.colors.GREY_300),
+        border=ft.border.all(1, ft.Colors.GREY_300),
         border_radius=12,
     )
     setup_column = ft.Column(spacing=12, scroll=ft.ScrollMode.AUTO)
@@ -36,7 +36,7 @@ def incursion_detail_view(
 
     def status_chip(label: str, color: str) -> ft.Container:
         return ft.Container(
-            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            content=ft.Text(label, size=12, color=ft.Colors.WHITE),
             bgcolor=color,
             padding=ft.padding.symmetric(horizontal=8, vertical=4),
             border_radius=12,
@@ -155,13 +155,13 @@ def incursion_detail_view(
         open_session = any(session.get("ended_at") is None for session in sessions)
 
         status = "No iniciado"
-        status_color = ft.colors.GREY_500
+        status_color = ft.Colors.GREY_500
         if incursion.get("ended_at"):
             status = "Finalizado"
-            status_color = ft.colors.BLUE_600
+            status_color = ft.Colors.BLUE_600
         elif incursion.get("started_at"):
             status = "Activo"
-            status_color = ft.colors.GREEN_600
+            status_color = ft.Colors.GREEN_600
 
         header_container.content = ft.Column(
             [
@@ -238,7 +238,7 @@ def incursion_detail_view(
                 spacing=6,
             ),
             padding=12,
-            border=ft.border.all(1, ft.colors.GREY_300),
+            border=ft.border.all(1, ft.Colors.GREY_300),
             border_radius=12,
         )
         setup_column.controls.append(strategy_section)
@@ -325,7 +325,7 @@ def incursion_detail_view(
                         spacing=8,
                     ),
                     padding=12,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=12,
                 )
             )
@@ -489,7 +489,7 @@ def incursion_detail_view(
                         spacing=8,
                     ),
                     padding=12,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=12,
                 )
             )

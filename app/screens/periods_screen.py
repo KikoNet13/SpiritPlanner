@@ -18,7 +18,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
 
     def status_chip(label: str, color: str) -> ft.Container:
         return ft.Container(
-            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            content=ft.Text(label, size=12, color=ft.Colors.WHITE),
             bgcolor=color,
             padding=ft.padding.symmetric(horizontal=8, vertical=4),
             border_radius=12,
@@ -216,23 +216,23 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
         for idx, period in enumerate(periods):
             period_id = period["id"]
             status = "No revelado"
-            status_color = ft.colors.GREY_500
+            status_color = ft.Colors.GREY_500
             if period.get("ended_at"):
                 status = "Finalizado"
-                status_color = ft.colors.BLUE_600
+                status_color = ft.Colors.BLUE_600
             elif period.get("started_at"):
                 status = "Activo"
-                status_color = ft.colors.GREEN_600
+                status_color = ft.Colors.GREEN_600
             elif period.get("revealed_at"):
                 status = "Revelado"
-                status_color = ft.colors.ORANGE_600
+                status_color = ft.Colors.ORANGE_600
 
             actions: list[ft.Control] = []
             if period.get("revealed_at"):
                 actions.append(
                     ft.ElevatedButton(
                         "Ver incursiones",
-                        on_click=lambda event, pid=period_id: page.go(
+                        on_click=lambda event, pid=period_id: page.push_route(
                             f"/eras/{era_id}/periods/{pid}"
                         ),
                     )
@@ -270,7 +270,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Vi
                         spacing=4,
                     ),
                     padding=12,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=12,
                 )
             )

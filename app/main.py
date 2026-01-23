@@ -45,11 +45,11 @@ def main(page: ft.Page) -> None:
     def handle_view_pop(view: ft.ViewPopEvent) -> None:
         page.views.pop()
         top_view = page.views[-1]
-        page.go(top_view.route)
+        page.push_route(top_view.route)
 
     page.on_route_change = handle_route_change
     page.on_view_pop = handle_view_pop
-    page.go("/eras")
+    page.push_route("/eras")
 
 
 if __name__ == "__main__":

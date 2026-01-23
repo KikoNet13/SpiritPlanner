@@ -19,7 +19,7 @@ def incursions_view(
 
     def status_chip(label: str, color: str) -> ft.Container:
         return ft.Container(
-            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            content=ft.Text(label, size=12, color=ft.Colors.WHITE),
             bgcolor=color,
             padding=ft.padding.symmetric(horizontal=8, vertical=4),
             border_radius=12,
@@ -35,13 +35,13 @@ def incursions_view(
         for incursion in incursions:
             incursion_id = incursion["id"]
             status = "No iniciado"
-            status_color = ft.colors.GREY_500
+            status_color = ft.Colors.GREY_500
             if incursion.get("ended_at"):
                 status = "Finalizado"
-                status_color = ft.colors.BLUE_600
+                status_color = ft.Colors.BLUE_600
             elif incursion.get("started_at"):
                 status = "Activo"
-                status_color = ft.colors.GREEN_600
+                status_color = ft.Colors.GREEN_600
             spirit_info = (
                 f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
                 f"{get_spirit_name(incursion.get('spirit_2_id'))}"
@@ -78,7 +78,7 @@ def incursions_view(
                                 [
                                     ft.ElevatedButton(
                                         "Abrir",
-                                        on_click=lambda event, iid=incursion_id: page.go(
+                                        on_click=lambda event, iid=incursion_id: page.push_route(
                                             f"/eras/{era_id}/periods/{period_id}/incursions/{iid}"
                                         ),
                                     )
@@ -89,7 +89,7 @@ def incursions_view(
                         spacing=4,
                     ),
                     padding=12,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=12,
                 )
             )

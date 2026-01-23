@@ -18,8 +18,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
         )
 
     def navigate_to(route: str) -> None:
-        page.route = route
-        page.update()
+        page.go(route)
 
     def show_message(text: str) -> None:
         page.snack_bar = ft.SnackBar(ft.Text(text))
@@ -84,7 +83,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
                     content=ft.Column(
                         [
                             ft.ListTile(
-                                leading=ft.Icon(ft.icons.AUTO_AWESOME),
+                                leading=ft.Icon(ft.Icons.STARS),
                                 title=ft.Text(
                                     f"Era {idx}", weight=ft.FontWeight.BOLD
                                 ),

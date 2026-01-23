@@ -26,8 +26,7 @@ def incursions_view(
         )
 
     def navigate_to(route: str) -> None:
-        page.route = route
-        page.update()
+        page.go(route)
 
     def load_incursions() -> None:
         incursions_list.controls.clear()
@@ -62,7 +61,7 @@ def incursions_view(
                     content=ft.Column(
                         [
                             ft.ListTile(
-                                leading=ft.Icon(ft.icons.EXPLORE),
+                                leading=ft.Icon(ft.Icons.EXPLORE),
                                 title=ft.Text(
                                     f"Incursión {incursion.get('index', 0)}",
                                     weight=ft.FontWeight.BOLD,

@@ -47,8 +47,7 @@ def main(page: ft.Page) -> None:
 
     page.on_route_change = handle_route_change
 
-    page.route = "/eras"
-    render_route(page.route)
+    page.go("/eras")
 
 
 if __name__ == "__main__":

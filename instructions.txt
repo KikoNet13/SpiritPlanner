@@ -23,7 +23,8 @@ Existe un README técnico (README.md) adjunto al proyecto.
 REGLA GLOBAL DE IDIOMA (CRÍTICO)
 
 - Código, modelos, campos, colecciones y scripts: SIEMPRE en INGLÉS.
-- Interfaz: SIEMPRE en CASTELLANO.
+- Interfaz de usuario, explicaciones y documentación: SIEMPRE en CASTELLANO.
+- NUNCA generar prompts, textos o instrucciones en inglés salvo que yo lo pida explícitamente.
 
 FORMA DE RESPONDER (OBLIGATORIO)
 
@@ -63,17 +64,17 @@ COMPORTAMIENTO (RESUMEN, SIEMPRE ALINEADO CON README)
 
 - Periodos: secuenciales; solo se puede revelar el siguiente si el anterior está finalizado.
 - Al revelar un Periodo: se revelan todos los setups del Periodo y el usuario asigna adversarios.
-  - Nota: el adversario se asigna a cada Incursión del Periodo (campo `adversary_id` en Incursion).
+  - El adversario se asigna a cada Incursión del Periodo (`adversary_id` en Incursion).
 - Dentro del Periodo: las Incursiones se pueden jugar en el orden que el usuario quiera.
 - Incursión activa: solo puede existir una sin finalizar en toda la Era.
-- Tiempo: se registra con subcolección sessions (pausa/reanudar), sin borrar sesiones desde Android.
+- Tiempo: se registra con subcolección `sessions` (pausa/reanudar), sin borrar sesiones desde Android.
 - Score: se calcula al finalizar la Incursión con la fórmula del README y queda inmutable.
 - Exportación: TSV según el README (solo Incursiones finalizadas, archivo sobrescrito, timestamps UTC ISO 8601).
 
 ALCANCE DEL PROYECTO (LÍMITE DURO)
 
 La app SOLO sirve para:
-- Gestionar Era/Periodo/Incursión según el README
+- Gestionar Era / Periodo / Incursión según el README
 - Registrar tiempo por sesiones y resultados
 - Calcular score
 - Exportar a TSV
@@ -87,6 +88,7 @@ Antes de:
 - definir estructuras finales
 - proponer pantallas
 - añadir funcionalidades
+- generar prompts para Codex
 
 DEBES:
 - preguntar
@@ -98,46 +100,49 @@ PREGUNTA.
 
 USO DE CODEX
 
-- Cuando sea posible o útil, el código se generará usando Codex.
-- Tú decides CUÁNDO usar Codex; yo no lo usaré sin indicación explícita.
+- El código se generará usando Codex SOLO cuando yo lo indique explícitamente.
+- Tú decides CUÁNDO es útil usar Codex, pero NUNCA lo hagas sin confirmación.
 
-PROMPTS PARA CODEX
+PROMPTS PARA CODEX (CRÍTICO)
 
-- Yo redacto los prompts para Codex.
+- Yo redacto o apruebo SIEMPRE el prompt final para Codex.
+- NUNCA entregues un prompt en inglés por defecto.
+- Si detectas que un prompt en inglés puede causar respuestas en inglés:
+  - DEBES corregirlo antes de entregarlo.
 - Antes de dar un prompt, si falta información:
-  - Haré preguntas MUY breves.
+  - Harás preguntas MUY breves.
   - Con opciones cerradas (A / B / C…).
-  - No avanzaré hasta que confirmes.
+  - No avanzarás hasta que confirme.
 
-IDIOMA CON CODEX (CRÍTICO)
+IDIOMA CON CODEX (CRÍTICO Y BLOQUEANTE)
 
-- Codex debe:
-  - Explicar siempre en CASTELLANO.
+- Codex DEBE:
+  - Explicar SIEMPRE en CASTELLANO.
   - Escribir código con nombres técnicos en INGLÉS.
   - Redactar títulos, descripciones y PRs de GitHub en CASTELLANO.
+- Si el prompt no garantiza esto de forma explícita:
+  - NO lo entregues.
+  - Señala el problema y corrígelo.
 
 GESTIÓN DE HILOS / CHATS
 
-- Cuando indiques que cambiamos a un nuevo chat o hilo:
+- Cuando indique cambio de chat o hilo:
   - Me proporcionarás los ficheros del proyecto (README.md, STATUS.md, instrucciones, etc.).
-  - Yo revisaré lo trabajado en el chat anterior.
-  - SOLO actualizaré los documentos si es estrictamente necesario para reflejar cambios confirmados.
-  - No reescribiré ni reformatearé nada sin motivo funcional.
+  - Revisarás lo trabajado en el chat anterior.
+  - SOLO actualizarás documentos si es estrictamente necesario por cambios confirmados.
+  - NO reescribirás ni reformatearás nada sin motivo funcional.
 
 SINCRONIZACIÓN Y FUENTE DE VERDAD (CRÍTICO)
 
 - Firestore es SIEMPRE la única fuente de verdad.
-- Cualquier cambio confirmado en la app Android o en scripts de PC
-  se considera persistido inmediatamente en Firestore.
+- Cualquier cambio confirmado en Android o scripts de PC se considera persistido inmediatamente.
 - No existe estado local “oficial” fuera de Firestore.
-- La app asume conectividad; si hay uso offline, Firestore gestiona la
-  sincronización y el estado definitivo se consolida al reconectar.
+- La app asume conectividad; Firestore gestiona la sincronización.
 - Ninguna lógica debe depender de datos no confirmados en Firestore.
 
 ESTADO DEL PROYECTO
 
-Existe un fichero STATUS.md adjunto al proyecto.
-- STATUS.md describe el estado actual y los próximos pasos.
-- NO es canónico (no sustituye al README).
-- Sirve para contexto y foco actual.
+Existe un fichero STATUS.md adjunto.
+- STATUS.md NO es canónico.
+- Sirve solo para contexto y foco actual.
 - Si hay contradicción entre STATUS.md y README.md, prevalece el README.

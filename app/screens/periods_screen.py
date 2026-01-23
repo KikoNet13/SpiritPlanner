@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import flet as ft
 
+from app.navigation.navigator import Navigator
 from app.services.firestore_service import FirestoreService
 from app.screens.data_lookup import (
     get_adversary_catalog,
@@ -9,18 +10,17 @@ from app.screens.data_lookup import (
 )
 
 
-def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Control:
+def periods_view(
+    page: ft.Page,
+    service: FirestoreService,
+    navigator: Navigator,
+    era_id: str,
+) -> ft.Control:
     title = ft.Text("Era", size=22, weight=ft.FontWeight.BOLD)
     periods_list = ft.ListView(spacing=12, expand=True)
 
-    async def navigate_to(route: str) -> None:
-        await page.push_route(route)
-
     def build_open_period_handler(period_id: str):
-        async def handler(event: ft.ControlEvent) -> None:
-            await navigate_to(f"/eras/{era_id}/periods/{period_id}")
-
-        return handler
+        return lambda event: navigator.go(f"/eras/{era_id}/periods/{period_id}")
 
     def can_reveal(periods: list[dict], index: int) -> bool:
         if index == 0:

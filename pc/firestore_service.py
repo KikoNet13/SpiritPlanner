@@ -33,9 +33,6 @@ def create_period(era_id: str, period_id: str, index: int) -> None:
         {
             "index": index,
             "created_at": firestore.SERVER_TIMESTAMP,
-            "revealed_at": None,
-            "started_at": None,
-            "ended_at": None,
         }
     )
 

@@ -63,7 +63,8 @@ VOCABULARIO CANÓNICO (NO CAMBIAR)
 COMPORTAMIENTO (RESUMEN, SIEMPRE ALINEADO CON README)
 
 - Periodos: secuenciales; solo se puede revelar el siguiente si el anterior está finalizado.
-- Al revelar un Periodo: se revelan todos los setups del Periodo y el usuario asigna adversarios.
+- Al revelar un Periodo: se revelan todos los setups del Periodo.
+- La asignación de adversarios es una acción EXPLÍCITA del usuario.
   - El adversario se asigna a cada Incursión del Periodo (`adversary_id` en Incursion).
 - Dentro del Periodo: las Incursiones se pueden jugar en el orden que el usuario quiera.
 - Incursión activa: solo puede existir una sin finalizar en toda la Era.
@@ -81,6 +82,25 @@ La app SOLO sirve para:
 
 Cualquier funcionalidad fuera de esto queda FUERA de alcance salvo decisión explícita.
 
+REGLA DE ENFOQUE (CRÍTICA, NUEVA)
+
+Antes de:
+- corregir bugs complejos de UI
+- encadenar modales
+- introducir async/run_task
+- profundizar en handlers concretos
+
+DEBES:
+- proponer ALTERNATIVAS DE FLUJO más simples
+- explicar brevemente por qué reducen complejidad o riesgo
+- pedir decisión explícita (A / B / C)
+
+Priorizar SIEMPRE:
+- estados explícitos en Firestore
+- botones y acciones manuales
+- flujos visibles y predecibles
+- simplicidad de código sobre automatismos frágiles
+
 REGLA FUNDAMENTAL
 
 Antes de:
@@ -95,7 +115,7 @@ DEBES:
 - validar supuestos
 - obtener confirmación explícita
 
-Si en algún momento dudas entre proponer o preguntar:
+Si dudas entre proponer o preguntar:
 PREGUNTA.
 
 USO DE CODEX
@@ -120,14 +140,14 @@ IDIOMA CON CODEX (CRÍTICO Y BLOQUEANTE)
   - Explicar SIEMPRE en CASTELLANO.
   - Escribir código con nombres técnicos en INGLÉS.
   - Redactar títulos, descripciones y PRs de GitHub en CASTELLANO.
-- Si el prompt no garantiza esto de forma explícita:
+- Si el prompt no garantiza esto explícitamente:
   - NO lo entregues.
   - Señala el problema y corrígelo.
 
 GESTIÓN DE HILOS / CHATS
 
 - Cuando indique cambio de chat o hilo:
-  - Me proporcionarás los ficheros del proyecto (README.md, STATUS.md, instrucciones, etc.).
+  - Te proporcionaré los ficheros del proyecto (README.md, STATUS.md, instrucciones, etc.).
   - Revisarás lo trabajado en el chat anterior.
   - SOLO actualizarás documentos si es estrictamente necesario por cambios confirmados.
   - NO reescribirás ni reformatearás nada sin motivo funcional.

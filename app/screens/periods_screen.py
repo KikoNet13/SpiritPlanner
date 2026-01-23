@@ -49,9 +49,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
             f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
             f"{get_spirit_name(incursion.get('spirit_2_id'))}"
         )
-        options = sorted(
-            get_adversary_catalog().values(), key=lambda item: item.name
-        )
+        options = sorted(get_adversary_catalog().values(), key=lambda item: item.name)
         list_view = ft.ListView(spacing=8, expand=True)
 
         def handle_select(adversary_id: str) -> None:
@@ -63,9 +61,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                 ft.ListTile(
                     leading=ft.Icon(ft.Icons.SECURITY),
                     title=ft.Text(option.name),
-                    on_click=lambda event, aid=option.adversary_id: handle_select(
-                        aid
-                    ),
+                    on_click=lambda event, aid=option.adversary_id: handle_select(aid),
                 )
             )
 
@@ -80,7 +76,9 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                 tight=True,
                 spacing=12,
             ),
-            actions=[ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog))],
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog))
+            ],
         )
         page.overlay.append(dialog)
         dialog.open = True
@@ -186,9 +184,17 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
         except ValueError as exc:
             show_message(str(exc))
             return
-        close_dialog(dialog)
+
+        page.pop_dialog()
+        load_periods()
+        page.update()
+
         incursions = service.list_incursions(era_id, period_id)
-        open_assignment_dialog(period_id, incursions)
+
+        def open_next():
+            open_assignment_dialog(period_id, incursions)
+
+        page.run_task(open_next)
 
     def open_reveal_dialog(period_id: str) -> None:
         dialog = ft.AlertDialog(
@@ -205,9 +211,7 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                 ),
             ],
         )
-        page.dialog = dialog
-        dialog.open = True
-        page.update()
+        page.show_dialog(dialog)
 
     def load_periods() -> None:
         periods_list.controls.clear()

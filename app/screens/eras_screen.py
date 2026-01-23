@@ -17,8 +17,22 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
             border_radius=12,
         )
 
-    def navigate_to(route: str) -> None:
-        page.push_route(route)
+    async def navigate_to(route: str) -> None:
+        await page.push_route(route)
+
+    def build_open_periods_handler(era_id: str):
+        async def handler(event: ft.ControlEvent) -> None:
+            await navigate_to(f"/eras/{era_id}")
+
+        return handler
+
+    def build_open_active_handler(active_incursion):
+        async def handler(event: ft.ControlEvent) -> None:
+            await navigate_to(
+                f"/eras/{active_incursion.era_id}/periods/{active_incursion.period_id}/incursions/{active_incursion.incursion_id}"
+            )
+
+        return handler
 
     def show_message(text: str) -> None:
         page.snack_bar = ft.SnackBar(ft.Text(text))
@@ -55,16 +69,14 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
             actions = [
                 ft.ElevatedButton(
                     "Ver periodos",
-                    on_click=lambda event, era_id=era_id: navigate_to(f"/eras/{era_id}"),
+                    on_click=build_open_periods_handler(era_id),
                 )
             ]
             if active_incursion:
                 actions.append(
                     ft.OutlinedButton(
                         "Ir a incursión activa",
-                        on_click=lambda event, active=active_incursion: navigate_to(
-                            f"/eras/{active.era_id}/periods/{active.period_id}/incursions/{active.incursion_id}"
-                        ),
+                        on_click=build_open_active_handler(active_incursion),
                     )
                 )
             elif active_count > 1:

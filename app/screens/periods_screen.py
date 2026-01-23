@@ -13,8 +13,14 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
     title = ft.Text("Era", size=22, weight=ft.FontWeight.BOLD)
     periods_list = ft.ListView(spacing=12, expand=True)
 
-    def navigate_to(route: str) -> None:
-        page.push_route(route)
+    async def navigate_to(route: str) -> None:
+        await page.push_route(route)
+
+    def build_open_period_handler(period_id: str):
+        async def handler(event: ft.ControlEvent) -> None:
+            await navigate_to(f"/eras/{era_id}/periods/{period_id}")
+
+        return handler
 
     def can_reveal(periods: list[dict], index: int) -> bool:
         if index == 0:
@@ -150,18 +156,14 @@ def periods_view(page: ft.Page, service: FirestoreService, era_id: str) -> ft.Co
                 actions.append(
                     ft.ElevatedButton(
                         "Ver resultados",
-                        on_click=lambda event, pid=period_id: navigate_to(
-                            f"/eras/{era_id}/periods/{pid}"
-                        ),
+                        on_click=build_open_period_handler(period_id),
                     )
                 )
             elif period.get("adversaries_assigned_at"):
                 actions.append(
                     ft.ElevatedButton(
                         "Ver incursiones",
-                        on_click=lambda event, pid=period_id: navigate_to(
-                            f"/eras/{era_id}/periods/{pid}"
-                        ),
+                        on_click=build_open_period_handler(period_id),
                     )
                 )
             elif period.get("revealed_at"):

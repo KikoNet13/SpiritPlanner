@@ -9,45 +9,60 @@ from app.screens.periods_screen import periods_view
 from app.services.firestore_service import FirestoreService
 
 
-def main(page: ft.Page) -> None:
+async def main(page: ft.Page) -> None:
     page.title = "SpiritPlanner"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.scroll = ft.ScrollMode.AUTO
 
     service = FirestoreService()
 
-    def render_route(route: str) -> None:
-        page.controls.clear()
-        parts = [part for part in route.split("/") if part]
-        if (
-            len(parts) >= 6
-            and parts[0] == "eras"
-            and parts[2] == "periods"
-            and parts[4] == "incursions"
-        ):
+    async def navigate_to(route: str) -> None:
+        await page.push_route(route)
+
+    def add_view(route: str, content: ft.Control) -> None:
+        page.views.append(ft.View(route=route, controls=[content]))
+
+    async def handle_route_change(event: ft.RouteChangeEvent) -> None:
+        page.views.clear()
+        parts = [part for part in event.route.split("/") if part]
+
+        add_view("/eras", eras_view(page, service))
+
+        if len(parts) >= 2 and parts[0] == "eras":
             era_id = parts[1]
-            period_id = parts[3]
-            incursion_id = parts[5]
-            page.controls.append(
-                incursion_detail_view(page, service, era_id, period_id, incursion_id)
-            )
-        elif len(parts) >= 4 and parts[0] == "eras" and parts[2] == "periods":
-            era_id = parts[1]
-            period_id = parts[3]
-            page.controls.append(incursions_view(page, service, era_id, period_id))
-        elif len(parts) >= 2 and parts[0] == "eras":
-            era_id = parts[1]
-            page.controls.append(periods_view(page, service, era_id))
-        else:
-            page.controls.append(eras_view(page, service))
+            add_view(f"/eras/{era_id}", periods_view(page, service, era_id))
+
+            if len(parts) >= 4 and parts[2] == "periods":
+                period_id = parts[3]
+                add_view(
+                    f"/eras/{era_id}/periods/{period_id}",
+                    incursions_view(page, service, era_id, period_id),
+                )
+
+                if len(parts) >= 6 and parts[4] == "incursions":
+                    incursion_id = parts[5]
+                    add_view(
+                        f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
+                        incursion_detail_view(
+                            page, service, era_id, period_id, incursion_id
+                        ),
+                    )
+
         page.update()
 
-    def handle_route_change(route: ft.RouteChangeEvent) -> None:
-        render_route(route.route)
+    async def handle_view_pop(event: ft.ViewPopEvent) -> None:
+        if page.views:
+            page.views.pop()
+        if not page.views:
+            await navigate_to("/eras")
+            return
+        top_view = page.views[-1]
+        await navigate_to(top_view.route)
 
     page.on_route_change = handle_route_change
+    page.on_view_pop = handle_view_pop
 
-    page.push_route("/eras")
+    await navigate_to("/eras")
 
 
 if __name__ == "__main__":

@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import flet as ft
 
-from app.navigation.navigator import Navigator
 from app.services.firestore_service import FirestoreService
+from app.utils.navigation import go_to
 
 
-def eras_view(
-    page: ft.Page, service: FirestoreService, navigator: Navigator
-) -> ft.Control:
+def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
     title = ft.Text("Eras", size=22, weight=ft.FontWeight.BOLD)
     eras_list = ft.ListView(spacing=12, expand=True)
 
@@ -21,17 +19,24 @@ def eras_view(
         )
 
     def build_open_periods_handler(era_id: str):
-        return lambda event: navigator.go(f"/eras/{era_id}")
+        return go_to(page, f"/eras/{era_id}")
 
     def build_open_active_handler(active_incursion):
-        return lambda event: navigator.go(
-            f"/eras/{active_incursion.era_id}/periods/{active_incursion.period_id}/incursions/{active_incursion.incursion_id}"
+        return go_to(
+            page,
+            (
+                f"/eras/{active_incursion.era_id}/periods/{active_incursion.period_id}"
+                f"/incursions/{active_incursion.incursion_id}"
+            ),
         )
 
     def show_message(text: str) -> None:
         page.snack_bar = ft.SnackBar(ft.Text(text))
         page.snack_bar.open = True
         page.update()
+
+    def handle_multiple_active_incursions(event: ft.ControlEvent) -> None:
+        show_message("Hay más de una incursión activa.")
 
     def count_active_incursions(era_id: str) -> int:
         total = 0
@@ -77,9 +82,7 @@ def eras_view(
                 actions.append(
                     ft.OutlinedButton(
                         "Ir a incursión activa",
-                        on_click=lambda event: show_message(
-                            "Hay más de una incursión activa."
-                        ),
+                        on_click=handle_multiple_active_incursions,
                         disabled=True,
                     )
                 )

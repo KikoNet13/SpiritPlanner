@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Callable
-
 import flet as ft
 
 from app.services.firestore_service import FirestoreService
 from app.screens.data_lookup import (
-    get_adversary_catalog,
     get_adversary_difficulty,
     get_adversary_levels,
     get_adversary_name,
@@ -73,65 +70,6 @@ def incursion_detail_view(
         dialog.open = False
         page.update()
 
-    def open_adversary_selector(
-        incursion: dict, on_select: Callable[[str], None]
-    ) -> None:
-        spirit_info = (
-            f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
-            f"{get_spirit_name(incursion.get('spirit_2_id'))}"
-        )
-        options = sorted(
-            get_adversary_catalog().values(), key=lambda item: item.name
-        )
-        list_view = ft.ListView(spacing=8, expand=True)
-
-        def handle_select(adversary_id: str) -> None:
-            on_select(adversary_id)
-            close_dialog(dialog)
-
-        for option in options:
-            list_view.controls.append(
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.SECURITY),
-                    title=ft.Text(option.name),
-                    on_click=lambda event, aid=option.adversary_id: handle_select(
-                        aid
-                    ),
-                )
-            )
-
-        dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Seleccionar adversario"),
-            content=ft.Column(
-                [
-                    ft.Text(f"Espíritus: {spirit_info}"),
-                    list_view,
-                ],
-                tight=True,
-                spacing=12,
-            ),
-            actions=[
-                ft.TextButton("Cancelar", on_click=lambda event: close_dialog(dialog))
-            ],
-        )
-        page.dialog = dialog
-        dialog.open = True
-        page.update()
-
-    def update_adversary(
-        incursion: dict, adversary_id: str, label: ft.Text
-    ) -> None:
-        try:
-            service.set_incursion_adversary(
-                era_id, period_id, incursion["id"], adversary_id
-            )
-        except ValueError as exc:
-            show_message(str(exc))
-            return
-        label.value = get_adversary_name(adversary_id)
-        load_detail()
-
     def load_detail() -> None:
         setup_column.controls.clear()
         sessions_column.controls.clear()
@@ -149,7 +87,9 @@ def incursion_detail_view(
             (item for item in service.list_periods(era_id) if item["id"] == period_id),
             None,
         )
-        period_started = bool(period and period.get("started_at"))
+        period_adversaries_assigned = bool(
+            period and period.get("adversaries_assigned_at")
+        )
 
         sessions = service.list_sessions(era_id, period_id, incursion_id)
         open_session = any(session.get("ended_at") is None for session in sessions)
@@ -243,20 +183,6 @@ def incursion_detail_view(
         )
         setup_column.controls.append(strategy_section)
 
-        if not incursion.get("started_at") and not period_started:
-            setup_column.controls.append(
-                ft.OutlinedButton(
-                    "Elegir adversario",
-                    icon=ft.Icons.EDIT,
-                    on_click=lambda event: open_adversary_selector(
-                        incursion,
-                        lambda adversary_id: update_adversary(
-                            incursion, adversary_id, adversary_label
-                        ),
-                    ),
-                )
-            )
-
         if not incursion.get("started_at"):
             adversary_id = incursion.get("adversary_id")
             levels = get_adversary_levels(adversary_id)
@@ -285,6 +211,9 @@ def incursion_detail_view(
             update_difficulty()
 
             def handle_start(event: ft.ControlEvent) -> None:
+                if not period_adversaries_assigned:
+                    show_message("Debes asignar adversarios del periodo.")
+                    return
                 if not adversary_id:
                     show_message("Debes asignar un adversario.")
                     return

@@ -9,7 +9,10 @@ from app.screens.data_lookup import (
     get_layout_name,
     get_spirit_name,
 )
+from app.utils.logger import get_logger
 from app.utils.navigation import go_to
+
+logger = get_logger(__name__)
 
 
 def incursions_view(
@@ -18,10 +21,12 @@ def incursions_view(
     era_id: str,
     period_id: str,
 ) -> ft.Control:
+    logger.debug("Entering incursions_view era_id=%s period_id=%s", era_id, period_id)
     title = ft.Text("Incursiones", size=22, weight=ft.FontWeight.BOLD)
     incursions_list = ft.ListView(spacing=12, expand=True)
 
     def status_chip(label: str, color: str) -> ft.Container:
+        logger.debug("Building status_chip label=%s color=%s", label, color)
         return ft.Container(
             content=ft.Text(label, size=12, color=ft.Colors.WHITE),
             bgcolor=color,
@@ -30,20 +35,24 @@ def incursions_view(
         )
 
     def build_open_incursion_handler(incursion_id: str):
+        logger.debug("Binding open incursion handler incursion_id=%s", incursion_id)
         return go_to(
             page,
             f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
         )
 
     def load_incursions() -> None:
+        logger.debug("Loading incursions era_id=%s period_id=%s", era_id, period_id)
         incursions_list.controls.clear()
         incursions = service.list_incursions(era_id, period_id)
         if not incursions:
+            logger.info("No incursions available era_id=%s period_id=%s", era_id, period_id)
             incursions_list.controls.append(ft.Text("No hay incursiones disponibles."))
             page.update()
             return
         for incursion in incursions:
             incursion_id = incursion["id"]
+            logger.debug("Rendering incursion incursion_id=%s", incursion_id)
             status = "No iniciado"
             status_color = ft.Colors.GREY_500
             if incursion.get("ended_at"):
@@ -104,9 +113,11 @@ def incursions_view(
                 )
             )
         page.update()
+        logger.debug("Incursions loaded count=%s", len(incursions))
 
     load_incursions()
 
+    logger.debug("Exiting incursions_view era_id=%s period_id=%s", era_id, period_id)
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Incursiones"), center_title=True),

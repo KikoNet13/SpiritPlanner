@@ -11,7 +11,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
 
     def status_chip(label: str, color: str) -> ft.Container:
         return ft.Container(
-            content=ft.Text(label, size=12, color=ft.colors.WHITE),
+            content=ft.Text(label, size=12, color=ft.Colors.WHITE),
             bgcolor=color,
             padding=ft.padding.symmetric(horizontal=8, vertical=4),
             border_radius=12,
@@ -43,7 +43,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
             is_active = era.get("is_active")
             subtitle = "Activa" if is_active else "Inactiva"
             status_color = (
-                ft.colors.GREEN_600 if is_active else ft.colors.GREY_500
+                ft.Colors.GREEN_600 if is_active else ft.Colors.GREY_500
             )
             active_count = count_active_incursions(era_id)
             active_incursion = (
@@ -52,14 +52,16 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
             actions = [
                 ft.ElevatedButton(
                     "Ver periodos",
-                    on_click=lambda event, era_id=era_id: page.go(f"/eras/{era_id}"),
+                    on_click=lambda event, era_id=era_id: page.push_route(
+                        f"/eras/{era_id}"
+                    ),
                 )
             ]
             if active_incursion:
                 actions.append(
                     ft.OutlinedButton(
                         "Ir a incursión activa",
-                        on_click=lambda event, active=active_incursion: page.go(
+                        on_click=lambda event, active=active_incursion: page.push_route(
                             f"/eras/{active.era_id}/periods/{active.period_id}/incursions/{active.incursion_id}"
                         ),
                     )
@@ -109,7 +111,7 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.View:
                         spacing=4,
                     ),
                     padding=12,
-                    border=ft.border.all(1, ft.colors.GREY_300),
+                    border=ft.border.all(1, ft.Colors.GREY_300),
                     border_radius=12,
                 )
             )

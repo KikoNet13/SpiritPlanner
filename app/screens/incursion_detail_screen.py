@@ -16,6 +16,11 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+SESSION_STATE_NOT_STARTED = "NO_INICIADA"
+SESSION_STATE_ACTIVE = "ACTIVA"
+SESSION_STATE_PAUSED = "PAUSADA"
+SESSION_STATE_FINALIZED = "FINALIZADA"
+
 
 def incursion_detail_view(
     page: ft.Page,
@@ -142,17 +147,32 @@ def incursion_detail_view(
 
         sessions = service.list_sessions(era_id, period_id, incursion_id)
         open_session = any(session.get("ended_at") is None for session in sessions)
-        logger.debug("Sessions loaded count=%s open_session=%s", len(sessions), open_session)
+        logger.debug(
+            "Sessions loaded count=%s open_session=%s",
+            len(sessions),
+            open_session,
+        )
 
-        status = "No iniciado"
+        def resolve_state() -> str:
+            if incursion.get("ended_at"):
+                return SESSION_STATE_FINALIZED
+            if incursion.get("started_at"):
+                return SESSION_STATE_ACTIVE if open_session else SESSION_STATE_PAUSED
+            return SESSION_STATE_NOT_STARTED
+
+        state = resolve_state()
+        status_label = "No iniciado"
         status_color = ft.Colors.GREY_500
-        if incursion.get("ended_at"):
-            status = "Finalizado"
+        if state == SESSION_STATE_FINALIZED:
+            status_label = "Finalizado"
             status_color = ft.Colors.BLUE_600
-        elif incursion.get("started_at"):
-            status = "Activo"
+        elif state == SESSION_STATE_ACTIVE:
+            status_label = "Activo"
             status_color = ft.Colors.GREEN_600
-        logger.debug("Incursion status=%s", status)
+        elif state == SESSION_STATE_PAUSED:
+            status_label = "Pausado"
+            status_color = ft.Colors.AMBER_600
+        logger.debug("Incursion status=%s", status_label)
 
         spirit_names = (
             f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
@@ -173,7 +193,7 @@ def incursion_detail_view(
                             size=26,
                             color=ft.Colors.WHITE,
                         ),
-                        status_chip(status, status_color),
+                        status_chip(status_label, status_color),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 ),
@@ -250,175 +270,6 @@ def incursion_detail_view(
             spacing=6,
         )
 
-        if not incursion.get("started_at"):
-            adversary_id = incursion.get("adversary_id")
-            levels = get_adversary_levels(adversary_id)
-            level_options = [
-                ft.dropdown.Option(level.level, level.level) for level in levels
-            ]
-            adversary_level = ft.Dropdown(
-                label="Nivel del adversario",
-                options=level_options,
-                disabled=not bool(level_options),
-            )
-            difficulty_text = ft.Text("Dificultad: —")
-
-            def update_difficulty(event: ft.ControlEvent | None = None) -> None:
-                logger.debug(
-                    "Updating difficulty adversary_id=%s level=%s",
-                    adversary_id,
-                    adversary_level.value,
-                )
-                difficulty_value = get_adversary_difficulty(
-                    adversary_id, adversary_level.value
-                )
-                difficulty_text.value = (
-                    f"Dificultad: {difficulty_value}"
-                    if difficulty_value is not None
-                    else "Dificultad: —"
-                )
-                page.update()
-
-            adversary_level.on_change = update_difficulty
-            update_difficulty()
-
-            def handle_start(event: ft.ControlEvent) -> None:
-                logger.info(
-                    "Start incursion requested era_id=%s period_id=%s incursion_id=%s",
-                    era_id,
-                    period_id,
-                    incursion_id,
-                )
-                if not period_adversaries_assigned:
-                    logger.warning("Cannot start incursion; adversaries not assigned")
-                    show_message("Debes asignar adversarios del periodo.")
-                    return
-                if not adversary_id:
-                    logger.warning("Cannot start incursion; adversary not selected")
-                    show_message("Debes asignar un adversario.")
-                    return
-                difficulty_value = get_adversary_difficulty(
-                    adversary_id, adversary_level.value
-                )
-                if not adversary_level.value or difficulty_value is None:
-                    logger.warning("Cannot start incursion; invalid adversary level")
-                    show_message("Debes seleccionar un nivel válido.")
-                    return
-                try:
-                    service.start_incursion(
-                        era_id,
-                        period_id,
-                        incursion_id,
-                        adversary_level.value,
-                        difficulty_value,
-                    )
-                except ValueError as exc:
-                    logger.error(
-                        "Failed to start incursion error=%s", exc, exc_info=True
-                    )
-                    show_message(str(exc))
-                    return
-                load_detail()
-                page.update()
-                logger.info("Incursion started incursion_id=%s", incursion_id)
-
-            actions_section.content = ft.Column(
-                [
-                    ft.Text("Acciones principales", weight=ft.FontWeight.BOLD, size=16),
-                    ft.Text(
-                        "Selecciona el nivel y confirma el inicio de la incursión.",
-                        size=12,
-                        color=ft.Colors.BLUE_GREY_400,
-                    ),
-                    adversary_level,
-                    difficulty_text,
-                    ft.ElevatedButton(
-                        "Iniciar incursión",
-                        icon=ft.Icons.PLAY_ARROW,
-                        on_click=handle_start,
-                    ),
-                ],
-                spacing=8,
-            )
-
-        if incursion.get("started_at") and not incursion.get("ended_at"):
-
-            def handle_pause(event: ft.ControlEvent) -> None:
-                logger.info("Pause session clicked incursion_id=%s", incursion_id)
-                service.pause_incursion(era_id, period_id, incursion_id)
-                load_detail()
-                page.update()
-                logger.debug("Session paused incursion_id=%s", incursion_id)
-
-            def handle_resume(event: ft.ControlEvent) -> None:
-                logger.info("Resume session clicked incursion_id=%s", incursion_id)
-                service.resume_incursion(era_id, period_id, incursion_id)
-                load_detail()
-                page.update()
-                logger.debug("Session resumed incursion_id=%s", incursion_id)
-            actions_section.content = ft.Column(
-                [
-                    ft.Text("Acciones principales", weight=ft.FontWeight.BOLD, size=16),
-                    ft.Text(
-                        "La incursión está activa. Puedes reanudar o pausar la sesión.",
-                        size=12,
-                        color=ft.Colors.BLUE_GREY_400,
-                    ),
-                    ft.Row(
-                        [
-                            ft.ElevatedButton(
-                                "Reanudar incursión",
-                                icon=ft.Icons.PLAY_ARROW,
-                                on_click=handle_resume,
-                            ),
-                            ft.TextButton(
-                                "Pausar sesión",
-                                icon=ft.Icons.PAUSE,
-                                on_click=handle_pause if open_session else handle_resume,
-                            ),
-                        ],
-                        spacing=12,
-                        wrap=True,
-                    ),
-                ],
-                spacing=8,
-            )
-
-        if not actions_section.content:
-            actions_section.content = ft.Column(
-                [
-                    ft.Text("Acciones principales", weight=ft.FontWeight.BOLD, size=16),
-                    ft.Text(
-                        "La incursión está finalizada. Vista solo lectura.",
-                        size=12,
-                        color=ft.Colors.BLUE_GREY_400,
-                    ),
-                ],
-                spacing=8,
-            )
-
-        sessions_list = ft.ListView(spacing=6, expand=False)
-        if not sessions:
-            sessions_list.controls.append(ft.Text("No hay sesiones registradas."))
-        else:
-            for session in sessions:
-                sessions_list.controls.append(
-                    ft.ListTile(
-                        leading=ft.Icon(ft.Icons.TIMER),
-                        title=ft.Text(
-                            f"{format_ts(session.get('started_at'))} → {format_ts(session.get('ended_at'))}"
-                        ),
-                    )
-                )
-        sessions_section.content = ft.Column(
-            [
-                ft.Text("Sesiones registradas", weight=ft.FontWeight.BOLD, size=16),
-                sessions_list,
-                ft.Text(f"Duración total: {total_minutes(sessions)} min"),
-            ],
-            spacing=8,
-        )
-
         def handle_finalize(
             dialog: ft.AlertDialog, fields: dict[str, ft.TextField]
         ) -> None:
@@ -427,8 +278,17 @@ def incursion_detail_view(
                 incursion_id,
                 fields["result"].value,
             )
+            if state == SESSION_STATE_FINALIZED:
+                logger.warning(
+                    "Finalize blocked; incursion already finalized incursion_id=%s",
+                    incursion_id,
+                )
+                show_message("La incursión ya está finalizada.")
+                return
             if not fields["result"].value:
-                logger.warning("Finalize blocked; missing result incursion_id=%s", incursion_id)
+                logger.warning(
+                    "Finalize blocked; missing result incursion_id=%s", incursion_id
+                )
                 show_message("Debes indicar el resultado.")
                 return
             try:
@@ -461,6 +321,13 @@ def incursion_detail_view(
             logger.info("Incursion finalized incursion_id=%s", incursion_id)
 
         def open_finalize_dialog(event: ft.ControlEvent) -> None:
+            if state == SESSION_STATE_FINALIZED:
+                logger.warning(
+                    "Finalize dialog blocked; incursion finalized incursion_id=%s",
+                    incursion_id,
+                )
+                show_message("La incursión ya está finalizada.")
+                return
             logger.info("Opening finalize dialog incursion_id=%s", incursion_id)
             fields = {
                 "result": ft.Dropdown(
@@ -519,7 +386,218 @@ def incursion_detail_view(
             page.update()
             logger.debug("Finalize dialog opened incursion_id=%s", incursion_id)
 
-        if incursion.get("ended_at"):
+        if state == SESSION_STATE_NOT_STARTED:
+            adversary_id = incursion.get("adversary_id")
+            levels = get_adversary_levels(adversary_id)
+            level_options = [
+                ft.dropdown.Option(level.level, level.level) for level in levels
+            ]
+            adversary_level = ft.Dropdown(
+                label="Nivel del adversario",
+                options=level_options,
+                disabled=not bool(level_options),
+            )
+            difficulty_text = ft.Text("Dificultad: —")
+
+            def update_difficulty(event: ft.ControlEvent | None = None) -> None:
+                logger.debug(
+                    "Updating difficulty adversary_id=%s level=%s",
+                    adversary_id,
+                    adversary_level.value,
+                )
+                difficulty_value = get_adversary_difficulty(
+                    adversary_id, adversary_level.value
+                )
+                difficulty_text.value = (
+                    f"Dificultad: {difficulty_value}"
+                    if difficulty_value is not None
+                    else "Dificultad: —"
+                )
+                page.update()
+
+            adversary_level.on_change = update_difficulty
+            update_difficulty()
+
+            def handle_start(event: ft.ControlEvent) -> None:
+                logger.info(
+                    "Start incursion requested era_id=%s period_id=%s incursion_id=%s",
+                    era_id,
+                    period_id,
+                    incursion_id,
+                )
+                if state != SESSION_STATE_NOT_STARTED:
+                    logger.warning(
+                        "Start blocked; invalid state=%s incursion_id=%s",
+                        state,
+                        incursion_id,
+                    )
+                    show_message("La incursión ya está iniciada.")
+                    return
+                if not period_adversaries_assigned:
+                    logger.warning("Cannot start incursion; adversaries not assigned")
+                    show_message("Debes asignar adversarios del periodo.")
+                    return
+                if not adversary_id:
+                    logger.warning("Cannot start incursion; adversary not selected")
+                    show_message("Debes asignar un adversario.")
+                    return
+                difficulty_value = get_adversary_difficulty(
+                    adversary_id, adversary_level.value
+                )
+                if not adversary_level.value or difficulty_value is None:
+                    logger.warning("Cannot start incursion; invalid adversary level")
+                    show_message("Debes seleccionar un nivel válido.")
+                    return
+                try:
+                    service.start_incursion(
+                        era_id,
+                        period_id,
+                        incursion_id,
+                        adversary_level.value,
+                        difficulty_value,
+                    )
+                except ValueError as exc:
+                    logger.error(
+                        "Failed to start incursion error=%s", exc, exc_info=True
+                    )
+                    show_message(str(exc))
+                    return
+                load_detail()
+                page.update()
+                logger.info("Incursion started incursion_id=%s", incursion_id)
+
+            actions_section.content = ft.Column(
+                [
+                    ft.Text("Acciones principales", weight=ft.FontWeight.BOLD, size=16),
+                    ft.Text(
+                        "Selecciona el nivel y confirma el inicio de la incursión.",
+                        size=12,
+                        color=ft.Colors.BLUE_GREY_400,
+                    ),
+                    adversary_level,
+                    difficulty_text,
+                    ft.ElevatedButton(
+                        "Iniciar incursión",
+                        icon=ft.Icons.PLAY_ARROW,
+                        on_click=handle_start,
+                    ),
+                ],
+                spacing=8,
+            )
+
+        if state in {SESSION_STATE_ACTIVE, SESSION_STATE_PAUSED}:
+
+            def handle_pause(event: ft.ControlEvent) -> None:
+                logger.info("Pause session clicked incursion_id=%s", incursion_id)
+                if state != SESSION_STATE_ACTIVE:
+                    logger.warning(
+                        "Pause blocked; invalid state=%s incursion_id=%s",
+                        state,
+                        incursion_id,
+                    )
+                    show_message("Solo puedes pausar una incursión activa.")
+                    return
+                service.pause_incursion(era_id, period_id, incursion_id)
+                load_detail()
+                page.update()
+                logger.debug("Session paused incursion_id=%s", incursion_id)
+
+            def handle_resume(event: ft.ControlEvent) -> None:
+                logger.info("Resume session clicked incursion_id=%s", incursion_id)
+                if state != SESSION_STATE_PAUSED:
+                    logger.warning(
+                        "Resume blocked; invalid state=%s incursion_id=%s",
+                        state,
+                        incursion_id,
+                    )
+                    show_message("Solo puedes reanudar una incursión pausada.")
+                    return
+                service.resume_incursion(era_id, period_id, incursion_id)
+                load_detail()
+                page.update()
+                logger.debug("Session resumed incursion_id=%s", incursion_id)
+            action_buttons: list[ft.Control] = []
+            action_description = ""
+            if state == SESSION_STATE_ACTIVE:
+                action_description = (
+                    "La incursión está activa. Puedes pausar la sesión."
+                )
+                action_buttons.append(
+                    ft.TextButton(
+                        "Pausar sesión",
+                        icon=ft.Icons.PAUSE,
+                        on_click=handle_pause,
+                    )
+                )
+            else:
+                action_description = (
+                    "La incursión está pausada. Puedes reanudar la sesión."
+                )
+                action_buttons.append(
+                    ft.ElevatedButton(
+                        "Reanudar incursión",
+                        icon=ft.Icons.PLAY_ARROW,
+                        on_click=handle_resume,
+                    )
+                )
+
+            action_buttons.append(
+                ft.ElevatedButton(
+                    "Finalizar incursión",
+                    icon=ft.Icons.FLAG,
+                    on_click=open_finalize_dialog,
+                )
+            )
+
+            actions_section.content = ft.Column(
+                [
+                    ft.Text("Acciones principales", weight=ft.FontWeight.BOLD, size=16),
+                    ft.Text(
+                        action_description,
+                        size=12,
+                        color=ft.Colors.BLUE_GREY_400,
+                    ),
+                    ft.Row(action_buttons, spacing=12, wrap=True),
+                ],
+                spacing=8,
+            )
+
+        if not actions_section.content:
+            actions_section.content = ft.Column(
+                [
+                    ft.Text("Acciones principales", weight=ft.FontWeight.BOLD, size=16),
+                    ft.Text(
+                        "La incursión está finalizada. Vista solo lectura.",
+                        size=12,
+                        color=ft.Colors.BLUE_GREY_400,
+                    ),
+                ],
+                spacing=8,
+            )
+
+        sessions_list = ft.ListView(spacing=6, expand=False)
+        if not sessions:
+            sessions_list.controls.append(ft.Text("No hay sesiones registradas."))
+        else:
+            for session in sessions:
+                sessions_list.controls.append(
+                    ft.ListTile(
+                        leading=ft.Icon(ft.Icons.TIMER),
+                        title=ft.Text(
+                            f"{format_ts(session.get('started_at'))} → {format_ts(session.get('ended_at'))}"
+                        ),
+                    )
+                )
+        sessions_section.content = ft.Column(
+            [
+                ft.Text("Sesiones registradas", weight=ft.FontWeight.BOLD, size=16),
+                sessions_list,
+                ft.Text(f"Duración total: {total_minutes(sessions)} min"),
+            ],
+            spacing=8,
+        )
+
+        if state == SESSION_STATE_FINALIZED:
             result_value = incursion.get("result")
             result_label = "Victoria" if result_value == "win" else "Derrota"
             result_section.content = ft.Column(
@@ -535,17 +613,12 @@ def incursion_detail_view(
                 ],
                 spacing=8,
             )
-        elif incursion.get("started_at"):
+        elif state in {SESSION_STATE_ACTIVE, SESSION_STATE_PAUSED}:
             result_section.content = ft.Column(
                 [
                     ft.Text("Finalización", weight=ft.FontWeight.BOLD, size=16),
                     ft.Text(
                         "Completa los datos para cerrar la incursión."
-                    ),
-                    ft.ElevatedButton(
-                        "Finalizar incursión",
-                        icon=ft.Icons.FLAG,
-                        on_click=open_finalize_dialog,
                     ),
                 ],
                 spacing=8,

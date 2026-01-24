@@ -4,6 +4,21 @@ from datetime import datetime
 import logging
 from pathlib import Path
 
+
+class _NoiseFilter(logging.Filter):
+    _NOISY_PREFIXES = (
+        "flet",
+        "flet_core",
+        "flet_runtime",
+        "flet_socket_server",
+        "base_control",
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.WARNING:
+            return True
+        return not record.name.startswith(self._NOISY_PREFIXES)
+
 _LOGGER_CONFIGURED = False
 _LOG_FILE_PATH: Path | None = None
 
@@ -23,11 +38,18 @@ def _configure_logging() -> None:
         "%(levelname)s %(filename)s %(funcName)s %(message)s"
     )
     handler.setFormatter(formatter)
+    handler.addFilter(_NoiseFilter())
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     root_logger.addHandler(handler)
-    for noisy_logger in ("flet", "flet_socket_server", "base_control"):
+    for noisy_logger in (
+        "flet",
+        "flet_core",
+        "flet_runtime",
+        "flet_socket_server",
+        "base_control",
+    ):
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
     _LOGGER_CONFIGURED = True
     root_logger.debug("Logging initialized. log_file=%s", _LOG_FILE_PATH)

@@ -234,11 +234,6 @@ def incursion_detail_view(
             [
                 ft.Text("Datos clave", weight=ft.FontWeight.BOLD, size=16),
                 ft.ListTile(
-                    leading=ft.Icon(ft.Icons.GROUP),
-                    title=ft.Text("Espíritus"),
-                    subtitle=ft.Text(spirit_names),
-                ),
-                ft.ListTile(
                     leading=ft.Icon(ft.Icons.DASHBOARD),
                     title=ft.Text("Tableros usados"),
                     subtitle=ft.Text(
@@ -250,11 +245,6 @@ def incursion_detail_view(
                     leading=ft.Icon(ft.Icons.VIEW_QUILT),
                     title=ft.Text("Distribución del mapa"),
                     subtitle=ft.Text(get_layout_name(incursion.get("board_layout"))),
-                ),
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.EVENT_NOTE),
-                    title=ft.Text("Periodo"),
-                    subtitle=ft.Text(period_label),
                 ),
             ],
             spacing=6,
@@ -339,11 +329,6 @@ def incursion_detail_view(
                         "Selecciona el nivel y confirma el inicio de la incursión.",
                         size=12,
                         color=ft.Colors.BLUE_GREY_400,
-                    ),
-                    ft.Text(
-                        f"Adversario: {adversary_name}",
-                        size=12,
-                        color=ft.Colors.BLUE_GREY_500,
                     ),
                     adversary_level,
                     difficulty_text,

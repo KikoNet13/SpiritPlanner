@@ -82,6 +82,15 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
             active_incursion = (
                 service.get_active_incursion(era_id) if active_count == 1 else None
             )
+            if active_count == 1:
+                incursion_label = "Incursión activa"
+                incursion_color = ft.Colors.GREEN_600
+            elif active_count > 1:
+                incursion_label = "Incursiones múltiples"
+                incursion_color = ft.Colors.ORANGE_600
+            else:
+                incursion_label = "Sin incursión activa"
+                incursion_color = ft.Colors.GREY_500
             actions = [
                 ft.ElevatedButton(
                     "Ver periodos",
@@ -118,8 +127,8 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
                                         ft.Row(
                                             [
                                                 status_chip(subtitle, status_color),
-                                                ft.Text(
-                                                    f"Incursiones activas: {active_count}"
+                                                status_chip(
+                                                    incursion_label, incursion_color
                                                 ),
                                             ],
                                             spacing=8,

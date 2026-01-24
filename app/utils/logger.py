@@ -27,6 +27,8 @@ def _configure_logging() -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     root_logger.addHandler(handler)
+    for noisy_logger in ("flet", "flet_socket_server", "base_control"):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
     _LOGGER_CONFIGURED = True
     root_logger.debug("Logging initialized. log_file=%s", _LOG_FILE_PATH)
 

@@ -141,7 +141,7 @@ def get_adversary_catalog() -> dict[str, AdversaryInfo]:
         levels = tuple(data.get("levels", []))
         catalog[adversary_id] = AdversaryInfo(
             adversary_id=adversary_id,
-            name=names.get(adversary_id, adversary_id),
+            name=names.get(adversary_id, "Desconocido"),
             levels=levels,
         )
     logger.debug("Adversary catalog loaded count=%s", len(catalog))
@@ -170,7 +170,7 @@ def get_adversary_levels(adversary_id: str | None) -> tuple[AdversaryLevel, ...]
         return ()
     levels = get_adversary_catalog().get(
         adversary_id,
-        AdversaryInfo(adversary_id=adversary_id, name=adversary_id, levels=()),
+        AdversaryInfo(adversary_id=adversary_id, name="Desconocido", levels=()),
     ).levels
     logger.debug("Resolved adversary levels count=%s", len(levels))
     return levels

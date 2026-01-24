@@ -191,8 +191,8 @@ def periods_view(
             return ft.Container()
         entries: list[ft.Control] = []
         for incursion in incursions:
-            spirit_1 = incursion.get("spirit_1_id") or "—"
-            spirit_2 = incursion.get("spirit_2_id") or "—"
+            spirit_1 = get_spirit_name(incursion.get("spirit_1_id"))
+            spirit_2 = get_spirit_name(incursion.get("spirit_2_id"))
             entries.append(
                 ft.Text(
                     f"Incursión {incursion.get('index', 0)}: "

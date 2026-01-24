@@ -391,6 +391,40 @@ class FirestoreService:
         self._create_session(incursion_ref)
         logger.info("Incursion started incursion_id=%s", incursion_id)
 
+    def update_incursion_adversary_level(
+        self,
+        era_id: str,
+        period_id: str,
+        incursion_id: str,
+        adversary_id: str | None,
+        adversary_level: str | None,
+        difficulty: int | None,
+    ) -> None:
+        logger.info(
+            "Update incursion adversary level era_id=%s period_id=%s incursion_id=%s level=%s difficulty=%s",
+            era_id,
+            period_id,
+            incursion_id,
+            adversary_level,
+            difficulty,
+        )
+        incursion_ref = (
+            self.db.collection("eras")
+            .document(era_id)
+            .collection("periods")
+            .document(period_id)
+            .collection("incursions")
+            .document(incursion_id)
+        )
+        update_data: dict[str, object | None] = {
+            "adversary_level": adversary_level,
+            "difficulty": difficulty,
+        }
+        if adversary_id is not None:
+            update_data["adversary_id"] = adversary_id
+        incursion_ref.update(update_data)
+        logger.info("Incursion adversary level updated incursion_id=%s", incursion_id)
+
     def resume_incursion(self, era_id: str, period_id: str, incursion_id: str) -> None:
         logger.info(
             "Resume incursion era_id=%s period_id=%s incursion_id=%s",

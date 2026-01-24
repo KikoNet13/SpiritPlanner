@@ -110,6 +110,7 @@ def incursion_detail_view(
 
         sessions = service.list_sessions(era_id, period_id, incursion_id)
         open_session = any(session.get("ended_at") is None for session in sessions)
+        has_sessions = len(sessions) > 0
         logger.debug(
             "Sessions loaded count=%s open_session=%s",
             len(sessions),
@@ -137,7 +138,8 @@ def incursion_detail_view(
         adversary_level_selector = None
         difficulty_text = ft.Text("Dificultad: —", size=12, color=ft.Colors.BLUE_GREY_100)
         difficulty_value = incursion.get("difficulty")
-        if state == SESSION_STATE_NOT_STARTED:
+        can_edit_level = not incursion.get("ended_at") and not has_sessions
+        if can_edit_level:
             levels = get_adversary_levels(incursion.get("adversary_id"))
             level_options = [
                 ft.dropdown.Option(level.level, level.level) for level in levels
@@ -147,32 +149,59 @@ def incursion_detail_view(
                 options=level_options,
                 disabled=not bool(level_options),
                 width=180,
+                value=incursion.get("adversary_level"),
             )
 
-            def update_difficulty(event: ft.ControlEvent | None = None) -> None:
+            def update_difficulty(
+                event: ft.ControlEvent | None = None, persist: bool = False
+            ) -> None:
                 logger.debug(
                     "Updating difficulty adversary_id=%s level=%s",
                     incursion.get("adversary_id"),
                     adversary_level_selector.value if adversary_level_selector else None,
                 )
+                selected_level = (
+                    adversary_level_selector.value if adversary_level_selector else None
+                )
                 computed = get_adversary_difficulty(
                     incursion.get("adversary_id"),
-                    adversary_level_selector.value if adversary_level_selector else None,
+                    selected_level,
                 )
                 difficulty_text.value = (
-                    f"Dificultad: {computed}"
-                    if computed is not None
+                    f"(Dificultad {computed})"
+                    if computed is not None and selected_level
                     else "Dificultad: —"
                 )
+                if persist:
+                    try:
+                        service.update_incursion_adversary_level(
+                            era_id=era_id,
+                            period_id=period_id,
+                            incursion_id=incursion_id,
+                            adversary_id=incursion.get("adversary_id"),
+                            adversary_level=selected_level,
+                            difficulty=computed,
+                        )
+                        incursion["adversary_level"] = selected_level
+                        incursion["difficulty"] = computed
+                    except ValueError as exc:
+                        logger.error(
+                            "Failed to update adversary level error=%s",
+                            exc,
+                            exc_info=True,
+                        )
+                        show_message(str(exc))
                 page.update()
 
             if adversary_level_selector:
-                adversary_level_selector.on_change = update_difficulty
+                adversary_level_selector.on_change = (
+                    lambda event: update_difficulty(event, persist=True)
+                )
                 update_difficulty()
         else:
             difficulty_text.value = (
-                f"Dificultad: {difficulty_value}"
-                if difficulty_value is not None
+                f"(Dificultad {difficulty_value})"
+                if difficulty_value is not None and incursion.get("adversary_level")
                 else "Dificultad: —"
             )
 
@@ -457,21 +486,18 @@ def incursion_detail_view(
                 page.update()
                 return
             if state == SESSION_STATE_NOT_STARTED:
-                if not period_adversaries_assigned:
-                    logger.warning("Cannot start incursion; adversaries not assigned")
-                    show_message("Debes asignar adversarios del periodo.")
-                    return
                 adversary_id = incursion.get("adversary_id")
-                if not adversary_id:
-                    logger.warning("Cannot start incursion; adversary not selected")
-                    show_message("Debes asignar un adversario.")
-                    return
-                if not adversary_level_selector or not adversary_level_selector.value:
+                adversary_level = (
+                    adversary_level_selector.value
+                    if adversary_level_selector
+                    else incursion.get("adversary_level")
+                )
+                if not adversary_level:
                     logger.warning("Cannot start incursion; invalid adversary level")
                     show_message("Debes seleccionar un nivel válido.")
                     return
                 computed_difficulty = get_adversary_difficulty(
-                    adversary_id, adversary_level_selector.value
+                    adversary_id, adversary_level
                 )
                 if computed_difficulty is None:
                     show_message("Debes seleccionar un nivel válido.")
@@ -481,7 +507,7 @@ def incursion_detail_view(
                         era_id,
                         period_id,
                         incursion_id,
-                        adversary_level_selector.value,
+                        adversary_level,
                         computed_difficulty,
                     )
                 except ValueError as exc:

@@ -451,6 +451,11 @@ def incursion_detail_view(
             )
             if state == SESSION_STATE_FINALIZED:
                 return
+            if open_session:
+                service.pause_incursion(era_id, period_id, incursion_id)
+                load_detail()
+                page.update()
+                return
             if state == SESSION_STATE_NOT_STARTED:
                 if not period_adversaries_assigned:
                     logger.warning("Cannot start incursion; adversaries not assigned")
@@ -485,8 +490,6 @@ def incursion_detail_view(
                     )
                     show_message(str(exc))
                     return
-            elif open_session:
-                service.pause_incursion(era_id, period_id, incursion_id)
             else:
                 service.resume_incursion(era_id, period_id, incursion_id)
             load_detail()
@@ -495,12 +498,8 @@ def incursion_detail_view(
         if state == SESSION_STATE_FINALIZED:
             page.floating_action_button = None
         else:
-            icon = (
-                ft.Icons.STOP
-                if state in {SESSION_STATE_ACTIVE, SESSION_STATE_PAUSED} and open_session
-                else ft.Icons.PLAY_ARROW
-            )
-            tooltip = "Detener sesión" if icon == ft.Icons.STOP else "Iniciar sesión"
+            icon = ft.Icons.STOP if open_session else ft.Icons.PLAY_ARROW
+            tooltip = "Detener sesión" if open_session else "Iniciar sesión"
             page.floating_action_button = ft.FloatingActionButton(
                 icon=icon,
                 tooltip=tooltip,

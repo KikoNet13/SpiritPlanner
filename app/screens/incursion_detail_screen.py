@@ -12,6 +12,7 @@ from app.screens.data_lookup import (
     get_layout_name,
     get_spirit_name,
 )
+from app.utils.datetime_format import format_datetime_local
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -80,14 +81,6 @@ def incursion_detail_view(
             padding=ft.padding.symmetric(horizontal=8, vertical=4),
             border_radius=12,
         )
-
-    def format_ts(value: datetime | None) -> str:
-        logger.debug("Formatting timestamp value=%s", value)
-        if not value:
-            return "—"
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     def total_minutes(sessions: list[dict]) -> int:
         logger.debug("Calculating total minutes sessions_count=%s", len(sessions))
@@ -210,12 +203,12 @@ def incursion_detail_view(
                 ft.Row(
                     [
                         ft.Text(
-                            f"Inicio: {format_ts(incursion.get('started_at'))}",
+                            f"Inicio: {format_datetime_local(incursion.get('started_at'))}",
                             size=12,
                             color=ft.Colors.BLUE_GREY_200,
                         ),
                         ft.Text(
-                            f"Fin: {format_ts(incursion.get('ended_at'))}",
+                            f"Fin: {format_datetime_local(incursion.get('ended_at'))}",
                             size=12,
                             color=ft.Colors.BLUE_GREY_200,
                         ),
@@ -584,7 +577,7 @@ def incursion_detail_view(
                     ft.ListTile(
                         leading=ft.Icon(ft.Icons.TIMER),
                         title=ft.Text(
-                            f"{format_ts(session.get('started_at'))} → {format_ts(session.get('ended_at'))}"
+                            f"{format_datetime_local(session.get('started_at'))} → {format_datetime_local(session.get('ended_at'))}"
                         ),
                     )
                 )

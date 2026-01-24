@@ -217,6 +217,21 @@ PC puede modificar cualquier campo sin restricciones.
 
 ---
 
+## Manejo de tiempo y UI (ACLARACIÓN IMPORTANTE)
+
+- Firestore **almacena siempre timestamps absolutos (UTC)**
+- **Nunca** se ajusta manualmente DST en persistencia
+- La **conversión a hora local se hace SOLO en la UI**
+- La UI debe:
+  - usar la zona horaria real del dispositivo
+  - aplicar correctamente reglas históricas de DST
+- El formato de presentación es:
+  - `dd/mm/yy HH:MM`
+
+Esta regla es de **presentación**, no de modelo de datos.
+
+---
+
 ## Navegación y vistas
 
 1. Eras

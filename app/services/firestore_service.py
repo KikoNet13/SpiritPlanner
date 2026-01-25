@@ -306,16 +306,12 @@ class FirestoreService:
         era_id: str,
         period_id: str,
         incursion_id: str,
-        adversary_level: str,
-        difficulty: int,
     ) -> None:
         logger.info(
-            "Start incursion era_id=%s period_id=%s incursion_id=%s level=%s difficulty=%s",
+            "Start incursion era_id=%s period_id=%s incursion_id=%s",
             era_id,
             period_id,
             incursion_id,
-            adversary_level,
-            difficulty,
         )
         era_ref = self.db.collection("eras").document(era_id)
         period_ref = era_ref.collection("periods").document(period_id)
@@ -356,6 +352,12 @@ class FirestoreService:
         if incursion_data.get("started_at"):
             logger.warning("Incursion already started incursion_id=%s", incursion_id)
             raise ValueError("La incursion ya esta iniciada.")
+        if not incursion_data.get("adversary_level"):
+            logger.warning("Missing adversary level incursion_id=%s", incursion_id)
+            raise ValueError("Debes seleccionar un nivel válido.")
+        if incursion_data.get("difficulty") is None:
+            logger.warning("Missing difficulty incursion_id=%s", incursion_id)
+            raise ValueError("Debes seleccionar un nivel válido.")
 
         incursions = self.list_incursions(era_id, period_id)
         if len(incursions) != 4:
@@ -375,8 +377,6 @@ class FirestoreService:
         incursion_ref.update(
             {
                 "started_at": self._utc_now(),
-                "adversary_level": adversary_level,
-                "difficulty": difficulty,
             }
         )
         logger.debug("Updating era active incursion era_id=%s", era_id)

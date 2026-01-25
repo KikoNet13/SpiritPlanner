@@ -62,6 +62,19 @@ for inc_id, adv in zip(INCURSION_IDS, ADVERSARIES):
         ),
     )
 
+print("\n--- FIJAR NIVEL ADVERSARIO ---")
+check(
+    "Fijar nivel para la primera incursión",
+    lambda: fs.update_incursion_adversary_level(
+        ERA_ID,
+        PERIOD_ID,
+        INCURSION_IDS[0],
+        adversary_id=ADVERSARIES[0],
+        adversary_level="Base",
+        difficulty=3,
+    ),
+)
+
 print("\n--- INICIAR INCURSION SIN ERROR ---")
 check(
     "Iniciar primera incursión",
@@ -69,8 +82,6 @@ check(
         ERA_ID,
         PERIOD_ID,
         INCURSION_IDS[0],
-        adversary_level="Base",
-        difficulty=3,
     ),
 )
 
@@ -81,8 +92,6 @@ check(
         ERA_ID,
         PERIOD_ID,
         INCURSION_IDS[1],
-        adversary_level="Base",
-        difficulty=3,
     ),
     should_fail=True,
 )

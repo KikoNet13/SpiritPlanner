@@ -136,7 +136,7 @@ def incursion_detail_view(
         )
 
         adversary_level_selector = None
-        difficulty_text = ft.Text("Dificultad: —", size=12, color=ft.Colors.BLUE_GREY_100)
+        difficulty_text = ft.Text("Dificultad: —", size=14, color=ft.Colors.WHITE)
         difficulty_value = incursion.get("difficulty")
         can_edit_level = not incursion.get("ended_at") and not has_sessions
         if can_edit_level:
@@ -146,6 +146,9 @@ def incursion_detail_view(
             ]
             adversary_level_selector = ft.Dropdown(
                 label="Nivel del adversario",
+                label_style=ft.TextStyle(size=14, color=ft.Colors.WHITE),
+                text_style=ft.TextStyle(size=14, color=ft.Colors.WHITE),
+                bgcolor=ft.Colors.BLUE_GREY_800,
                 options=level_options,
                 disabled=not bool(level_options),
                 width=180,
@@ -168,7 +171,7 @@ def incursion_detail_view(
                     selected_level,
                 )
                 difficulty_text.value = (
-                    f"(Dificultad {computed})"
+                    f"Dificultad: {computed}"
                     if computed is not None and selected_level
                     else "Dificultad: —"
                 )
@@ -200,7 +203,7 @@ def incursion_detail_view(
                 update_difficulty()
         else:
             difficulty_text.value = (
-                f"(Dificultad {difficulty_value})"
+                f"Dificultad: {difficulty_value}"
                 if difficulty_value is not None and incursion.get("adversary_level")
                 else "Dificultad: —"
             )
@@ -253,9 +256,9 @@ def incursion_detail_view(
                         adversary_level_selector
                         if adversary_level_selector
                         else ft.Text(
-                            f"Nivel: {incursion.get('adversary_level') or '—'}",
-                            size=12,
-                            color=ft.Colors.BLUE_GREY_100,
+                            f"Nivel del adversario: {incursion.get('adversary_level') or '—'}",
+                            size=14,
+                            color=ft.Colors.WHITE,
                         ),
                         difficulty_text,
                     ],
@@ -486,7 +489,6 @@ def incursion_detail_view(
                 page.update()
                 return
             if state == SESSION_STATE_NOT_STARTED:
-                adversary_id = incursion.get("adversary_id")
                 adversary_level = (
                     adversary_level_selector.value
                     if adversary_level_selector
@@ -496,10 +498,7 @@ def incursion_detail_view(
                     logger.warning("Cannot start incursion; invalid adversary level")
                     show_message("Debes seleccionar un nivel válido.")
                     return
-                computed_difficulty = get_adversary_difficulty(
-                    adversary_id, adversary_level
-                )
-                if computed_difficulty is None:
+                if incursion.get("difficulty") is None:
                     show_message("Debes seleccionar un nivel válido.")
                     return
                 try:
@@ -507,8 +506,6 @@ def incursion_detail_view(
                         era_id,
                         period_id,
                         incursion_id,
-                        adversary_level,
-                        computed_difficulty,
                     )
                 except ValueError as exc:
                     logger.error(
@@ -523,14 +520,34 @@ def incursion_detail_view(
 
         if state == SESSION_STATE_FINALIZED:
             page.floating_action_button = None
+            page.bottom_appbar = None
         else:
             icon = ft.Icons.STOP if open_session else ft.Icons.PLAY_ARROW
             tooltip = "Detener sesión" if open_session else "Iniciar sesión"
-            page.floating_action_button = ft.FloatingActionButton(
-                icon=icon,
-                tooltip=tooltip,
-                on_click=handle_session_fab,
-            )
+            if page.platform == ft.PagePlatform.WINDOWS:
+                page.floating_action_button = None
+                page.bottom_appbar = ft.BottomAppBar(
+                    content=ft.Container(
+                        ft.Row(
+                            [
+                                ft.ElevatedButton(
+                                    tooltip,
+                                    icon=icon,
+                                    on_click=handle_session_fab,
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                        ),
+                        padding=ft.padding.symmetric(vertical=8),
+                    )
+                )
+            else:
+                page.bottom_appbar = None
+                page.floating_action_button = ft.FloatingActionButton(
+                    icon=icon,
+                    tooltip=tooltip,
+                    on_click=handle_session_fab,
+                )
 
         def open_sessions_dialog(event: ft.ControlEvent) -> None:
             sessions_list = ft.ListView(spacing=6, expand=False)

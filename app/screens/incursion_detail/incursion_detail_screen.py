@@ -61,6 +61,7 @@ def incursion_detail_view(
     setup_section = dark_section(ft.Container())
     sessions_section = light_section(ft.Container())
     result_section = light_section(ft.Container())
+    floating_button_container = ft.Container(visible=False)
 
     def load_detail() -> None:
         logger.debug("Loading incursion detail")
@@ -102,22 +103,26 @@ def incursion_detail_view(
         period_label = build_period_label(period)
 
         adversary_level_selector = None
-        difficulty_text = ft.Text("Dificultad: —", size=14, color=ft.Colors.WHITE)
+        difficulty_text = ft.Text(
+            "Dificultad: —", size=14, color=ft.Colors.BLUE_GREY_900
+        )
         difficulty_value = incursion.get("difficulty")
         can_edit_level = can_edit_adversary_level(incursion, has_sessions)
         if can_edit_level:
             levels = get_adversary_levels(incursion.get("adversary_id"))
             level_options = [
-                ft.dropdown.Option(level.level, level.level) for level in levels
+                ft.dropdown.Option(
+                    level.level,
+                    f"Nivel {level.level} (Dificultad {level.difficulty})",
+                )
+                for level in levels
             ]
             adversary_level_selector = ft.Dropdown(
-                label="Nivel del adversario",
-                label_style=ft.TextStyle(size=14, color=ft.Colors.WHITE),
-                text_style=ft.TextStyle(size=14, color=ft.Colors.WHITE),
-                bgcolor=ft.Colors.BLUE_GREY_800,
+                text_style=ft.TextStyle(size=14, color=ft.Colors.BLUE_GREY_900),
+                bgcolor=ft.Colors.WHITE,
                 options=level_options,
                 disabled=not bool(level_options),
-                width=180,
+                width=220,
                 value=incursion.get("adversary_level"),
             )
 
@@ -176,6 +181,42 @@ def incursion_detail_view(
             )
 
         layout_name = get_layout_name(incursion.get("board_layout"))
+        level_display = incursion.get("adversary_level") or "—"
+        difficulty_display = (
+            difficulty_value
+            if difficulty_value is not None and incursion.get("adversary_level")
+            else "—"
+        )
+        adversary_level_block = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text(
+                        "Nivel del adversario",
+                        size=14,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.BLUE_GREY_900,
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                    (
+                        adversary_level_selector
+                        if adversary_level_selector
+                        else ft.Text(
+                            f"Nivel {level_display} (Dificultad {difficulty_display})",
+                            size=14,
+                            color=ft.Colors.BLUE_GREY_900,
+                            text_align=ft.TextAlign.CENTER,
+                        )
+                    ),
+                    difficulty_text,
+                ],
+                spacing=6,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            bgcolor=ft.Colors.BLUE_GREY_50,
+            border_radius=8,
+            alignment=ft.alignment.center,
+        )
 
         setup_section.content = ft.Column(
             [
@@ -218,19 +259,7 @@ def incursion_detail_view(
                     size=14,
                     color=ft.Colors.BLUE_GREY_100,
                 ),
-                ft.Row(
-                    [
-                        adversary_level_selector
-                        if adversary_level_selector
-                        else ft.Text(
-                            f"Nivel del adversario: {incursion.get('adversary_level') or '—'}",
-                            size=14,
-                            color=ft.Colors.WHITE,
-                        ),
-                        difficulty_text,
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                ),
+                adversary_level_block,
             ],
             spacing=8,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -472,27 +501,34 @@ def incursion_detail_view(
             load_detail()
             page.update()
 
+        is_android = page.platform == ft.PagePlatform.ANDROID
         if state == SESSION_STATE_FINALIZED:
             page.floating_action_button = None
             page.bottom_appbar = None
+            floating_button_container.visible = False
+            floating_button_container.content = None
         else:
             button_label = "Finalizar sesión" if open_session else "Iniciar sesión"
-            page.floating_action_button = None
-            page.bottom_appbar = ft.BottomAppBar(
-                content=ft.Container(
-                    ft.Row(
-                        [
-                            ft.ElevatedButton(
-                                button_label,
-                                on_click=handle_session_fab,
-                                icon=ft.Icons.TIMER,
-                            )
-                        ],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                    ),
-                    padding=ft.padding.symmetric(vertical=10),
+            page.bottom_appbar = None
+            if is_android:
+                page.floating_action_button = ft.FloatingActionButton(
+                    text=button_label,
+                    icon=ft.Icons.TIMER,
+                    on_click=handle_session_fab,
                 )
-            )
+                floating_button_container.visible = False
+                floating_button_container.content = None
+            else:
+                page.floating_action_button = None
+                floating_button_container.content = ft.ElevatedButton(
+                    button_label,
+                    on_click=handle_session_fab,
+                    icon=ft.Icons.TIMER,
+                )
+                floating_button_container.visible = True
+                floating_button_container.alignment = ft.alignment.bottom_right
+                floating_button_container.padding = ft.padding.all(16)
+                floating_button_container.expand = True
 
         def open_sessions_dialog(event: ft.ControlEvent) -> None:
             sessions_list = ft.ListView(spacing=6, expand=False)
@@ -624,23 +660,25 @@ def incursion_detail_view(
     load_detail()
 
     logger.debug("Exiting incursion_detail_view incursion_id=%s", incursion_id)
+    main_content = ft.Container(
+        content=ft.Column(
+            [
+                setup_section,
+                sessions_section,
+                result_section,
+            ],
+            expand=True,
+            spacing=16,
+            scroll=ft.ScrollMode.AUTO,
+        ),
+        padding=16,
+        expand=True,
+    )
+
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Incursión"), center_title=True),
-            ft.Container(
-                content=ft.Column(
-                    [
-                        setup_section,
-                        sessions_section,
-                        result_section,
-                    ],
-                    expand=True,
-                    spacing=16,
-                    scroll=ft.ScrollMode.AUTO,
-                ),
-                padding=16,
-                expand=True,
-            ),
+            ft.Stack([main_content, floating_button_container], expand=True),
         ],
         expand=True,
         spacing=0,

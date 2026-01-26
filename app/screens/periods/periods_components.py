@@ -9,6 +9,7 @@ def period_card(
     title: str,
     actions: list[ft.Control],
     incursions_section: ft.Control,
+    actions_alignment: ft.MainAxisAlignment = ft.MainAxisAlignment.END,
 ) -> ft.Container:
     return section_card(
         ft.Column(
@@ -21,7 +22,7 @@ def period_card(
                     actions,
                     wrap=True,
                     spacing=8,
-                    alignment=ft.MainAxisAlignment.END,
+                    alignment=actions_alignment,
                 ),
                 incursions_section,
             ],

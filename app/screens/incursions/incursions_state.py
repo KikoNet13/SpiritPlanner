@@ -11,9 +11,9 @@ from app.screens.data_lookup import (
 
 
 def get_incursion_status(incursion: dict) -> tuple[str, str]:
-    if incursion.get("ended_at"):
+    if incursion.get("ended_at") or incursion.get("result"):
         return "Finalizado", ft.Colors.BLUE_600
-    if incursion.get("started_at"):
+    if incursion.get("is_active"):
         return "Activo", ft.Colors.GREEN_600
     return "No iniciado", ft.Colors.GREY_500
 

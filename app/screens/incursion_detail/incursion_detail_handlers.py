@@ -91,28 +91,19 @@ def finalize_incursion(
     )
 
 
-def start_incursion(
+def start_session(
     service: FirestoreService,
     era_id: str,
     period_id: str,
     incursion_id: str,
 ) -> None:
-    service.start_incursion(era_id, period_id, incursion_id)
+    service.start_session(era_id, period_id, incursion_id)
 
 
-def pause_incursion(
+def end_session(
     service: FirestoreService,
     era_id: str,
     period_id: str,
     incursion_id: str,
 ) -> None:
-    service.pause_incursion(era_id, period_id, incursion_id)
-
-
-def resume_incursion(
-    service: FirestoreService,
-    era_id: str,
-    period_id: str,
-    incursion_id: str,
-) -> None:
-    service.resume_incursion(era_id, period_id, incursion_id)
+    service.end_session(era_id, period_id, incursion_id)

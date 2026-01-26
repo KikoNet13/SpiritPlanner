@@ -61,7 +61,6 @@ def incursion_detail_view(
     setup_section = dark_section(ft.Container())
     sessions_section = light_section(ft.Container())
     result_section = light_section(ft.Container())
-    floating_button_container = ft.Container(visible=False)
 
     def load_detail() -> None:
         logger.debug("Loading incursion detail")
@@ -456,9 +455,9 @@ def incursion_detail_view(
             page.update()
             logger.debug("Finalize dialog opened incursion_id=%s", incursion_id)
 
-        def handle_session_fab(event: ft.ControlEvent) -> None:
+        def handle_session_action(event: ft.ControlEvent) -> None:
             logger.info(
-                "Session FAB clicked incursion_id=%s state=%s open=%s",
+                "Session action clicked incursion_id=%s state=%s open=%s",
                 incursion_id,
                 state,
                 open_session,
@@ -501,34 +500,8 @@ def incursion_detail_view(
             load_detail()
             page.update()
 
-        is_android = page.platform == ft.PagePlatform.ANDROID
-        if state == SESSION_STATE_FINALIZED:
-            page.floating_action_button = None
-            page.bottom_appbar = None
-            floating_button_container.visible = False
-            floating_button_container.content = None
-        else:
-            button_label = "Finalizar sesión" if open_session else "Iniciar sesión"
-            page.bottom_appbar = None
-            if is_android:
-                page.floating_action_button = ft.FloatingActionButton(
-                    text=button_label,
-                    icon=ft.Icons.TIMER,
-                    on_click=handle_session_fab,
-                )
-                floating_button_container.visible = False
-                floating_button_container.content = None
-            else:
-                page.floating_action_button = None
-                floating_button_container.content = ft.ElevatedButton(
-                    button_label,
-                    on_click=handle_session_fab,
-                    icon=ft.Icons.TIMER,
-                )
-                floating_button_container.visible = True
-                floating_button_container.alignment = ft.alignment.bottom_right
-                floating_button_container.padding = ft.padding.all(16)
-                floating_button_container.expand = True
+        page.floating_action_button = None
+        page.bottom_appbar = None
 
         def open_sessions_dialog(event: ft.ControlEvent) -> None:
             sessions_list = ft.ListView(spacing=6, expand=False)
@@ -600,16 +573,27 @@ def incursion_detail_view(
         now = datetime.now(timezone.utc)
         total_time = total_minutes(sessions, now)
         sessions_section.visible = state != SESSION_STATE_FINALIZED
+        session_action_button = None
+        if state != SESSION_STATE_FINALIZED:
+            button_label = "Finalizar sesión" if open_session else "Iniciar sesión"
+            session_action_button = ft.ElevatedButton(
+                button_label,
+                icon=ft.Icons.TIMER,
+                on_click=handle_session_action,
+            )
+        session_controls = [
+            ft.Text("Sesiones", weight=ft.FontWeight.BOLD, size=16),
+            ft.Text(f"Duración total: {total_time} min"),
+            ft.TextButton(
+                "Ver detalle de sesiones",
+                icon=ft.Icons.TIMER,
+                on_click=open_sessions_dialog,
+            ),
+        ]
+        if session_action_button:
+            session_controls.append(session_action_button)
         sessions_section.content = ft.Column(
-            [
-                ft.Text("Sesiones", weight=ft.FontWeight.BOLD, size=16),
-                ft.Text(f"Duración total: {total_time} min"),
-                ft.TextButton(
-                    "Ver detalle de sesiones",
-                    icon=ft.Icons.TIMER,
-                    on_click=open_sessions_dialog,
-                ),
-            ],
+            session_controls,
             spacing=8,
         )
 
@@ -678,7 +662,7 @@ def incursion_detail_view(
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Incursión"), center_title=True),
-            ft.Stack([main_content, floating_button_container], expand=True),
+            main_content,
         ],
         expand=True,
         spacing=0,

@@ -212,6 +212,7 @@ Reglas:
 - Calcula `score`
 - Elimina Incursión activa
 - Finaliza el Periodo si procede
+- El formulario de resultado y puntuación se muestra al iniciar la acción de finalizar, no como estado previo.
 
 PC puede modificar cualquier campo sin restricciones.
 

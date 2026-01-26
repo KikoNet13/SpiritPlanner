@@ -179,6 +179,7 @@ def periods_view(
             period_id = period["id"]
             logger.debug("Rendering period idx=%s period_id=%s", idx, period_id)
             actions: list[ft.Control] = []
+            actions_alignment = ft.MainAxisAlignment.END
             action = get_period_action(period, can_reveal(periods, idx))
             if action == "results":
                 actions.append(
@@ -202,10 +203,13 @@ def periods_view(
                     )
                 )
             elif action == "reveal":
+                actions_alignment = ft.MainAxisAlignment.CENTER
                 actions.append(
-                    ft.OutlinedButton(
+                    ft.ElevatedButton(
                         "Revelar periodo",
                         on_click=build_reveal_period_handler(period_id),
+                        height=48,
+                        width=240,
                     )
                 )
 
@@ -219,6 +223,7 @@ def periods_view(
                     f"Periodo {period.get('index', 0)}",
                     actions,
                     incursions_section,
+                    actions_alignment=actions_alignment,
                 )
             )
         page.update()

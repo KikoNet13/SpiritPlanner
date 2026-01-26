@@ -20,6 +20,8 @@ class ActiveIncursion:
 
 
 class FirestoreService:
+    _ACTIVE_INCURSION_SEPARATOR = "::"
+
     def __init__(self) -> None:
         logger.debug("Initializing FirestoreService")
         self.db = self._init_firestore()
@@ -120,31 +122,45 @@ class FirestoreService:
         )
         return sessions
 
+    def _build_active_incursion_id(self, period_id: str, incursion_id: str) -> str:
+        return f"{period_id}{self._ACTIVE_INCURSION_SEPARATOR}{incursion_id}"
+
+    def _parse_active_incursion_id(
+        self, active_incursion_id: str | None
+    ) -> tuple[str, str] | None:
+        if not active_incursion_id:
+            return None
+        if self._ACTIVE_INCURSION_SEPARATOR not in active_incursion_id:
+            logger.warning(
+                "Invalid active_incursion_id format value=%s",
+                active_incursion_id,
+            )
+            return None
+        period_id, incursion_id = active_incursion_id.split(
+            self._ACTIVE_INCURSION_SEPARATOR, 1
+        )
+        if not period_id or not incursion_id:
+            logger.warning(
+                "Invalid active_incursion_id split value=%s",
+                active_incursion_id,
+            )
+            return None
+        return period_id, incursion_id
+
     def get_active_incursion(self, era_id: str) -> ActiveIncursion | None:
         logger.debug("Getting active incursion era_id=%s", era_id)
         era_ref = self.db.collection("eras").document(era_id)
         era_data = era_ref.get().to_dict() or {}
-        active_data = era_data.get("active_incursion") or {}
-        period_id = active_data.get("period_id")
-        incursion_id = active_data.get("incursion_id")
-        if period_id and incursion_id:
+        active_incursion_id = era_data.get("active_incursion_id")
+        parsed = self._parse_active_incursion_id(active_incursion_id)
+        if parsed:
+            period_id, incursion_id = parsed
             logger.debug(
                 "Active incursion found in era document period_id=%s incursion_id=%s",
                 period_id,
                 incursion_id,
             )
             return ActiveIncursion(era_id, period_id, incursion_id)
-
-        for period in self.list_periods(era_id):
-            period_id = period["id"]
-            for incursion in self.list_incursions(era_id, period_id):
-                if incursion.get("started_at") and not incursion.get("ended_at"):
-                    logger.debug(
-                        "Active incursion found via scan period_id=%s incursion_id=%s",
-                        period_id,
-                        incursion["id"],
-                    )
-                    return ActiveIncursion(era_id, period_id, incursion["id"])
         logger.debug("No active incursion found era_id=%s", era_id)
         return None
 
@@ -301,14 +317,14 @@ class FirestoreService:
         batch.commit()
         logger.info("Assigned adversaries period_id=%s", period_id)
 
-    def start_incursion(
+    def start_session(
         self,
         era_id: str,
         period_id: str,
         incursion_id: str,
     ) -> None:
         logger.info(
-            "Start incursion era_id=%s period_id=%s incursion_id=%s",
+            "Start session era_id=%s period_id=%s incursion_id=%s",
             era_id,
             period_id,
             incursion_id,
@@ -346,50 +362,57 @@ class FirestoreService:
             logger.error("Incursion no encontrada incursion_id=%s", incursion_id)
             raise ValueError("Incursion no encontrada.")
         incursion_data = incursion_snapshot.to_dict() or {}
-        if incursion_data.get("ended_at"):
+        if incursion_data.get("ended_at") or incursion_data.get("result"):
             logger.warning("Incursion already ended incursion_id=%s", incursion_id)
             raise ValueError("La incursion ya esta finalizada.")
-        if incursion_data.get("started_at"):
-            logger.warning("Incursion already started incursion_id=%s", incursion_id)
-            raise ValueError("La incursion ya esta iniciada.")
-        if not incursion_data.get("adversary_level"):
-            logger.warning("Missing adversary level incursion_id=%s", incursion_id)
-            raise ValueError("Debes seleccionar un nivel válido.")
-        if incursion_data.get("difficulty") is None:
-            logger.warning("Missing difficulty incursion_id=%s", incursion_id)
-            raise ValueError("Debes seleccionar un nivel válido.")
 
-        incursions = self.list_incursions(era_id, period_id)
-        if len(incursions) != 4:
-            logger.warning("Invalid incursion count=%s", len(incursions))
-            raise ValueError("El periodo debe tener exactamente 4 incursiones.")
-        adversaries = [incursion.get("adversary_id") for incursion in incursions]
-        if any(not adversary for adversary in adversaries):
-            logger.warning("Missing adversary assignment in period")
-            raise ValueError(
-                "Todas las incursiones deben tener un adversario asignado."
-            )
-        if len(set(adversaries)) != 4:
-            logger.warning("Duplicate adversaries found in period")
-            raise ValueError("Los adversarios del periodo deben ser distintos.")
+        sessions_ref = incursion_ref.collection("sessions")
+        open_sessions = list(sessions_ref.where("ended_at", "==", None).stream())
+        if open_sessions:
+            logger.warning("Open session already exists incursion_id=%s", incursion_id)
+            raise ValueError("Ya hay una sesión abierta.")
 
+        has_sessions = bool(self.list_sessions(era_id, period_id, incursion_id))
+        if not has_sessions:
+            if not incursion_data.get("adversary_level"):
+                logger.warning("Missing adversary level incursion_id=%s", incursion_id)
+                raise ValueError("Debes seleccionar un nivel válido.")
+            if incursion_data.get("difficulty") is None:
+                logger.warning("Missing difficulty incursion_id=%s", incursion_id)
+                raise ValueError("Debes seleccionar un nivel válido.")
+
+            incursions = self.list_incursions(era_id, period_id)
+            if len(incursions) != 4:
+                logger.warning("Invalid incursion count=%s", len(incursions))
+                raise ValueError("El periodo debe tener exactamente 4 incursiones.")
+            adversaries = [incursion.get("adversary_id") for incursion in incursions]
+            if any(not adversary for adversary in adversaries):
+                logger.warning("Missing adversary assignment in period")
+                raise ValueError(
+                    "Todas las incursiones deben tener un adversario asignado."
+                )
+            if len(set(adversaries)) != 4:
+                logger.warning("Duplicate adversaries found in period")
+                raise ValueError("Los adversarios del periodo deben ser distintos.")
+
+        update_data: dict[str, Any] = {"is_active": True}
+        if not incursion_data.get("started_at"):
+            update_data["started_at"] = self._utc_now()
         logger.debug("Updating incursion start metadata incursion_id=%s", incursion_id)
-        incursion_ref.update(
-            {
-                "started_at": self._utc_now(),
-            }
-        )
+        incursion_ref.update(update_data)
+        active_incursion_id = self._build_active_incursion_id(period_id, incursion_id)
         logger.debug("Updating era active incursion era_id=%s", era_id)
         era_ref.update(
             {
+                "active_incursion_id": active_incursion_id,
                 "active_incursion": {
                     "period_id": period_id,
                     "incursion_id": incursion_id,
-                }
+                },
             }
         )
         self._create_session(incursion_ref)
-        logger.info("Incursion started incursion_id=%s", incursion_id)
+        logger.info("Session started incursion_id=%s", incursion_id)
 
     def update_incursion_adversary_level(
         self,
@@ -425,51 +448,9 @@ class FirestoreService:
         incursion_ref.update(update_data)
         logger.info("Incursion adversary level updated incursion_id=%s", incursion_id)
 
-    def resume_incursion(self, era_id: str, period_id: str, incursion_id: str) -> None:
+    def end_session(self, era_id: str, period_id: str, incursion_id: str) -> None:
         logger.info(
-            "Resume incursion era_id=%s period_id=%s incursion_id=%s",
-            era_id,
-            period_id,
-            incursion_id,
-        )
-        active = self.get_active_incursion(era_id)
-        if active and (
-            active.period_id != period_id or active.incursion_id != incursion_id
-        ):
-            logger.warning("Active incursion exists; cannot resume incursion_id=%s", incursion_id)
-            raise ValueError("Ya existe una incursion activa en esta Era.")
-
-        incursion_ref = (
-            self.db.collection("eras")
-            .document(era_id)
-            .collection("periods")
-            .document(period_id)
-            .collection("incursions")
-            .document(incursion_id)
-        )
-        incursion_snapshot = incursion_ref.get()
-        if not incursion_snapshot.exists:
-            logger.error("Incursion no encontrada incursion_id=%s", incursion_id)
-            raise ValueError("Incursion no encontrada.")
-        incursion_data = incursion_snapshot.to_dict() or {}
-        if incursion_data.get("ended_at"):
-            logger.warning("Incursion already ended incursion_id=%s", incursion_id)
-            raise ValueError("No puedes reanudar una incursion finalizada.")
-        if not incursion_data.get("started_at"):
-            logger.warning("Incursion not started incursion_id=%s", incursion_id)
-            raise ValueError("No puedes reanudar una incursion sin iniciar.")
-
-        open_sessions = list(
-            incursion_ref.collection("sessions").where("ended_at", "==", None).stream()
-        )
-        if not open_sessions:
-            logger.debug("No open session found, creating new session")
-            self._create_session(incursion_ref)
-        logger.info("Incursion resumed incursion_id=%s", incursion_id)
-
-    def pause_incursion(self, era_id: str, period_id: str, incursion_id: str) -> None:
-        logger.info(
-            "Pause incursion era_id=%s period_id=%s incursion_id=%s",
+            "End session era_id=%s period_id=%s incursion_id=%s",
             era_id,
             period_id,
             incursion_id,
@@ -485,11 +466,11 @@ class FirestoreService:
         )
         open_sessions = list(sessions_ref.where("ended_at", "==", None).stream())
         if not open_sessions:
-            logger.warning("No open sessions to pause incursion_id=%s", incursion_id)
+            logger.warning("No open sessions to end incursion_id=%s", incursion_id)
             return
         logger.debug("Closing session id=%s", open_sessions[0].id)
         open_sessions[0].reference.update({"ended_at": self._utc_now()})
-        logger.info("Incursion paused incursion_id=%s", incursion_id)
+        logger.info("Session ended incursion_id=%s", incursion_id)
 
     def finalize_incursion(
         self,
@@ -536,7 +517,7 @@ class FirestoreService:
             blight_on_island=blight_on_island,
         )
 
-        self.pause_incursion(era_id, period_id, incursion_id)
+        self.end_session(era_id, period_id, incursion_id)
         logger.debug("Updating incursion finalize fields incursion_id=%s", incursion_id)
         incursion_ref.update(
             {
@@ -548,11 +529,15 @@ class FirestoreService:
                 "dahan_alive": dahan_alive,
                 "blight_on_island": blight_on_island,
                 "score": score,
+                "is_active": False,
             }
         )
         logger.debug("Clearing active incursion era_id=%s", era_id)
         self.db.collection("eras").document(era_id).update(
-            {"active_incursion": firestore.DELETE_FIELD}
+            {
+                "active_incursion_id": firestore.DELETE_FIELD,
+                "active_incursion": firestore.DELETE_FIELD,
+            }
         )
         if self._period_complete(era_id, period_id):
             logger.info("Period completed; marking ended era_id=%s period_id=%s", era_id, period_id)

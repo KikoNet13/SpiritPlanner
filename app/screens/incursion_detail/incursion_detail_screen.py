@@ -22,10 +22,9 @@ from app.screens.incursion_detail.incursion_detail_handlers import (
     get_incursion,
     get_period,
     list_sessions,
-    pause_incursion,
-    resume_incursion,
+    end_session,
     show_message,
-    start_incursion,
+    start_session,
     update_adversary_level,
 )
 from app.screens.incursion_detail.incursion_detail_state import (
@@ -93,7 +92,7 @@ def incursion_detail_view(
             open_session,
         )
 
-        state = resolve_session_state(incursion, open_session)
+        state = resolve_session_state(incursion, has_sessions, open_session)
 
         spirit_1_name = get_spirit_name(incursion.get("spirit_1_id"))
         spirit_2_name = get_spirit_name(incursion.get("spirit_2_id"))
@@ -302,7 +301,7 @@ def incursion_detail_view(
                     "Closing active session before finalize incursion_id=%s",
                     incursion_id,
                 )
-                pause_incursion(service, era_id, period_id, incursion_id)
+                end_session(service, era_id, period_id, incursion_id)
             difficulty_display = incursion.get("difficulty") or 0
             fields: dict[str, ft.Control] = {
                 "result": ft.Dropdown(
@@ -438,7 +437,7 @@ def incursion_detail_view(
             if state == SESSION_STATE_FINALIZED:
                 return
             if open_session:
-                pause_incursion(service, era_id, period_id, incursion_id)
+                end_session(service, era_id, period_id, incursion_id)
                 load_detail()
                 page.update()
                 return
@@ -456,7 +455,7 @@ def incursion_detail_view(
                     show_message(page, "Debes seleccionar un nivel válido.")
                     return
                 try:
-                    start_incursion(
+                    start_session(
                         service,
                         era_id,
                         period_id,
@@ -469,7 +468,7 @@ def incursion_detail_view(
                     show_message(page, str(exc))
                     return
             else:
-                resume_incursion(service, era_id, period_id, incursion_id)
+                start_session(service, era_id, period_id, incursion_id)
             load_detail()
             page.update()
 
@@ -477,32 +476,23 @@ def incursion_detail_view(
             page.floating_action_button = None
             page.bottom_appbar = None
         else:
-            icon = ft.Icons.STOP if open_session else ft.Icons.PLAY_ARROW
-            tooltip = "Detener sesión" if open_session else "Iniciar sesión"
-            if page.platform == ft.PagePlatform.WINDOWS:
-                page.floating_action_button = None
-                page.bottom_appbar = ft.BottomAppBar(
-                    content=ft.Container(
-                        ft.Row(
-                            [
-                                ft.ElevatedButton(
-                                    tooltip,
-                                    icon=icon,
-                                    on_click=handle_session_fab,
-                                )
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER,
-                        ),
-                        padding=ft.padding.symmetric(vertical=8),
-                    )
+            button_label = "Finalizar sesión" if open_session else "Iniciar sesión"
+            page.floating_action_button = None
+            page.bottom_appbar = ft.BottomAppBar(
+                content=ft.Container(
+                    ft.Row(
+                        [
+                            ft.ElevatedButton(
+                                button_label,
+                                on_click=handle_session_fab,
+                                icon=ft.Icons.TIMER,
+                            )
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                    ),
+                    padding=ft.padding.symmetric(vertical=10),
                 )
-            else:
-                page.bottom_appbar = None
-                page.floating_action_button = ft.FloatingActionButton(
-                    icon=icon,
-                    tooltip=tooltip,
-                    on_click=handle_session_fab,
-                )
+            )
 
         def open_sessions_dialog(event: ft.ControlEvent) -> None:
             sessions_list = ft.ListView(spacing=6, expand=False)

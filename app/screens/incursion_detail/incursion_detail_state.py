@@ -2,17 +2,19 @@ from __future__ import annotations
 
 from datetime import datetime
 
-SESSION_STATE_NOT_STARTED = "NO_INICIADA"
-SESSION_STATE_ACTIVE = "ACTIVA"
-SESSION_STATE_PAUSED = "PAUSADA"
-SESSION_STATE_FINALIZED = "FINALIZADA"
+SESSION_STATE_NOT_STARTED = "NOT_STARTED"
+SESSION_STATE_IN_SESSION = "IN_SESSION"
+SESSION_STATE_BETWEEN_SESSIONS = "BETWEEN_SESSIONS"
+SESSION_STATE_FINALIZED = "FINALIZED"
 
 
-def resolve_session_state(incursion: dict, open_session: bool) -> str:
-    if incursion.get("ended_at"):
+def resolve_session_state(
+    incursion: dict, has_sessions: bool, open_session: bool
+) -> str:
+    if incursion.get("ended_at") or incursion.get("result"):
         return SESSION_STATE_FINALIZED
-    if incursion.get("started_at"):
-        return SESSION_STATE_ACTIVE if open_session else SESSION_STATE_PAUSED
+    if has_sessions:
+        return SESSION_STATE_IN_SESSION if open_session else SESSION_STATE_BETWEEN_SESSIONS
     return SESSION_STATE_NOT_STARTED
 
 

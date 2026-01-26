@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import flet as ft
 
-from app.services.firestore_service import FirestoreService
 from app.screens.data_lookup import (
     get_adversary_difficulty,
     get_adversary_levels,
@@ -12,15 +11,39 @@ from app.screens.data_lookup import (
     get_layout_name,
     get_spirit_name,
 )
+from app.screens.incursion_detail.incursion_detail_components import (
+    dark_section,
+    light_section,
+    summary_tile,
+)
+from app.screens.incursion_detail.incursion_detail_handlers import (
+    close_dialog,
+    finalize_incursion,
+    get_incursion,
+    get_period,
+    list_sessions,
+    pause_incursion,
+    resume_incursion,
+    show_message,
+    start_incursion,
+    update_adversary_level,
+)
+from app.screens.incursion_detail.incursion_detail_state import (
+    SESSION_STATE_FINALIZED,
+    SESSION_STATE_NOT_STARTED,
+    build_period_label,
+    can_edit_adversary_level,
+    compute_score_preview,
+    get_result_label,
+    get_score_formula,
+    resolve_session_state,
+    total_minutes,
+)
+from app.services.firestore_service import FirestoreService
 from app.utils.datetime_format import format_datetime_local
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
-
-SESSION_STATE_NOT_STARTED = "NO_INICIADA"
-SESSION_STATE_ACTIVE = "ACTIVA"
-SESSION_STATE_PAUSED = "PAUSADA"
-SESSION_STATE_FINALIZED = "FINALIZADA"
 
 
 def incursion_detail_view(
@@ -36,69 +59,22 @@ def incursion_detail_view(
         period_id,
         incursion_id,
     )
-    setup_section = ft.Container(
-        padding=20,
-        border_radius=20,
-        bgcolor=ft.Colors.BLUE_GREY_900,
-    )
-    sessions_section = ft.Container(
-        padding=16,
-        border_radius=16,
-        border=ft.border.all(1, ft.Colors.GREY_300),
-        bgcolor=ft.Colors.WHITE,
-    )
-    result_section = ft.Container(
-        padding=16,
-        border_radius=16,
-        border=ft.border.all(1, ft.Colors.GREY_300),
-        bgcolor=ft.Colors.WHITE,
-    )
-
-    def total_minutes(sessions: list[dict]) -> int:
-        logger.debug("Calculating total minutes sessions_count=%s", len(sessions))
-        total_seconds = 0
-        now = datetime.now(timezone.utc)
-        for session in sessions:
-            started = session.get("started_at")
-            ended = session.get("ended_at") or now
-            if started is None:
-                continue
-            if started.tzinfo is None:
-                started = started.replace(tzinfo=timezone.utc)
-            if ended.tzinfo is None:
-                ended = ended.replace(tzinfo=timezone.utc)
-            total_seconds += max(0, int((ended - started).total_seconds()))
-        return int(total_seconds // 60)
-
-    def show_message(text: str) -> None:
-        logger.info("User message shown: %s", text)
-        page.snack_bar = ft.SnackBar(ft.Text(text))
-        page.snack_bar.open = True
-        page.update()
-
-    def close_dialog(dialog: ft.AlertDialog) -> None:
-        logger.debug("Closing dialog title=%s", dialog.title)
-        dialog.open = False
-        page.update()
+    setup_section = dark_section(ft.Container())
+    sessions_section = light_section(ft.Container())
+    result_section = light_section(ft.Container())
 
     def load_detail() -> None:
         logger.debug("Loading incursion detail")
         sessions_section.content = None
         result_section.content = None
 
-        incursions = service.list_incursions(era_id, period_id)
-        incursion = next(
-            (item for item in incursions if item["id"] == incursion_id), None
-        )
+        incursion = get_incursion(service, era_id, period_id, incursion_id)
         if not incursion:
             logger.warning("Incursion not found incursion_id=%s", incursion_id)
             setup_section.content = ft.Text("Incursión no encontrada.")
             page.update()
             return
-        period = next(
-            (item for item in service.list_periods(era_id) if item["id"] == period_id),
-            None,
-        )
+        period = get_period(service, era_id, period_id)
         period_adversaries_assigned = bool(
             period and period.get("adversaries_assigned_at")
         )
@@ -108,7 +84,7 @@ def incursion_detail_view(
             period_id,
         )
 
-        sessions = service.list_sessions(era_id, period_id, incursion_id)
+        sessions = list_sessions(service, era_id, period_id, incursion_id)
         open_session = any(session.get("ended_at") is None for session in sessions)
         has_sessions = len(sessions) > 0
         logger.debug(
@@ -117,28 +93,19 @@ def incursion_detail_view(
             open_session,
         )
 
-        def resolve_state() -> str:
-            if incursion.get("ended_at"):
-                return SESSION_STATE_FINALIZED
-            if incursion.get("started_at"):
-                return SESSION_STATE_ACTIVE if open_session else SESSION_STATE_PAUSED
-            return SESSION_STATE_NOT_STARTED
-
-        state = resolve_state()
+        state = resolve_session_state(incursion, open_session)
 
         spirit_1_name = get_spirit_name(incursion.get("spirit_1_id"))
         spirit_2_name = get_spirit_name(incursion.get("spirit_2_id"))
         board_1_name = get_board_name(incursion.get("board_1"))
         board_2_name = get_board_name(incursion.get("board_2"))
         adversary_name = get_adversary_name(incursion.get("adversary_id"))
-        period_label = (
-            f"Periodo {period.get('index', '—')}" if period else "Periodo —"
-        )
+        period_label = build_period_label(period)
 
         adversary_level_selector = None
         difficulty_text = ft.Text("Dificultad: —", size=14, color=ft.Colors.WHITE)
         difficulty_value = incursion.get("difficulty")
-        can_edit_level = not incursion.get("ended_at") and not has_sessions
+        can_edit_level = can_edit_adversary_level(incursion, has_sessions)
         if can_edit_level:
             levels = get_adversary_levels(incursion.get("adversary_id"))
             level_options = [
@@ -177,7 +144,8 @@ def incursion_detail_view(
                 )
                 if persist:
                     try:
-                        service.update_incursion_adversary_level(
+                        update_adversary_level(
+                            service,
                             era_id=era_id,
                             period_id=period_id,
                             incursion_id=incursion_id,
@@ -193,7 +161,7 @@ def incursion_detail_view(
                             exc,
                             exc_info=True,
                         )
-                        show_message(str(exc))
+                        show_message(page, str(exc))
                 page.update()
 
             if adversary_level_selector:
@@ -282,16 +250,17 @@ def incursion_detail_view(
                     "Finalize blocked; incursion already finalized incursion_id=%s",
                     incursion_id,
                 )
-                show_message("La incursión ya está finalizada.")
+                show_message(page, "La incursión ya está finalizada.")
                 return
             if not fields["result"].value:
                 logger.warning(
                     "Finalize blocked; missing result incursion_id=%s", incursion_id
                 )
-                show_message("Debes indicar el resultado.")
+                show_message(page, "Debes indicar el resultado.")
                 return
             try:
-                service.finalize_incursion(
+                finalize_incursion(
+                    service,
                     era_id=era_id,
                     period_id=period_id,
                     incursion_id=incursion_id,
@@ -312,7 +281,7 @@ def incursion_detail_view(
                     incursion_id,
                     exc_info=True,
                 )
-                show_message("Revisa los valores numéricos.")
+                show_message(page, "Revisa los valores numéricos.")
                 return
             dialog.open = False
             load_detail()
@@ -325,12 +294,15 @@ def incursion_detail_view(
                     "Finalize dialog blocked; incursion finalized incursion_id=%s",
                     incursion_id,
                 )
-                show_message("La incursión ya está finalizada.")
+                show_message(page, "La incursión ya está finalizada.")
                 return
             logger.info("Opening finalize dialog incursion_id=%s", incursion_id)
             if open_session:
-                logger.info("Closing active session before finalize incursion_id=%s", incursion_id)
-                service.pause_incursion(era_id, period_id, incursion_id)
+                logger.info(
+                    "Closing active session before finalize incursion_id=%s",
+                    incursion_id,
+                )
+                pause_incursion(service, era_id, period_id, incursion_id)
             difficulty_display = incursion.get("difficulty") or 0
             fields: dict[str, ft.Control] = {
                 "result": ft.Dropdown(
@@ -383,37 +355,19 @@ def incursion_detail_view(
                 blight_on_island = parse_int(fields["blight_on_island"])
                 invader_remaining = parse_int(fields["invader_cards_remaining"])
                 invader_out = parse_int(fields["invader_cards_out_of_deck"])
-                if result_value == "win":
-                    formula_text.value = (
-                        "Fórmula: 5 × dificultad + 10 + 2 × cartas restantes + "
-                        "jugadores × dahan vivos − jugadores × plaga"
-                    )
-                elif result_value == "loss":
-                    formula_text.value = (
-                        "Fórmula: 2 × dificultad + cartas fuera del mazo + "
-                        "jugadores × dahan vivos − jugadores × plaga"
-                    )
-                else:
-                    formula_text.value = "Fórmula: —"
-                if result_value in {"win", "loss"}:
-                    if result_value == "win":
-                        score_value = (
-                            5 * difficulty_display
-                            + 10
-                            + 2 * invader_remaining
-                            + player_count * dahan_alive
-                            - player_count * blight_on_island
-                        )
-                    else:
-                        score_value = (
-                            2 * difficulty_display
-                            + invader_out
-                            + player_count * dahan_alive
-                            - player_count * blight_on_island
-                        )
-                    score_text.value = f"Puntuación: {score_value}"
-                else:
-                    score_text.value = "Puntuación: —"
+                formula, score_value = compute_score_preview(
+                    result_value,
+                    difficulty_display,
+                    player_count,
+                    dahan_alive,
+                    blight_on_island,
+                    invader_remaining,
+                    invader_out,
+                )
+                formula_text.value = f"Fórmula: {formula}"
+                score_text.value = (
+                    f"Puntuación: {score_value}" if score_value is not None else "Puntuación: —"
+                )
                 fields["invader_cards_remaining"].visible = result_value == "win"
                 fields["invader_cards_out_of_deck"].visible = result_value == "loss"
                 page.update()
@@ -433,7 +387,7 @@ def incursion_detail_view(
 
             def handle_cancel_click(event: ft.ControlEvent) -> None:
                 logger.info("Finalize dialog cancelled incursion_id=%s", incursion_id)
-                close_dialog(dialog)
+                close_dialog(page, dialog)
 
             def handle_save_click(event: ft.ControlEvent) -> None:
                 handle_finalize(dialog, fields)
@@ -484,7 +438,7 @@ def incursion_detail_view(
             if state == SESSION_STATE_FINALIZED:
                 return
             if open_session:
-                service.pause_incursion(era_id, period_id, incursion_id)
+                pause_incursion(service, era_id, period_id, incursion_id)
                 load_detail()
                 page.update()
                 return
@@ -496,13 +450,14 @@ def incursion_detail_view(
                 )
                 if not adversary_level:
                     logger.warning("Cannot start incursion; invalid adversary level")
-                    show_message("Debes seleccionar un nivel válido.")
+                    show_message(page, "Debes seleccionar un nivel válido.")
                     return
                 if incursion.get("difficulty") is None:
-                    show_message("Debes seleccionar un nivel válido.")
+                    show_message(page, "Debes seleccionar un nivel válido.")
                     return
                 try:
-                    service.start_incursion(
+                    start_incursion(
+                        service,
                         era_id,
                         period_id,
                         incursion_id,
@@ -511,10 +466,10 @@ def incursion_detail_view(
                     logger.error(
                         "Failed to start incursion error=%s", exc, exc_info=True
                     )
-                    show_message(str(exc))
+                    show_message(page, str(exc))
                     return
             else:
-                service.resume_incursion(era_id, period_id, incursion_id)
+                resume_incursion(service, era_id, period_id, incursion_id)
             load_detail()
             page.update()
 
@@ -567,7 +522,11 @@ def incursion_detail_view(
                 modal=True,
                 title=ft.Text("Detalle de sesiones"),
                 content=ft.Column([sessions_list], tight=True),
-                actions=[ft.TextButton("Cerrar", on_click=lambda _: close_dialog(dialog))],
+                actions=[
+                    ft.TextButton(
+                        "Cerrar", on_click=lambda _: close_dialog(page, dialog)
+                    )
+                ],
             )
             page.dialog = dialog
             dialog.open = True
@@ -575,18 +534,9 @@ def incursion_detail_view(
 
         def open_score_dialog(event: ft.ControlEvent) -> None:
             result_value = incursion.get("result")
-            result_label = "Victoria" if result_value == "win" else "Derrota"
+            result_label = get_result_label(result_value)
             difficulty_value = incursion.get("difficulty") or 0
-            if result_value == "win":
-                formula = (
-                    "5 × dificultad + 10 + 2 × cartas restantes + "
-                    "jugadores × dahan vivos − jugadores × plaga"
-                )
-            else:
-                formula = (
-                    "2 × dificultad + cartas fuera del mazo + "
-                    "jugadores × dahan vivos − jugadores × plaga"
-                )
+            formula = get_score_formula(result_value)
             dialog = ft.AlertDialog(
                 modal=True,
                 title=ft.Text("Detalle de puntuación"),
@@ -611,13 +561,18 @@ def incursion_detail_view(
                     ],
                     tight=True,
                 ),
-                actions=[ft.TextButton("Cerrar", on_click=lambda _: close_dialog(dialog))],
+                actions=[
+                    ft.TextButton(
+                        "Cerrar", on_click=lambda _: close_dialog(page, dialog)
+                    )
+                ],
             )
             page.dialog = dialog
             dialog.open = True
             page.update()
 
-        total_time = total_minutes(sessions)
+        now = datetime.now(timezone.utc)
+        total_time = total_minutes(sessions, now)
         sessions_section.visible = state != SESSION_STATE_FINALIZED
         sessions_section.content = ft.Column(
             [
@@ -634,37 +589,21 @@ def incursion_detail_view(
 
         if state == SESSION_STATE_FINALIZED:
             result_value = incursion.get("result")
-            result_label = "Victoria" if result_value == "win" else "Derrota"
+            result_label = get_result_label(result_value)
             result_section.content = ft.Column(
                 [
                     ft.Text("Resumen final", weight=ft.FontWeight.BOLD, size=16),
                     ft.Row(
                         [
-                            ft.Container(
-                                content=ft.Row(
-                                    [
-                                        ft.Icon(ft.Icons.TIMER),
-                                        ft.Text(f"{total_time} min"),
-                                    ],
-                                    alignment=ft.MainAxisAlignment.CENTER,
-                                ),
-                                padding=12,
-                                border_radius=12,
-                                bgcolor=ft.Colors.BLUE_GREY_50,
-                                on_click=open_sessions_dialog,
+                            summary_tile(
+                                ft.Icons.TIMER,
+                                f"{total_time} min",
+                                open_sessions_dialog,
                             ),
-                            ft.Container(
-                                content=ft.Row(
-                                    [
-                                        ft.Icon(ft.Icons.STAR),
-                                        ft.Text(f"{incursion.get('score')}"),
-                                    ],
-                                    alignment=ft.MainAxisAlignment.CENTER,
-                                ),
-                                padding=12,
-                                border_radius=12,
-                                bgcolor=ft.Colors.BLUE_GREY_50,
-                                on_click=open_score_dialog,
+                            summary_tile(
+                                ft.Icons.STAR,
+                                f"{incursion.get('score')}",
+                                open_score_dialog,
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,

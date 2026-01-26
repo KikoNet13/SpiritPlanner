@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import flet as ft
 
-from app.screens.eras_screen import eras_view
-from app.screens.incursion_detail_screen import incursion_detail_view
-from app.screens.incursions_screen import incursions_view
-from app.screens.periods_screen import periods_view
+from app.screens.eras.eras_screen import eras_view
+from app.screens.incursion_detail.incursion_detail_screen import (
+    incursion_detail_view,
+)
+from app.screens.incursions.incursions_screen import incursions_view
+from app.screens.periods.periods_screen import periods_view
 from app.services.firestore_service import FirestoreService
 from app.utils.logger import get_logger
 from app.utils.navigation import go

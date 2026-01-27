@@ -112,7 +112,7 @@ def incursion_detail_view(
             level_options = [
                 ft.dropdown.Option(
                     level.level,
-                    f"Nivel {level.level} (Dificultad {level.difficulty})",
+                    f"Nivel {level.level}",
                 )
                 for level in levels
             ]
@@ -190,8 +190,8 @@ def incursion_detail_view(
             content=ft.Column(
                 [
                     ft.Text(
-                        "Nivel del adversario",
-                        size=14,
+                        adversary_name,
+                        size=16,
                         weight=ft.FontWeight.BOLD,
                         color=ft.Colors.BLUE_GREY_900,
                         text_align=ft.TextAlign.CENTER,
@@ -200,13 +200,13 @@ def incursion_detail_view(
                         adversary_level_selector
                         if adversary_level_selector
                         else ft.Text(
-                            f"Nivel {level_display} (Dificultad {difficulty_display})",
+                            f"Nivel {level_display} · Dificultad {difficulty_display}",
                             size=14,
                             color=ft.Colors.BLUE_GREY_900,
                             text_align=ft.TextAlign.CENTER,
                         )
                     ),
-                    difficulty_text,
+                    difficulty_text if adversary_level_selector else ft.Container(),
                 ],
                 spacing=6,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -233,15 +233,18 @@ def incursion_detail_view(
                                     size=16,
                                     weight=ft.FontWeight.BOLD,
                                     color=ft.Colors.WHITE,
+                                    text_align=ft.TextAlign.CENTER,
                                 ),
                                 ft.Text(
                                     f"{spirit_2_name} ({board_2_name})",
                                     size=16,
                                     weight=ft.FontWeight.BOLD,
                                     color=ft.Colors.WHITE,
+                                    text_align=ft.TextAlign.CENTER,
                                 ),
                             ],
                             spacing=4,
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         )
                     ],
                     alignment=ft.MainAxisAlignment.CENTER,
@@ -252,12 +255,19 @@ def incursion_detail_view(
                     color=ft.Colors.BLUE_GREY_100,
                     text_align=ft.TextAlign.CENTER,
                 ),
-                ft.Divider(color=ft.Colors.BLUE_GREY_700),
-                ft.Text(
-                    f"Adversario: {adversary_name}",
-                    size=14,
-                    color=ft.Colors.BLUE_GREY_100,
+                ft.Container(
+                    height=140,
+                    width=240,
+                    bgcolor=ft.Colors.BLUE_GREY_700,
+                    border_radius=12,
+                    alignment=ft.alignment.center,
+                    content=ft.Text(
+                        "Imagen de layout",
+                        color=ft.Colors.BLUE_GREY_100,
+                        size=12,
+                    ),
                 ),
+                ft.Divider(color=ft.Colors.BLUE_GREY_700),
                 adversary_level_block,
             ],
             spacing=8,
@@ -503,34 +513,6 @@ def incursion_detail_view(
         page.floating_action_button = None
         page.bottom_appbar = None
 
-        def open_sessions_dialog(event: ft.ControlEvent) -> None:
-            sessions_list = ft.ListView(spacing=6, expand=False)
-            if not sessions:
-                sessions_list.controls.append(ft.Text("No hay sesiones registradas."))
-            else:
-                for session in sessions:
-                    sessions_list.controls.append(
-                        ft.ListTile(
-                            leading=ft.Icon(ft.Icons.TIMER),
-                            title=ft.Text(
-                                f"{format_datetime_local(session.get('started_at'))} → {format_datetime_local(session.get('ended_at'))}"
-                            ),
-                        )
-                    )
-            dialog = ft.AlertDialog(
-                modal=True,
-                title=ft.Text("Detalle de sesiones"),
-                content=ft.Column([sessions_list], tight=True),
-                actions=[
-                    ft.TextButton(
-                        "Cerrar", on_click=lambda _: close_dialog(page, dialog)
-                    )
-                ],
-            )
-            page.dialog = dialog
-            dialog.open = True
-            page.update()
-
         def open_score_dialog(event: ft.ControlEvent) -> None:
             result_value = incursion.get("result")
             result_label = get_result_label(result_value)
@@ -572,7 +554,7 @@ def incursion_detail_view(
 
         now = datetime.now(timezone.utc)
         total_time = total_minutes(sessions, now)
-        sessions_section.visible = state != SESSION_STATE_FINALIZED
+        sessions_section.visible = True
         session_action_button = None
         if state != SESSION_STATE_FINALIZED:
             button_label = "Finalizar sesión" if open_session else "Iniciar sesión"
@@ -581,14 +563,47 @@ def incursion_detail_view(
                 icon=ft.Icons.TIMER,
                 on_click=handle_session_action,
             )
+        sessions_list = ft.Column(spacing=6)
+        if not sessions:
+            sessions_list.controls.append(ft.Text("No hay sesiones registradas."))
+        else:
+            for session in sessions:
+                started_at = session.get("started_at")
+                ended_at = session.get("ended_at") or now
+                duration_minutes = (
+                    int((ended_at - started_at).total_seconds() // 60)
+                    if started_at and ended_at
+                    else 0
+                )
+                sessions_list.controls.append(
+                    ft.Container(
+                        content=ft.Column(
+                            [
+                                ft.Text(
+                                    f"Inicio: {format_datetime_local(started_at)}",
+                                    size=12,
+                                ),
+                                ft.Text(
+                                    f"Fin: {format_datetime_local(ended_at)}",
+                                    size=12,
+                                ),
+                                ft.Text(
+                                    f"Duración: {duration_minutes} min",
+                                    size=12,
+                                    weight=ft.FontWeight.BOLD,
+                                ),
+                            ],
+                            spacing=2,
+                        ),
+                        padding=10,
+                        bgcolor=ft.Colors.BLUE_GREY_50,
+                        border_radius=8,
+                    )
+                )
         session_controls = [
             ft.Text("Sesiones", weight=ft.FontWeight.BOLD, size=16),
             ft.Text(f"Duración total: {total_time} min"),
-            ft.TextButton(
-                "Ver detalle de sesiones",
-                icon=ft.Icons.TIMER,
-                on_click=open_sessions_dialog,
-            ),
+            sessions_list,
         ]
         if session_action_button:
             session_controls.append(session_action_button)
@@ -608,7 +623,7 @@ def incursion_detail_view(
                             summary_tile(
                                 ft.Icons.TIMER,
                                 f"{total_time} min",
-                                open_sessions_dialog,
+                                None,
                             ),
                             summary_tile(
                                 ft.Icons.STAR,
@@ -648,8 +663,14 @@ def incursion_detail_view(
         content=ft.Column(
             [
                 setup_section,
-                sessions_section,
-                result_section,
+                ft.Row(
+                    [
+                        ft.Container(content=sessions_section, expand=True),
+                        ft.Container(content=result_section, expand=True),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=16,
+                ),
             ],
             expand=True,
             spacing=16,

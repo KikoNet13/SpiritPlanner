@@ -131,7 +131,11 @@ def incursion_detail_view(
                 logger.debug(
                     "Updating difficulty adversary_id=%s level=%s",
                     incursion.get("adversary_id"),
-                    adversary_level_selector.value if adversary_level_selector else None,
+                    (
+                        adversary_level_selector.value
+                        if adversary_level_selector
+                        else None
+                    ),
                 )
                 selected_level = (
                     adversary_level_selector.value if adversary_level_selector else None
@@ -168,8 +172,8 @@ def incursion_detail_view(
                 page.update()
 
             if adversary_level_selector:
-                adversary_level_selector.on_change = (
-                    lambda event: update_difficulty(event, persist=True)
+                adversary_level_selector.on_change = lambda event: update_difficulty(
+                    event, persist=True
                 )
                 update_difficulty()
         else:
@@ -214,7 +218,7 @@ def incursion_detail_view(
             padding=ft.padding.symmetric(horizontal=16, vertical=12),
             bgcolor=ft.Colors.BLUE_GREY_50,
             border_radius=8,
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
         )
 
         setup_section.content = ft.Column(
@@ -260,7 +264,7 @@ def incursion_detail_view(
                     width=240,
                     bgcolor=ft.Colors.BLUE_GREY_700,
                     border_radius=12,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     content=ft.Text(
                         "Imagen de layout",
                         color=ft.Colors.BLUE_GREY_100,
@@ -403,7 +407,9 @@ def incursion_detail_view(
                 )
                 formula_text.value = f"Fórmula: {formula}"
                 score_text.value = (
-                    f"Puntuación: {score_value}" if score_value is not None else "Puntuación: —"
+                    f"Puntuación: {score_value}"
+                    if score_value is not None
+                    else "Puntuación: —"
                 )
                 fields["invader_cards_remaining"].visible = result_value == "win"
                 fields["invader_cards_out_of_deck"].visible = result_value == "loss"
@@ -527,7 +533,9 @@ def incursion_detail_view(
                         ft.Text(f"Dificultad: {difficulty_value}"),
                         ft.Text(f"Jugadores: {incursion.get('player_count')}"),
                         ft.Text(f"Dahan vivos: {incursion.get('dahan_alive')}"),
-                        ft.Text(f"Plaga en la isla: {incursion.get('blight_on_island')}"),
+                        ft.Text(
+                            f"Plaga en la isla: {incursion.get('blight_on_island')}"
+                        ),
                         ft.Text(
                             f"Cartas restantes: {incursion.get('invader_cards_remaining')}"
                         ),

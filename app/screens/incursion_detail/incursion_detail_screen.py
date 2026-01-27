@@ -276,198 +276,238 @@ def incursion_detail_view(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-        def handle_finalize(
-            dialog: ft.AlertDialog, fields: dict[str, ft.Control]
-        ) -> None:
-            logger.info(
-                "Finalize incursion requested incursion_id=%s result=%s",
-                incursion_id,
-                fields["result"].value,
-            )
-            if state == SESSION_STATE_FINALIZED:
-                logger.warning(
-                    "Finalize blocked; incursion already finalized incursion_id=%s",
-                    incursion_id,
-                )
-                show_message(page, "La incursión ya está finalizada.")
-                return
-            if not fields["result"].value:
-                logger.warning(
-                    "Finalize blocked; missing result incursion_id=%s", incursion_id
-                )
-                show_message(page, "Debes indicar el resultado.")
-                return
-            try:
-                finalize_incursion(
-                    service,
-                    era_id=era_id,
-                    period_id=period_id,
-                    incursion_id=incursion_id,
-                    result=fields["result"].value,
-                    player_count=int(fields["player_count"].value or 2),
-                    invader_cards_remaining=int(
-                        fields["invader_cards_remaining"].value or 0
-                    ),
-                    invader_cards_out_of_deck=int(
-                        fields["invader_cards_out_of_deck"].value or 0
-                    ),
-                    dahan_alive=int(fields["dahan_alive"].value or 0),
-                    blight_on_island=int(fields["blight_on_island"].value or 0),
-                )
-            except ValueError:
-                logger.error(
-                    "Finalize incursion failed due to numeric validation incursion_id=%s",
-                    incursion_id,
-                    exc_info=True,
-                )
-                show_message(page, "Revisa los valores numéricos.")
-                return
-            dialog.open = False
-            load_detail()
-            page.update()
-            logger.info("Incursion finalized incursion_id=%s", incursion_id)
+        # Panel inline de finalización (sin modales)
+        finalize_form_fields: dict[str, ft.Control] = {}
 
-        def open_finalize_dialog(event: ft.ControlEvent) -> None:
-            if state == SESSION_STATE_FINALIZED:
-                logger.warning(
-                    "Finalize dialog blocked; incursion finalized incursion_id=%s",
-                    incursion_id,
-                )
-                show_message(page, "La incursión ya está finalizada.")
-                return
-            logger.info("Opening finalize dialog incursion_id=%s", incursion_id)
-            if open_session:
-                logger.info(
-                    "Closing active session before finalize incursion_id=%s",
-                    incursion_id,
-                )
-                end_session(service, era_id, period_id, incursion_id)
-            difficulty_display = incursion.get("difficulty") or 0
-            fields: dict[str, ft.Control] = {
+        def parse_int(field: ft.Control, default: int = 0) -> int:
+            value = getattr(field, "value", None)
+            try:
+                return int(value) if value not in (None, "") else default
+            except ValueError:
+                return default
+
+        def build_finalize_fields(readonly: bool) -> dict[str, ft.Control]:
+            fields_local: dict[str, ft.Control] = {
                 "result": ft.Dropdown(
                     label="Resultado",
                     options=[
                         ft.dropdown.Option("win", "Victoria"),
                         ft.dropdown.Option("loss", "Derrota"),
                     ],
+                    value=incursion.get("result"),
+                    disabled=readonly,
                 ),
                 "player_count": ft.TextField(
                     label="Jugadores",
-                    value="2",
+                    value=str(incursion.get("player_count") or 2),
                     keyboard_type=ft.KeyboardType.NUMBER,
+                    disabled=readonly,
                 ),
                 "dahan_alive": ft.TextField(
                     label="Dahan vivos",
+                    value=str(incursion.get("dahan_alive") or ""),
                     keyboard_type=ft.KeyboardType.NUMBER,
+                    disabled=readonly,
                 ),
                 "blight_on_island": ft.TextField(
                     label="Plaga en la isla",
+                    value=str(incursion.get("blight_on_island") or ""),
                     keyboard_type=ft.KeyboardType.NUMBER,
+                    disabled=readonly,
                 ),
                 "invader_cards_remaining": ft.TextField(
                     label="Cartas invasoras restantes",
+                    value=str(incursion.get("invader_cards_remaining") or ""),
                     keyboard_type=ft.KeyboardType.NUMBER,
+                    disabled=readonly,
+                    visible=(incursion.get("result") or "") == "win" or not readonly,
                 ),
                 "invader_cards_out_of_deck": ft.TextField(
                     label="Cartas invasoras fuera del mazo",
+                    value=str(incursion.get("invader_cards_out_of_deck") or ""),
                     keyboard_type=ft.KeyboardType.NUMBER,
+                    disabled=readonly,
+                    visible=(incursion.get("result") or "") == "loss" or not readonly,
                 ),
             }
+            return fields_local
 
-            def parse_int(field: ft.Control, default: int = 0) -> int:
-                value = getattr(field, "value", None)
-                try:
-                    return int(value) if value not in (None, "") else default
-                except ValueError:
-                    return default
+        def compute_preview_and_update(
+            fields_map: dict[str, ft.Control], score_label: ft.Text, formula_label: ft.Text
+        ) -> None:
+            result_value = fields_map["result"].value
+            player_count = parse_int(fields_map["player_count"], 2)
+            dahan_alive = parse_int(fields_map["dahan_alive"])
+            blight_on_island = parse_int(fields_map["blight_on_island"])
+            invader_remaining = parse_int(fields_map["invader_cards_remaining"])
+            invader_out = parse_int(fields_map["invader_cards_out_of_deck"])
+            difficulty_display = incursion.get("difficulty") or 0
+            formula, score_value = compute_score_preview(
+                result_value,
+                difficulty_display,
+                player_count,
+                dahan_alive,
+                blight_on_island,
+                invader_remaining,
+                invader_out,
+            )
+            formula_label.value = f"Fórmula: {formula}"
+            score_label.value = (
+                f"Puntuación: {score_value}" if score_value is not None else "Puntuación: —"
+            )
+            fields_map["invader_cards_remaining"].visible = result_value == "win"
+            fields_map["invader_cards_out_of_deck"].visible = result_value == "loss"
+            page.update()
 
-            formula_text = ft.Text("Fórmula: —", size=12)
-            score_text = ft.Text("Puntuación: —", size=12, weight=ft.FontWeight.BOLD)
-            difficulty_text_modal = ft.Text(
-                f"Dificultad: {difficulty_display}", size=12
+        # Estado de confirmación inline
+        confirm_row = ft.Row(spacing=8, visible=False)
+
+        def toggle_confirm(show: bool) -> None:
+            confirm_row.visible = show
+            page.update()
+
+        def handle_finalize_inline(event: ft.ControlEvent | None = None) -> None:
+            if state == SESSION_STATE_FINALIZED:
+                show_message(page, "La incursión ya está finalizada.")
+                return
+            if not finalize_form_fields["result"].value:
+                show_message(page, "Debes indicar el resultado.")
+                return
+            if open_session:
+                logger.info(
+                    "Closing active session before finalize incursion_id=%s",
+                    incursion_id,
+                )
+                end_session(service, era_id, period_id, incursion_id)
+            try:
+                finalize_incursion(
+                    service,
+                    era_id=era_id,
+                    period_id=period_id,
+                    incursion_id=incursion_id,
+                    result=finalize_form_fields["result"].value,
+                    player_count=parse_int(finalize_form_fields["player_count"], 2),
+                    invader_cards_remaining=parse_int(
+                        finalize_form_fields["invader_cards_remaining"], 0
+                    ),
+                    invader_cards_out_of_deck=parse_int(
+                        finalize_form_fields["invader_cards_out_of_deck"], 0
+                    ),
+                    dahan_alive=parse_int(finalize_form_fields["dahan_alive"], 0),
+                    blight_on_island=parse_int(
+                        finalize_form_fields["blight_on_island"], 0
+                    ),
+                )
+            except ValueError:
+                show_message(page, "Revisa los valores numéricos.")
+                return
+            toggle_confirm(False)
+            load_detail()
+            page.update()
+            logger.info("Incursion finalized incursion_id=%s", incursion_id)
+
+        def handle_cancel_inline(event: ft.ControlEvent | None = None) -> None:
+            toggle_confirm(False)
+
+        # Construcción del panel inline de finalización
+        finalize_readonly = state == SESSION_STATE_FINALIZED
+        finalize_form_fields = build_finalize_fields(finalize_readonly)
+        preview_formula = ft.Text("Fórmula: —", size=12, color=ft.Colors.BLUE_GREY_500)
+        preview_score = ft.Text(
+            "Puntuación: —",
+            size=12,
+            weight=ft.FontWeight.BOLD,
+            color=ft.Colors.BLUE_GREY_500,
+        )
+
+        for key in finalize_form_fields:
+            field = finalize_form_fields[key]
+            if hasattr(field, "on_change") and not finalize_readonly:
+                field.on_change = lambda e, ff=finalize_form_fields: compute_preview_and_update(
+                    ff, preview_score, preview_formula
+                )
+
+        if not finalize_readonly:
+            compute_preview_and_update(finalize_form_fields, preview_score, preview_formula)
+        else:
+            preview_score.value = f"Puntuación: {incursion.get('score')}"
+            preview_score.color = ft.Colors.BLUE_GREY_700
+            preview_formula.value = "Fórmula: —"
+            preview_formula.color = ft.Colors.BLUE_GREY_500
+
+        confirm_row.controls = [
+            ft.ElevatedButton(
+                "Confirmar",
+                icon=ft.Icons.CHECK,
+                on_click=handle_finalize_inline,
+                bgcolor=ft.Colors.GREEN_600,
+                color=ft.Colors.WHITE,
+            ),
+            ft.OutlinedButton(
+                "Cancelar",
+                icon=ft.Icons.CLOSE,
+                on_click=handle_cancel_inline,
+            ),
+        ]
+
+        secondary_button = None
+        if state != SESSION_STATE_FINALIZED:
+            secondary_button = ft.OutlinedButton(
+                "Finalizar incursión",
+                icon=ft.Icons.FLAG,
+                on_click=lambda _: toggle_confirm(True),
+                disabled=False,
+                style=ft.ButtonStyle(
+                    color=ft.Colors.BLUE_GREY_800,
+                    overlay_color=ft.Colors.BLUE_GREY_50,
+                    padding=ft.padding.symmetric(vertical=10, horizontal=14),
+                    shape=ft.RoundedRectangleBorder(radius=12),
+                ),
             )
 
-            def update_score_preview(event: ft.ControlEvent | None = None) -> None:
-                result_value = fields["result"].value
-                player_count = parse_int(fields["player_count"], 2)
-                dahan_alive = parse_int(fields["dahan_alive"])
-                blight_on_island = parse_int(fields["blight_on_island"])
-                invader_remaining = parse_int(fields["invader_cards_remaining"])
-                invader_out = parse_int(fields["invader_cards_out_of_deck"])
-                formula, score_value = compute_score_preview(
-                    result_value,
-                    difficulty_display,
-                    player_count,
-                    dahan_alive,
-                    blight_on_island,
-                    invader_remaining,
-                    invader_out,
-                )
-                formula_text.value = f"Fórmula: {formula}"
-                score_text.value = (
-                    f"Puntuación: {score_value}"
-                    if score_value is not None
-                    else "Puntuación: —"
-                )
-                fields["invader_cards_remaining"].visible = result_value == "win"
-                fields["invader_cards_out_of_deck"].visible = result_value == "loss"
-                page.update()
-
-            for field_key in [
-                "result",
-                "player_count",
-                "dahan_alive",
-                "blight_on_island",
-                "invader_cards_remaining",
-                "invader_cards_out_of_deck",
-            ]:
-                field = fields[field_key]
-                field.on_change = update_score_preview
-
-            update_score_preview()
-
-            def handle_cancel_click(event: ft.ControlEvent) -> None:
-                logger.info("Finalize dialog cancelled incursion_id=%s", incursion_id)
-                close_dialog(page, dialog)
-
-            def handle_save_click(event: ft.ControlEvent) -> None:
-                handle_finalize(dialog, fields)
-
-            dialog = ft.AlertDialog(
-                modal=True,
-                title=ft.Text("Finalizar incursión"),
+        finalize_panel = ft.Card(
+            content=ft.Container(
                 content=ft.Column(
                     [
-                        ft.Text("Resultado", weight=ft.FontWeight.BOLD),
-                        fields["result"],
-                        ft.Text("Datos comunes", weight=ft.FontWeight.BOLD),
-                        fields["player_count"],
-                        fields["dahan_alive"],
-                        fields["blight_on_island"],
-                        ft.Text("Datos condicionales", weight=ft.FontWeight.BOLD),
-                        fields["invader_cards_remaining"],
-                        fields["invader_cards_out_of_deck"],
-                        ft.Divider(),
-                        ft.Text("Vista previa", weight=ft.FontWeight.BOLD),
-                        difficulty_text_modal,
-                        formula_text,
-                        score_text,
+                        ft.Text(
+                            "Finalizar incursión",
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.BLUE_GREY_800,
+                        ),
+                        ft.Row(
+                            [
+                                finalize_form_fields["result"],
+                                finalize_form_fields["player_count"],
+                            ],
+                            spacing=8,
+                        ),
+                        ft.Row(
+                            [
+                                finalize_form_fields["dahan_alive"],
+                                finalize_form_fields["blight_on_island"],
+                            ],
+                            spacing=8,
+                        ),
+                        ft.Row(
+                            [
+                                finalize_form_fields["invader_cards_remaining"],
+                                finalize_form_fields["invader_cards_out_of_deck"],
+                            ],
+                            spacing=8,
+                        ),
+                        ft.Column(
+                            [preview_formula, preview_score],
+                            spacing=2,
+                        ),
+                        ft.Container(),
+                        confirm_row,
                     ],
-                    tight=True,
-                    scroll=ft.ScrollMode.AUTO,
+                    spacing=10,
                 ),
-                actions=[
-                    ft.TextButton("Cancelar", on_click=handle_cancel_click),
-                    ft.ElevatedButton(
-                        "Guardar y finalizar",
-                        on_click=handle_save_click,
-                    ),
-                ],
-            )
-            page.dialog = dialog
-            dialog.open = True
-            page.update()
-            logger.debug("Finalize dialog opened incursion_id=%s", incursion_id)
+                padding=12,
+            ),
+            elevation=2,
+        )
 
         def handle_session_action(event: ft.ControlEvent) -> None:
             logger.info(
@@ -654,27 +694,6 @@ def incursion_detail_view(
         )
 
         secondary_button = None
-        if state != SESSION_STATE_FINALIZED:
-            secondary_button = ft.OutlinedButton(
-                content=ft.Row(
-                    [
-                        ft.Text("🏁", size=16),
-                        ft.Text("Finalizar incursión", size=14),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    spacing=10,
-                ),
-                height=46,
-                width=320,
-                on_click=open_finalize_dialog,
-                disabled=state == SESSION_STATE_NOT_STARTED,
-                style=ft.ButtonStyle(
-                    color=ft.Colors.BLUE_GREY_800,
-                    overlay_color=ft.Colors.BLUE_GREY_50,
-                    padding=ft.padding.symmetric(vertical=10, horizontal=14),
-                    shape=ft.RoundedRectangleBorder(radius=12),
-                ),
-            )
 
         def split_date_time(dt: datetime | str | None) -> tuple[str, str]:
             display = format_short_datetime(dt)
@@ -813,6 +832,7 @@ def incursion_detail_view(
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
                 result_summary if result_summary else ft.Container(),
+                finalize_panel,
                 sessions_detail,
             ],
             spacing=14,

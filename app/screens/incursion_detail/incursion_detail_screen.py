@@ -1,6 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime, timezone
+import asyncio
 import flet as ft
 
 from app.screens.data_lookup import (
@@ -14,7 +15,6 @@ from app.screens.data_lookup import (
 from app.screens.incursion_detail.incursion_detail_components import (
     dark_section,
     light_section,
-    summary_tile,
 )
 from app.screens.incursion_detail.incursion_detail_handlers import (
     close_dialog,
@@ -36,7 +36,6 @@ from app.screens.incursion_detail.incursion_detail_state import (
     get_result_label,
     get_score_formula,
     resolve_session_state,
-    total_minutes,
 )
 from app.services.firestore_service import FirestoreService
 from app.utils.datetime_format import format_datetime_local
@@ -59,13 +58,12 @@ def incursion_detail_view(
         incursion_id,
     )
     setup_section = dark_section(ft.Container())
-    sessions_section = light_section(ft.Container())
-    result_section = light_section(ft.Container())
+    bottom_section = light_section(ft.Container())
+    timer_task = None
 
     def load_detail() -> None:
         logger.debug("Loading incursion detail")
-        sessions_section.content = None
-        result_section.content = None
+        bottom_section.content = None
 
         incursion = get_incursion(service, era_id, period_id, incursion_id)
         if not incursion:
@@ -531,8 +529,12 @@ def incursion_detail_view(
                     [
                         ft.Text(f"Resultado: {result_label}"),
                         ft.Text(f"Dificultad: {difficulty_value}"),
-                        ft.Text(f"Jugadores: {incursion.get('player_count')}"),
-                        ft.Text(f"Dahan vivos: {incursion.get('dahan_alive')}"),
+                        ft.Text(
+                            f"Jugadores: {incursion.get('player_count')}",
+                        ),
+                        ft.Text(
+                            f"Dahan vivos: {incursion.get('dahan_alive')}",
+                        ),
                         ft.Text(
                             f"Plaga en la isla: {incursion.get('blight_on_island')}"
                         ),
@@ -560,106 +562,262 @@ def incursion_detail_view(
             dialog.open = True
             page.update()
 
-        now = datetime.now(timezone.utc)
-        total_time = total_minutes(sessions, now)
-        sessions_section.visible = True
-        session_action_button = None
-        if state != SESSION_STATE_FINALIZED:
-            button_label = "Finalizar sesión" if open_session else "Iniciar sesión"
-            session_action_button = ft.ElevatedButton(
-                button_label,
-                icon=ft.Icons.TIMER,
-                on_click=handle_session_action,
-            )
-        sessions_list = ft.Column(spacing=6)
-        if not sessions:
-            sessions_list.controls.append(ft.Text("No hay sesiones registradas."))
-        else:
+        # ---------- Bottom unified UI ----------
+        nonlocal timer_task
+
+        def to_utc(dt: datetime | None) -> datetime | None:
+            if dt is None:
+                return None
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+        def compute_total_seconds(reference: datetime | None = None) -> int:
+            ref = reference or datetime.now(timezone.utc)
+            total_seconds = 0
             for session in sessions:
-                started_at = session.get("started_at")
-                ended_at = session.get("ended_at") or now
+                started_at = to_utc(session.get("started_at"))
+                ended_at = to_utc(session.get("ended_at")) or ref
+                if started_at and ended_at:
+                    total_seconds += int((ended_at - started_at).total_seconds())
+            return max(total_seconds, 0)
+
+        def format_total_time(total_seconds: int) -> str:
+            minutes, seconds = divmod(total_seconds, 60)
+            return f"{minutes}:{seconds:02d}"
+
+        def format_short_datetime(value: datetime | str | None) -> str:
+            display = format_datetime_local(value)
+            if display == "—":
+                return display
+            parts = display.split(" ")
+            if len(parts) >= 2:
+                date_part = parts[0]
+                time_part = parts[1]
+                short_date = date_part[:8]
+                return f"{short_date} · {time_part}"
+            return display
+
+        def session_reference_datetime(session: dict) -> datetime | None:
+            return to_utc(session.get("ended_at")) or to_utc(session.get("started_at"))
+
+        total_seconds_value = compute_total_seconds()
+        time_color = ft.Colors.BLUE_600 if open_session else ft.Colors.BLUE_GREY_900
+        time_text = ft.Text(
+            f"⏱ {format_total_time(total_seconds_value)}",
+            size=28,
+            weight=ft.FontWeight.BOLD,
+            color=time_color,
+            text_align=ft.TextAlign.CENTER,
+            data="running" if open_session else "idle",
+        )
+
+        async def tick_time() -> None:
+            while time_text.data == "running":
+                now_tick = datetime.now(timezone.utc)
+                time_text.value = (
+                    f"⏱ {format_total_time(compute_total_seconds(now_tick))}"
+                )
+                page.update()
+                await asyncio.sleep(1)
+
+        if timer_task and not timer_task.done():
+            timer_task.cancel()
+            timer_task = None
+        if open_session and state != SESSION_STATE_FINALIZED:
+            if hasattr(page, "run_task"):
+                timer_task = page.run_task(tick_time)
+            else:
+                timer_task = asyncio.create_task(tick_time())
+
+        primary_icon = "▶" if not open_session else "⏹"
+        primary_label = "Iniciar sesión" if not open_session else "Finalizar sesión"
+        primary_button = ft.FilledButton(
+            content=ft.Row(
+                [
+                    ft.Text(primary_icon, size=18),
+                    ft.Text(primary_label, size=15, weight=ft.FontWeight.BOLD),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=10,
+            ),
+            height=52,
+            width=320,
+            on_click=(
+                handle_session_action if state != SESSION_STATE_FINALIZED else None
+            ),
+            disabled=state == SESSION_STATE_FINALIZED,
+            style=ft.ButtonStyle(
+                bgcolor=ft.Colors.BLUE_700,
+                color=ft.Colors.WHITE,
+                padding=ft.padding.symmetric(vertical=12, horizontal=18),
+                shape=ft.RoundedRectangleBorder(radius=14),
+            ),
+        )
+
+        secondary_button = None
+        if state != SESSION_STATE_FINALIZED:
+            secondary_button = ft.OutlinedButton(
+                content=ft.Row(
+                    [
+                        ft.Text("🏁", size=16),
+                        ft.Text("Finalizar incursión", size=14),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=10,
+                ),
+                height=46,
+                width=320,
+                on_click=open_finalize_dialog,
+                disabled=state == SESSION_STATE_NOT_STARTED,
+                style=ft.ButtonStyle(
+                    color=ft.Colors.BLUE_GREY_800,
+                    overlay_color=ft.Colors.BLUE_GREY_50,
+                    padding=ft.padding.symmetric(vertical=10, horizontal=14),
+                    shape=ft.RoundedRectangleBorder(radius=12),
+                ),
+            )
+
+        def split_date_time(dt: datetime | str | None) -> tuple[str, str]:
+            display = format_short_datetime(dt)
+            if "·" in display:
+                date_part, time_part = [p.strip() for p in display.split("·", 1)]
+            else:
+                date_part, time_part = display, ""
+            return date_part[:8], time_part
+
+        session_rows: list[ft.DataRow] = []
+        if not sessions:
+            sessions_detail = ft.Container(
+                content=ft.Text(
+                    "No hay sesiones registradas.",
+                    size=12,
+                    color=ft.Colors.BLUE_GREY_400,
+                ),
+                padding=ft.padding.only(top=6),
+                width=420,
+            )
+        else:
+            sessions_sorted = sorted(
+                sessions,
+                key=lambda s: session_reference_datetime(s)
+                or datetime.min.replace(tzinfo=timezone.utc),
+                reverse=True,
+            )
+            for session in sessions_sorted:
+                started_at = to_utc(session.get("started_at"))
+                ended_at = to_utc(session.get("ended_at"))
                 duration_minutes = (
                     int((ended_at - started_at).total_seconds() // 60)
                     if started_at and ended_at
                     else 0
                 )
-                sessions_list.controls.append(
-                    ft.Container(
-                        content=ft.Column(
-                            [
-                                ft.Text(
-                                    f"Inicio: {format_datetime_local(started_at)}",
-                                    size=12,
-                                ),
-                                ft.Text(
-                                    f"Fin: {format_datetime_local(ended_at)}",
-                                    size=12,
-                                ),
-                                ft.Text(
-                                    f"Duración: {duration_minutes} min",
-                                    size=12,
-                                    weight=ft.FontWeight.BOLD,
-                                ),
-                            ],
-                            spacing=2,
-                        ),
-                        padding=10,
-                        bgcolor=ft.Colors.BLUE_GREY_50,
-                        border_radius=8,
+                start_date, start_time = split_date_time(started_at)
+                _, end_time = split_date_time(ended_at)
+                session_rows.append(
+                    ft.DataRow(
+                        cells=[
+                            ft.DataCell(
+                                ft.Row(
+                                    [
+                                        ft.Icon(
+                                            ft.Icons.CALENDAR_TODAY,
+                                            size=14,
+                                            color=ft.Colors.BLUE_GREY_500,
+                                        ),
+                                        ft.Text(
+                                            start_date,
+                                            size=12,
+                                            color=ft.Colors.BLUE_GREY_800,
+                                        ),
+                                    ],
+                                    spacing=4,
+                                )
+                            ),
+                            ft.DataCell(
+                                ft.Row(
+                                    [
+                                        ft.Icon(
+                                            ft.Icons.ACCESS_TIME,
+                                            size=14,
+                                            color=ft.Colors.BLUE_GREY_500,
+                                        ),
+                                        ft.Text(
+                                            f"{start_time}–{end_time or 'ahora'}",
+                                            size=12,
+                                            color=ft.Colors.BLUE_GREY_800,
+                                        ),
+                                    ],
+                                    spacing=4,
+                                )
+                            ),
+                            ft.DataCell(
+                                ft.Row(
+                                    [
+                                        ft.Icon(
+                                            ft.Icons.HOURGLASS_BOTTOM,
+                                            size=14,
+                                            color=ft.Colors.BLUE_GREY_500,
+                                        ),
+                                        ft.Text(
+                                            (
+                                                "—"
+                                                if not ended_at
+                                                else f"{duration_minutes}"
+                                            ),
+                                            size=12,
+                                            weight=ft.FontWeight.W_600,
+                                            color=ft.Colors.BLUE_GREY_900,
+                                        ),
+                                    ],
+                                    spacing=4,
+                                )
+                            ),
+                        ]
                     )
                 )
-        session_controls = [
-            ft.Text("Sesiones", weight=ft.FontWeight.BOLD, size=16),
-            ft.Text(f"Duración total: {total_time} min"),
-            sessions_list,
-        ]
-        if session_action_button:
-            session_controls.append(session_action_button)
-        sessions_section.content = ft.Column(
-            session_controls,
-            spacing=8,
-        )
 
+            sessions_detail = ft.Container(
+                content=ft.DataTable(
+                    columns=[
+                        ft.DataColumn(label=ft.Text("Fecha")),
+                        ft.DataColumn(label=ft.Text("Horario")),
+                        ft.DataColumn(label=ft.Text("Duración")),
+                    ],
+                    rows=session_rows,
+                    column_spacing=18,
+                    heading_row_height=0,
+                    data_row_max_height=32,
+                    data_row_min_height=28,
+                    divider_thickness=0,
+                ),
+                padding=ft.padding.only(top=6),
+                width=300,
+            )
+
+        result_value = incursion.get("result")
+        result_summary = None
         if state == SESSION_STATE_FINALIZED:
-            result_value = incursion.get("result")
             result_label = get_result_label(result_value)
-            result_section.content = ft.Column(
-                [
-                    ft.Text("Resumen final", weight=ft.FontWeight.BOLD, size=16),
-                    ft.Row(
-                        [
-                            summary_tile(
-                                ft.Icons.TIMER,
-                                f"{total_time} min",
-                                None,
-                            ),
-                            summary_tile(
-                                ft.Icons.STAR,
-                                f"{incursion.get('score')}",
-                                open_score_dialog,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    ),
-                    ft.Text(f"Resultado: {result_label}"),
-                ],
-                spacing=8,
+            result_summary = ft.Text(
+                f"Resultado final: {result_label} · Puntuación {incursion.get('score')}",
+                size=12,
+                color=ft.Colors.BLUE_GREY_600,
+                text_align=ft.TextAlign.CENTER,
             )
-        else:
-            finalize_button = ft.ElevatedButton(
-                "Finalizar incursión",
-                icon=ft.Icons.FLAG,
-                on_click=open_finalize_dialog,
-                disabled=state == SESSION_STATE_NOT_STARTED,
-            )
-            result_section.content = ft.Column(
-                [
-                    ft.Text("Resultado", weight=ft.FontWeight.BOLD, size=16),
-                    ft.Text("Completa los datos para cerrar la incursión."),
-                    finalize_button,
-                ],
-                spacing=8,
-            )
+
+        bottom_section.content = ft.Column(
+            [
+                time_text,
+                ft.Column(
+                    [primary_button] + ([secondary_button] if secondary_button else []),
+                    spacing=10,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                result_summary if result_summary else ft.Container(),
+                sessions_detail,
+            ],
+            spacing=14,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
 
         page.update()
         logger.debug("Incursion detail loaded incursion_id=%s", incursion_id)
@@ -671,16 +829,8 @@ def incursion_detail_view(
         content=ft.Column(
             [
                 setup_section,
-                ft.Row(
-                    [
-                        ft.Container(content=sessions_section, expand=True),
-                        ft.Container(content=result_section, expand=True),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    spacing=16,
-                ),
+                bottom_section,
             ],
-            expand=True,
             spacing=16,
             scroll=ft.ScrollMode.AUTO,
         ),

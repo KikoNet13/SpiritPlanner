@@ -1,6 +1,6 @@
-﻿> NO CANONICO / puede estar desactualizado / ver TDD.md y adr/
+﻿# SpiritPlanner — Documentación técnica
 
-# SpiritPlanner — Documentación técnica
+> NO CANONICO / puede estar desactualizado / ver TDD.md y adr/
 
 ## 1. Visión general
 

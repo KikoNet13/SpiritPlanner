@@ -4,7 +4,7 @@
 > Decisiones: `adr/`
 > Este README es landing y NO canonico.
 
-SpiritPlanner es una herramienta en Python/Flet con Firestore para gestionar Eras, Periodos, Incursions y Sessions en campañas en solitario de Spirit Island.
+SpiritPlanner es una herramienta en Python/Flet con Firestore para gestionar Eras, Periodos, Incursiones y Sesiones en campañas en solitario (con 2 espíritus) de Spirit Island.
 
 ## Stack (alto nivel)
 

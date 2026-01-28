@@ -483,9 +483,9 @@ def incursion_detail_view(
             ),
         ]
 
-        secondary_button = None
+        finalize_button = None
         if state != SESSION_STATE_FINALIZED:
-            secondary_button = ft.OutlinedButton(
+            finalize_button = ft.OutlinedButton(
                 "Finalizar incursión",
                 icon=ft.Icons.FLAG,
                 on_click=lambda _: toggle_confirm(True),
@@ -721,7 +721,6 @@ def incursion_detail_view(
             ),
         )
 
-        secondary_button = None
 
         def split_date_time(dt: datetime | str | None) -> tuple[str, str]:
             display = format_short_datetime(dt)
@@ -855,7 +854,7 @@ def incursion_detail_view(
             [
                 time_text,
                 ft.Column(
-                    [primary_button] + ([secondary_button] if secondary_button else []),
+                    [primary_button] + ([finalize_button] if finalize_button else []),
                     spacing=10,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),

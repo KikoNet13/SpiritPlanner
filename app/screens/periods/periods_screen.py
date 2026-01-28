@@ -44,9 +44,8 @@ def periods_view(
             periods_list.controls = [ft.Text("No hay periodos disponibles.")]
         else:
             periods_list.controls = [build_period_card(row) for row in view_state.rows]
-        periods_list.update()
 
-    def load_periods() -> None:
+    def load_periods(update_list: bool = False) -> None:
         logger.debug("Loading periods for era_id=%s", era_id)
         view_state.loading = True
         view_state.error = None
@@ -74,6 +73,8 @@ def periods_view(
         finally:
             view_state.loading = False
         render_periods_list()
+        if update_list and periods_list.page and getattr(periods_list, "uid", None):
+            periods_list.update()
         logger.debug("Periods loaded total=%s", len(view_state.rows))
 
     def build_period_card(row: PeriodRowState) -> ft.Control:
@@ -195,7 +196,7 @@ def periods_view(
                 return
             dialog_state.is_open = False
             close_dialog(page, assignment_dialog)
-            load_periods()
+            load_periods(update_list=True)
 
         def handle_cancel() -> None:
             logger.info(
@@ -241,7 +242,7 @@ def periods_view(
         def handler(event: ft.ControlEvent) -> None:
             logger.info("Reveal period clicked period_id=%s", period_id)
             if reveal_period(page, service, era_id, period_id):
-                load_periods()
+                load_periods(update_list=True)
 
         return handler
 

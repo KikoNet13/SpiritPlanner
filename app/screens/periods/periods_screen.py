@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import flet as ft
 
@@ -8,8 +8,14 @@ from app.screens.periods.periods_handlers import (
     assign_period_adversaries,
     close_dialog,
     reveal_period,
+    show_message,
 )
-from app.screens.periods.periods_state import can_reveal, get_period_action
+from app.screens.periods.periods_state import (
+    AssignmentDialogState,
+    PeriodRowState,
+    PeriodsViewState,
+    build_period_rows,
+)
 from app.screens.shared_components import header_text
 from app.services.firestore_service import FirestoreService
 from app.utils.logger import get_logger
@@ -26,21 +32,101 @@ def periods_view(
     logger.debug("Entering periods_view era_id=%s", era_id)
     title = header_text("Era")
     periods_list = ft.ListView(spacing=12, expand=True)
+    view_state = PeriodsViewState(era_id=era_id)
+    assignment_dialog = ft.AlertDialog(modal=True)
 
     def build_open_period_handler(period_id: str):
         logger.debug("Binding open period handler period_id=%s", period_id)
         return go_to(page, f"/eras/{era_id}/periods/{period_id}")
 
-    def open_assignment_dialog(period_id: str, incursions: list[dict]) -> None:
-        logger.info(
-            "Opening assignment dialog period_id=%s incursions_count=%s",
-            period_id,
-            len(incursions),
+    def render_periods_list() -> None:
+        if not view_state.rows:
+            periods_list.controls = [ft.Text("No hay periodos disponibles.")]
+        else:
+            periods_list.controls = [build_period_card(row) for row in view_state.rows]
+        periods_list.update()
+
+    def load_periods() -> None:
+        logger.debug("Loading periods for era_id=%s", era_id)
+        view_state.loading = True
+        view_state.error = None
+        try:
+            periods = service.list_periods(era_id)
+            incursions_by_period: dict[str, list[dict]] = {}
+            for period in periods:
+                if period.get("revealed_at"):
+                    incursions_by_period[period["id"]] = service.list_incursions(
+                        era_id, period["id"]
+                    )
+            view_state.periods = periods
+            view_state.rows = build_period_rows(periods, incursions_by_period)
+        except Exception as exc:
+            logger.error(
+                "Failed to load periods era_id=%s error=%s",
+                era_id,
+                exc,
+                exc_info=True,
+            )
+            view_state.error = "load_failed"
+            view_state.periods = []
+            view_state.rows = []
+            show_message(page, "No se pudieron cargar los periodos.")
+        finally:
+            view_state.loading = False
+        render_periods_list()
+        logger.debug("Periods loaded total=%s", len(view_state.rows))
+
+    def build_period_card(row: PeriodRowState) -> ft.Control:
+        actions: list[ft.Control] = []
+        actions_alignment = (
+            ft.MainAxisAlignment.CENTER
+            if row.center_actions
+            else ft.MainAxisAlignment.END
         )
-        selections: dict[str, str | None] = {
-            incursion["id"]: incursion.get("adversary_id") for incursion in incursions
-        }
-        selectors: dict[str, ft.Dropdown] = {}
+        if row.action == "results":
+            actions.append(
+                ft.ElevatedButton(
+                    "Ver resultados",
+                    on_click=build_open_period_handler(row.period_id),
+                )
+            )
+        elif row.action == "incursions":
+            actions.append(
+                ft.ElevatedButton(
+                    "Ver incursiones",
+                    on_click=build_open_period_handler(row.period_id),
+                )
+            )
+        elif row.action == "assign":
+            actions.append(
+                ft.OutlinedButton(
+                    "Asignar adversarios",
+                    on_click=build_open_assignment_handler(row.period_id),
+                )
+            )
+        elif row.action == "reveal":
+            actions.append(
+                ft.ElevatedButton(
+                    "Revelar periodo",
+                    on_click=build_reveal_period_handler(row.period_id),
+                    height=48,
+                    width=240,
+                )
+            )
+
+        incursions_section = (
+            incursions_preview([ft.Text(entry) for entry in row.incursions_preview])
+            if row.incursions_preview
+            else ft.Container()
+        )
+        return period_card(
+            row.title,
+            actions,
+            incursions_section,
+            actions_alignment=actions_alignment,
+        )
+
+    def build_assignment_dialog_content(dialog_state: AssignmentDialogState) -> ft.Control:
         options = [
             ft.dropdown.Option(item.adversary_id, item.name)
             for item in sorted(
@@ -49,20 +135,15 @@ def periods_view(
         ]
 
         def build_incursion_card(incursion: dict) -> ft.Card:
+            incursion_id = incursion["id"]
             selector = ft.Dropdown(
                 label="Adversario",
                 options=options,
-                value=selections.get(incursion["id"]),
+                value=dialog_state.selections.get(incursion_id),
             )
-            selectors[incursion["id"]] = selector
 
             def handle_select(event: ft.ControlEvent) -> None:
-                logger.info(
-                    "Adversary selection changed incursion_id=%s selection=%s",
-                    incursion["id"],
-                    selector.value,
-                )
-                selections[incursion["id"]] = selector.value
+                dialog_state.selections[incursion_id] = event.control.value
 
             selector.on_change = handle_select
             return ft.Card(
@@ -90,53 +171,69 @@ def periods_view(
             )
 
         list_view = ft.ListView(spacing=12, expand=True)
-        for incursion in incursions:
+        for incursion in dialog_state.incursions:
             list_view.controls.append(build_incursion_card(incursion))
+        return list_view
 
-        def handle_save(dialog: ft.AlertDialog) -> None:
-            logger.info("Saving adversary assignments period_id=%s", period_id)
-            for incursion_id, selector in selectors.items():
-                selections[incursion_id] = selector.value
+    def render_assignment_dialog() -> None:
+        dialog_state = view_state.dialog
+        if not dialog_state or not dialog_state.is_open:
+            return
+
+        def handle_save() -> None:
+            logger.info(
+                "Saving adversary assignments period_id=%s", dialog_state.period_id
+            )
             success = assign_period_adversaries(
                 page,
                 service,
                 era_id,
-                period_id,
-                selections,
+                dialog_state.period_id,
+                dialog_state.selections,
             )
             if not success:
                 return
-            close_dialog(page, dialog)
+            dialog_state.is_open = False
+            close_dialog(page, assignment_dialog)
             load_periods()
 
-        def handle_cancel_click(event: ft.ControlEvent) -> None:
-            logger.info("Assignment dialog cancelled period_id=%s", period_id)
-            close_dialog(page, dialog)
+        def handle_cancel() -> None:
+            logger.info(
+                "Assignment dialog cancelled period_id=%s", dialog_state.period_id
+            )
+            dialog_state.is_open = False
+            close_dialog(page, assignment_dialog)
 
-        def handle_save_click(event: ft.ControlEvent) -> None:
-            handle_save(dialog)
-
-        dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Asignar adversarios"),
-            content=list_view,
-            actions=[
-                ft.TextButton("Cancelar", on_click=handle_cancel_click),
-                ft.ElevatedButton(
-                    "Guardar",
-                    on_click=handle_save_click,
-                ),
-            ],
+        assignment_dialog.title = ft.Text("Asignar adversarios")
+        assignment_dialog.content = build_assignment_dialog_content(dialog_state)
+        assignment_dialog.actions = [
+            ft.TextButton("Cancelar", on_click=lambda _: handle_cancel()),
+            ft.ElevatedButton("Guardar", on_click=lambda _: handle_save()),
+        ]
+        page.dialog = assignment_dialog
+        assignment_dialog.open = True
+        page.update()
+        logger.debug(
+            "Assignment dialog shown period_id=%s", dialog_state.period_id
         )
-        page.show_dialog(dialog)
-        logger.debug("Assignment dialog shown period_id=%s", period_id)
+
+    def open_assignment_dialog(period_id: str) -> None:
+        logger.info("Open assignment dialog clicked period_id=%s", period_id)
+        incursions = service.list_incursions(era_id, period_id)
+        view_state.dialog = AssignmentDialogState(
+            period_id=period_id,
+            incursions=incursions,
+            selections={
+                incursion["id"]: incursion.get("adversary_id")
+                for incursion in incursions
+            },
+            is_open=True,
+        )
+        render_assignment_dialog()
 
     def build_open_assignment_handler(period_id: str):
         def handler(event: ft.ControlEvent) -> None:
-            logger.info("Open assignment dialog clicked period_id=%s", period_id)
-            open_assignment_dialog(
-                period_id, service.list_incursions(era_id, period_id)
-            )
+            open_assignment_dialog(period_id)
 
         return handler
 
@@ -145,89 +242,8 @@ def periods_view(
             logger.info("Reveal period clicked period_id=%s", period_id)
             if reveal_period(page, service, era_id, period_id):
                 load_periods()
-                page.update()
 
         return handler
-
-    def build_incursions_section(period_id: str) -> ft.Control:
-        logger.debug("Building incursions section period_id=%s", period_id)
-        incursions = service.list_incursions(era_id, period_id)
-        if not incursions:
-            return ft.Container()
-        entries: list[ft.Control] = []
-        for incursion in incursions:
-            spirit_1 = get_spirit_name(incursion.get("spirit_1_id"))
-            spirit_2 = get_spirit_name(incursion.get("spirit_2_id"))
-            entries.append(
-                ft.Text(
-                    f"Incursión {incursion.get('index', 0)}: "
-                    f"{spirit_1} / {spirit_2}"
-                )
-            )
-        return incursions_preview(entries)
-
-    def load_periods() -> None:
-        logger.debug("Loading periods for era_id=%s", era_id)
-        periods_list.controls.clear()
-        periods = service.list_periods(era_id)
-        if not periods:
-            logger.info("No periods available era_id=%s", era_id)
-            periods_list.controls.append(ft.Text("No hay periodos disponibles."))
-            page.update()
-            return
-        for idx, period in enumerate(periods):
-            period_id = period["id"]
-            logger.debug("Rendering period idx=%s period_id=%s", idx, period_id)
-            actions: list[ft.Control] = []
-            actions_alignment = ft.MainAxisAlignment.END
-            action = get_period_action(period, can_reveal(periods, idx))
-            if action == "results":
-                actions.append(
-                    ft.ElevatedButton(
-                        "Ver resultados",
-                        on_click=build_open_period_handler(period_id),
-                    )
-                )
-            elif action == "incursions":
-                actions.append(
-                    ft.ElevatedButton(
-                        "Ver incursiones",
-                        on_click=build_open_period_handler(period_id),
-                    )
-                )
-            elif action == "assign":
-                actions.append(
-                    ft.OutlinedButton(
-                        "Asignar adversarios",
-                        on_click=build_open_assignment_handler(period_id),
-                    )
-                )
-            elif action == "reveal":
-                actions_alignment = ft.MainAxisAlignment.CENTER
-                actions.append(
-                    ft.ElevatedButton(
-                        "Revelar periodo",
-                        on_click=build_reveal_period_handler(period_id),
-                        height=48,
-                        width=240,
-                    )
-                )
-
-            incursions_section = (
-                build_incursions_section(period_id)
-                if period.get("revealed_at")
-                else ft.Container()
-            )
-            periods_list.controls.append(
-                period_card(
-                    f"Periodo {period.get('index', 0)}",
-                    actions,
-                    incursions_section,
-                    actions_alignment=actions_alignment,
-                )
-            )
-        page.update()
-        logger.debug("Periods loaded total=%s", len(periods))
 
     load_periods()
 

@@ -1,21 +1,28 @@
 from __future__ import annotations
 
+import os
+
 import flet as ft
 
-from app.screens.eras.eras_screen import eras_view
-from app.screens.incursion_detail.incursion_detail_screen import (
-    incursion_detail_view,
-)
-from app.screens.incursions.incursions_screen import incursions_view
-from app.screens.periods.periods_screen import periods_view
-from app.services.firestore_service import FirestoreService
+from app.core.diagnostics.logging_setup import configure_logging
 from app.utils.logger import get_logger
 from app.utils.navigation import go
+
+DEBUG_ENABLED = os.getenv("SPIRITPLANNER_DEBUG") == "1"
+configure_logging(debug=DEBUG_ENABLED)
 
 logger = get_logger(__name__)
 
 
 async def main(page: ft.Page) -> None:
+    from app.screens.eras.eras_screen import eras_view
+    from app.screens.incursion_detail.incursion_detail_screen import (
+        incursion_detail_view,
+    )
+    from app.screens.incursions.incursions_screen import incursions_view
+    from app.screens.periods.periods_screen import periods_view
+    from app.services.firestore_service import FirestoreService
+
     logger.debug("Entering main(page=%s)", page)
     page.title = "SpiritPlanner"
     page.theme_mode = ft.ThemeMode.LIGHT

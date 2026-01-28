@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
+import os
 from pathlib import Path
 
 
@@ -27,6 +28,10 @@ def _configure_logging() -> None:
     global _LOGGER_CONFIGURED, _LOG_FILE_PATH
     if _LOGGER_CONFIGURED:
         return
+    root_logger = logging.getLogger()
+    if root_logger.handlers:
+        _LOGGER_CONFIGURED = True
+        return
 
     logs_dir = Path(__file__).resolve().parents[2] / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -40,8 +45,8 @@ def _configure_logging() -> None:
     handler.setFormatter(formatter)
     handler.addFilter(_NoiseFilter())
 
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    debug_enabled = os.getenv("SPIRITPLANNER_DEBUG") == "1"
+    root_logger.setLevel(logging.DEBUG if debug_enabled else logging.INFO)
     root_logger.addHandler(handler)
     for noisy_logger in (
         "flet",

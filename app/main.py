@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import flet as ft
 
 from app.screens.eras.eras_screen import eras_view
@@ -9,7 +10,7 @@ from app.screens.incursion_detail.incursion_detail_screen import (
 from app.screens.incursions.incursions_screen import incursions_view
 from app.screens.periods.periods_screen import periods_view
 from app.services.firestore_service import FirestoreService
-from app.utils.logger import get_logger
+from app.utils.logger import configure_logging, get_logger
 from app.utils.navigation import go
 
 logger = get_logger(__name__)
@@ -91,5 +92,9 @@ async def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
+    configure_logging(
+        debug=os.getenv("SPIRITPLANNER_DEBUG", "").lower()
+        in {"1", "true", "yes", "on"}
+    )
     logger.info("Starting SpiritPlanner application")
     ft.run(main)

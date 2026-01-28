@@ -28,6 +28,7 @@ from app.screens.incursion_detail.incursion_detail_handlers import (
     update_adversary_level,
 )
 from app.screens.incursion_detail.incursion_detail_state import (
+    SESSION_STATE_BETWEEN_SESSIONS,
     SESSION_STATE_FINALIZED,
     SESSION_STATE_NOT_STARTED,
     build_period_label,
@@ -69,7 +70,8 @@ def incursion_detail_view(
         if not incursion:
             logger.warning("Incursion not found incursion_id=%s", incursion_id)
             setup_section.content = ft.Text("Incursión no encontrada.")
-            page.update()
+            setup_section.update()
+            bottom_section.update()
             return
         period = get_period(service, era_id, period_id)
         period_adversaries_assigned = bool(
@@ -104,6 +106,7 @@ def incursion_detail_view(
             "Dificultad: —", size=14, color=ft.Colors.BLUE_GREY_900
         )
         difficulty_value = incursion.get("difficulty")
+        adversary_level_block = None
         can_edit_level = can_edit_adversary_level(incursion, has_sessions)
         if can_edit_level:
             levels = get_adversary_levels(incursion.get("adversary_id"))
@@ -167,13 +170,15 @@ def incursion_detail_view(
                             exc_info=True,
                         )
                         show_message(page, str(exc))
-                page.update()
+                if adversary_level_block:
+                    adversary_level_block.update()
+                else:
+                    difficulty_text.update()
 
             if adversary_level_selector:
                 adversary_level_selector.on_change = lambda event: update_difficulty(
                     event, persist=True
                 )
-                update_difficulty()
         else:
             difficulty_text.value = (
                 f"Dificultad: {difficulty_value}"
@@ -218,6 +223,8 @@ def incursion_detail_view(
             border_radius=8,
             alignment=ft.Alignment.CENTER,
         )
+        if adversary_level_selector:
+            update_difficulty()
 
         setup_section.content = ft.Column(
             [
@@ -285,6 +292,15 @@ def incursion_detail_view(
                 return int(value) if value not in (None, "") else default
             except ValueError:
                 return default
+
+        def parse_int_strict(field: ft.Control, default: int = 0) -> int | None:
+            value = getattr(field, "value", None)
+            if value in (None, ""):
+                return default
+            try:
+                return int(value)
+            except ValueError:
+                return None
 
         def build_finalize_fields(readonly: bool) -> dict[str, ft.Control]:
             fields_local: dict[str, ft.Control] = {
@@ -357,21 +373,45 @@ def incursion_detail_view(
             )
             fields_map["invader_cards_remaining"].visible = result_value == "win"
             fields_map["invader_cards_out_of_deck"].visible = result_value == "loss"
-            page.update()
+            formula_label.update()
+            score_label.update()
+            fields_map["invader_cards_remaining"].update()
+            fields_map["invader_cards_out_of_deck"].update()
 
         # Estado de confirmación inline
         confirm_row = ft.Row(spacing=8, visible=False)
 
         def toggle_confirm(show: bool) -> None:
             confirm_row.visible = show
-            page.update()
+            confirm_row.update()
 
         def handle_finalize_inline(event: ft.ControlEvent | None = None) -> None:
             if state == SESSION_STATE_FINALIZED:
                 show_message(page, "La incursión ya está finalizada.")
                 return
-            if not finalize_form_fields["result"].value:
+            result_value = finalize_form_fields["result"].value
+            if not result_value:
                 show_message(page, "Debes indicar el resultado.")
+                return
+            player_count = parse_int_strict(finalize_form_fields["player_count"], 2)
+            invader_remaining = parse_int_strict(
+                finalize_form_fields["invader_cards_remaining"], 0
+            )
+            invader_out = parse_int_strict(
+                finalize_form_fields["invader_cards_out_of_deck"], 0
+            )
+            dahan_alive = parse_int_strict(finalize_form_fields["dahan_alive"], 0)
+            blight_on_island = parse_int_strict(
+                finalize_form_fields["blight_on_island"], 0
+            )
+            if None in (
+                player_count,
+                invader_remaining,
+                invader_out,
+                dahan_alive,
+                blight_on_island,
+            ):
+                show_message(page, "Revisa los valores numéricos.")
                 return
             if open_session:
                 logger.info(
@@ -385,25 +425,18 @@ def incursion_detail_view(
                     era_id=era_id,
                     period_id=period_id,
                     incursion_id=incursion_id,
-                    result=finalize_form_fields["result"].value,
-                    player_count=parse_int(finalize_form_fields["player_count"], 2),
-                    invader_cards_remaining=parse_int(
-                        finalize_form_fields["invader_cards_remaining"], 0
-                    ),
-                    invader_cards_out_of_deck=parse_int(
-                        finalize_form_fields["invader_cards_out_of_deck"], 0
-                    ),
-                    dahan_alive=parse_int(finalize_form_fields["dahan_alive"], 0),
-                    blight_on_island=parse_int(
-                        finalize_form_fields["blight_on_island"], 0
-                    ),
+                    result=result_value,
+                    player_count=player_count,
+                    invader_cards_remaining=invader_remaining,
+                    invader_cards_out_of_deck=invader_out,
+                    dahan_alive=dahan_alive,
+                    blight_on_island=blight_on_island,
                 )
             except ValueError:
                 show_message(page, "Revisa los valores numéricos.")
                 return
             toggle_confirm(False)
             load_detail()
-            page.update()
             logger.info("Incursion finalized incursion_id=%s", incursion_id)
 
         def handle_cancel_inline(event: ft.ControlEvent | None = None) -> None:
@@ -517,42 +550,37 @@ def incursion_detail_view(
                 open_session,
             )
             if state == SESSION_STATE_FINALIZED:
+                show_message(page, "La incursión ya está finalizada.")
                 return
             if open_session:
                 end_session(service, era_id, period_id, incursion_id)
                 load_detail()
-                page.update()
                 return
-            if state == SESSION_STATE_NOT_STARTED:
-                adversary_level = (
-                    adversary_level_selector.value
-                    if adversary_level_selector
-                    else incursion.get("adversary_level")
+            adversary_level = (
+                adversary_level_selector.value
+                if adversary_level_selector
+                else incursion.get("adversary_level")
+            )
+            if not adversary_level or incursion.get("difficulty") is None:
+                logger.warning("Cannot start incursion; invalid adversary level")
+                show_message(page, "Debes seleccionar un nivel válido.")
+                return
+            if state == SESSION_STATE_BETWEEN_SESSIONS:
+                logger.debug("Resuming session incursion_id=%s", incursion_id)
+            elif state != SESSION_STATE_NOT_STARTED:
+                logger.debug("Starting session incursion_id=%s", incursion_id)
+            try:
+                start_session(
+                    service,
+                    era_id,
+                    period_id,
+                    incursion_id,
                 )
-                if not adversary_level:
-                    logger.warning("Cannot start incursion; invalid adversary level")
-                    show_message(page, "Debes seleccionar un nivel válido.")
-                    return
-                if incursion.get("difficulty") is None:
-                    show_message(page, "Debes seleccionar un nivel válido.")
-                    return
-                try:
-                    start_session(
-                        service,
-                        era_id,
-                        period_id,
-                        incursion_id,
-                    )
-                except ValueError as exc:
-                    logger.error(
-                        "Failed to start incursion error=%s", exc, exc_info=True
-                    )
-                    show_message(page, str(exc))
-                    return
-            else:
-                start_session(service, era_id, period_id, incursion_id)
+            except ValueError as exc:
+                logger.error("Failed to start incursion error=%s", exc, exc_info=True)
+                show_message(page, str(exc))
+                return
             load_detail()
-            page.update()
 
         page.floating_action_button = None
         page.bottom_appbar = None
@@ -656,7 +684,7 @@ def incursion_detail_view(
                 time_text.value = (
                     f"⏱ {format_total_time(compute_total_seconds(now_tick))}"
                 )
-                page.update()
+                time_text.update()
                 await asyncio.sleep(1)
 
         if timer_task and not timer_task.done():
@@ -839,7 +867,8 @@ def incursion_detail_view(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-        page.update()
+        setup_section.update()
+        bottom_section.update()
         logger.debug("Incursion detail loaded incursion_id=%s", incursion_id)
 
     load_detail()

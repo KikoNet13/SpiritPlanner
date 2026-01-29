@@ -18,7 +18,7 @@ from app.screens.periods.periods_state import (
 )
 from app.screens.shared_components import header_text
 from app.services.firestore_service import FirestoreService
-from app.utils.logger import get_logger
+from app.utils.logger import get_logger, safe_event_handler
 from app.utils.navigation import go_to
 
 logger = get_logger(__name__)
@@ -208,8 +208,32 @@ def periods_view(
         assignment_dialog.title = ft.Text("Asignar adversarios")
         assignment_dialog.content = build_assignment_dialog_content(dialog_state)
         assignment_dialog.actions = [
-            ft.TextButton("Cancelar", on_click=lambda _: handle_cancel()),
-            ft.ElevatedButton("Guardar", on_click=lambda _: handle_save()),
+            ft.TextButton(
+                "Cancelar",
+                on_click=lambda _: safe_event_handler(
+                    page,
+                    handle_cancel,
+                    context={
+                        "screen": "periods",
+                        "action": "cancel_assignment",
+                        "era_id": era_id,
+                        "period_id": dialog_state.period_id,
+                    },
+                ),
+            ),
+            ft.ElevatedButton(
+                "Guardar",
+                on_click=lambda _: safe_event_handler(
+                    page,
+                    handle_save,
+                    context={
+                        "screen": "periods",
+                        "action": "save_assignment",
+                        "era_id": era_id,
+                        "period_id": dialog_state.period_id,
+                    },
+                ),
+            ),
         ]
         page.dialog = assignment_dialog
         assignment_dialog.open = True
@@ -234,17 +258,38 @@ def periods_view(
 
     def build_open_assignment_handler(period_id: str):
         def handler(event: ft.ControlEvent) -> None:
-            open_assignment_dialog(period_id)
+            safe_event_handler(
+                page,
+                lambda: open_assignment_dialog(period_id),
+                context={
+                    "screen": "periods",
+                    "action": "open_assignment_dialog",
+                    "era_id": era_id,
+                    "period_id": period_id,
+                },
+            )
 
         return handler
 
     def build_reveal_period_handler(period_id: str):
         def handler(event: ft.ControlEvent) -> None:
-            logger.info("Reveal period clicked period_id=%s", period_id)
-            if reveal_period(page, service, era_id, period_id):
-                load_periods(update_list=True)
+            safe_event_handler(
+                page,
+                lambda: _reveal_period(period_id),
+                context={
+                    "screen": "periods",
+                    "action": "reveal_period",
+                    "era_id": era_id,
+                    "period_id": period_id,
+                },
+            )
 
         return handler
+
+    def _reveal_period(period_id: str) -> None:
+        logger.info("Reveal period clicked period_id=%s", period_id)
+        if reveal_period(page, service, era_id, period_id):
+            load_periods(update_list=True)
 
     load_periods()
 

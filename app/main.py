@@ -9,6 +9,7 @@ from app.screens.incursion_detail.incursion_detail_view import incursion_detail_
 from app.screens.incursions.incursions_view import incursions_view
 from app.screens.periods.periods_view import periods_view
 from app.services.firestore_service import FirestoreService
+from app.services.service_registry import set_firestore_service
 from app.utils.logger import configure_logging, get_logger
 from app.utils.navigation import navigate
 
@@ -26,7 +27,7 @@ async def main(page: ft.Page) -> None:
 
     logger.debug("Initializing FirestoreService")
     service = FirestoreService()
-    page.session.set("firestore_service", service)
+    set_firestore_service(page.session, service)
 
     def build_views() -> list[ft.View]:
         # Routing declarativo: render_views recompone el stack a partir de page.route.

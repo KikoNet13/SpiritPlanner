@@ -7,6 +7,7 @@ import flet as ft
 from app.screens.incursions.incursions_model import IncursionCardModel
 from app.screens.incursions.incursions_viewmodel import IncursionsViewModel
 from app.screens.shared_components import header_text, section_card, status_chip
+from app.services.service_registry import get_firestore_service
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
 
@@ -53,7 +54,7 @@ def incursions_view(
 ) -> ft.Control:
     logger.debug("Rendering incursions_view era_id=%s period_id=%s", era_id, period_id)
     page = ft.context.page
-    service = page.session.get("firestore_service")
+    service = get_firestore_service(page.session)
     view_model, _ = ft.use_state(IncursionsViewModel())
 
     def load() -> None:

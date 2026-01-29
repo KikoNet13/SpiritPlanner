@@ -13,6 +13,7 @@ from app.screens.incursion_detail.incursion_detail_model import (
 from app.screens.incursion_detail.incursion_detail_viewmodel import (
     IncursionDetailViewModel,
 )
+from app.services.service_registry import get_firestore_service
 from app.utils.datetime_format import format_datetime_local
 from app.utils.logger import get_logger
 
@@ -78,7 +79,7 @@ def incursion_detail_view(
         incursion_id,
     )
     page = ft.context.page
-    service = page.session.get("firestore_service")
+    service = get_firestore_service(page.session)
     view_model, _ = ft.use_state(IncursionDetailViewModel())
     dialog_ref = ft.use_ref(None)
 

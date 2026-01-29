@@ -8,6 +8,7 @@ from app.screens.data_lookup import get_adversary_catalog
 from app.screens.periods.periods_model import AssignmentIncursionModel, PeriodRowModel
 from app.screens.periods.periods_viewmodel import PeriodsViewModel
 from app.screens.shared_components import header_text, section_card
+from app.services.service_registry import get_firestore_service
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
 
@@ -112,7 +113,7 @@ def periods_view(
 ) -> ft.Control:
     logger.debug("Rendering periods_view era_id=%s", era_id)
     page = ft.context.page
-    service = page.session.get("firestore_service")
+    service = get_firestore_service(page.session)
     view_model, _ = ft.use_state(PeriodsViewModel())
     dialog_ref = ft.use_ref(None)
 

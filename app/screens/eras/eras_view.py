@@ -7,6 +7,7 @@ import flet as ft
 from app.screens.eras.eras_model import EraCardModel
 from app.screens.eras.eras_viewmodel import ErasViewModel
 from app.screens.shared_components import header_text, section_card, status_chip
+from app.services.service_registry import get_firestore_service
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
 
@@ -51,7 +52,7 @@ def _era_card(model: EraCardModel, actions: list[ft.Control]) -> ft.Container:
 def eras_view() -> ft.Control:
     logger.debug("Rendering eras_view")
     page = ft.context.page
-    service = page.session.get("firestore_service")
+    service = get_firestore_service(page.session)
     view_model, _ = ft.use_state(ErasViewModel())
 
     def load() -> None:

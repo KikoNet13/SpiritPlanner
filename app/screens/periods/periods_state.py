@@ -19,6 +19,8 @@ class AssignmentDialogState:
     period_id: str
     incursions: list[dict]
     selections: dict[str, str | None]
+    selections_by_spirit_id: dict[str, str | None]
+    validation_error: str | None = None
     is_open: bool = False
 
 

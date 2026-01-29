@@ -137,14 +137,34 @@ def periods_view(
 
         def build_incursion_card(incursion: dict) -> ft.Card:
             incursion_id = incursion["id"]
+            spirit_1_id = incursion.get("spirit_1_id")
+            spirit_2_id = incursion.get("spirit_2_id")
             selector = ft.Dropdown(
                 label="Adversario",
                 options=options,
                 value=dialog_state.selections.get(incursion_id),
             )
 
-            def handle_select(event: ft.ControlEvent) -> None:
+            def handle_select(
+                event: ft.ControlEvent,
+                incursion_id: str = incursion_id,
+                spirit_ids: tuple[str | None, str | None] = (
+                    spirit_1_id,
+                    spirit_2_id,
+                ),
+            ) -> None:
                 dialog_state.selections[incursion_id] = event.control.value
+                for spirit_id in spirit_ids:
+                    if spirit_id:
+                        dialog_state.selections_by_spirit_id[spirit_id] = (
+                            event.control.value
+                        )
+                if dialog_state.validation_error:
+                    dialog_state.validation_error = None
+                    assignment_dialog.content = build_assignment_dialog_content(
+                        dialog_state
+                    )
+                    assignment_dialog.update()
 
             selector.on_change = handle_select
             return ft.Card(
@@ -157,10 +177,13 @@ def periods_view(
                                     f"Incursión {incursion.get('index', 0)}",
                                     weight=ft.FontWeight.BOLD,
                                 ),
-                                subtitle=ft.Text(
-                                    f"Espíritus: "
-                                    f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
-                                    f"{get_spirit_name(incursion.get('spirit_2_id'))}"
+                                subtitle=ft.Column(
+                                    [
+                                        ft.Text(get_spirit_name(spirit_1_id)),
+                                        ft.Text(get_spirit_name(spirit_2_id)),
+                                    ],
+                                    spacing=2,
+                                    tight=True,
                                 ),
                             ),
                             selector,
@@ -174,7 +197,25 @@ def periods_view(
         list_view = ft.ListView(spacing=12, expand=True)
         for incursion in dialog_state.incursions:
             list_view.controls.append(build_incursion_card(incursion))
-        return list_view
+        dialog_width = 720
+        if page.width:
+            dialog_width = min(720, int(page.width * 0.95))
+        error_text = (
+            ft.Text(dialog_state.validation_error, color=ft.Colors.ERROR)
+            if dialog_state.validation_error
+            else ft.Container()
+        )
+        return ft.Container(
+            content=ft.Column(
+                [
+                    error_text,
+                    list_view,
+                ],
+                spacing=12,
+                expand=True,
+            ),
+            width=dialog_width,
+        )
 
     def render_assignment_dialog() -> None:
         dialog_state = view_state.dialog
@@ -187,22 +228,24 @@ def periods_view(
             )
             missing_items: list[str] = []
             for incursion in dialog_state.incursions:
-                incursion_id = incursion["id"]
-                adversary_id = dialog_state.selections.get(incursion_id)
-                if adversary_id:
-                    continue
-                missing_items.extend(
-                    [
-                        get_spirit_name(incursion.get("spirit_1_id")),
-                        get_spirit_name(incursion.get("spirit_2_id")),
-                    ]
-                )
+                for spirit_id in (
+                    incursion.get("spirit_1_id"),
+                    incursion.get("spirit_2_id"),
+                ):
+                    if not spirit_id:
+                        continue
+                    adversary_id = dialog_state.selections_by_spirit_id.get(spirit_id)
+                    if not adversary_id:
+                        missing_items.append(get_spirit_name(spirit_id))
             if missing_items:
-                show_message(
-                    page,
+                dialog_state.validation_error = (
                     "Faltan adversarios para: "
-                    f"{', '.join(missing_items)}.",
+                    f"{', '.join(missing_items)}."
                 )
+                assignment_dialog.content = build_assignment_dialog_content(
+                    dialog_state
+                )
+                assignment_dialog.update()
                 return
             success = assign_period_adversaries(
                 page,
@@ -270,6 +313,16 @@ def periods_view(
                 incursion["id"]: incursion.get("adversary_id")
                 for incursion in incursions
             },
+            selections_by_spirit_id={
+                spirit_id: incursion.get("adversary_id")
+                for incursion in incursions
+                for spirit_id in (
+                    incursion.get("spirit_1_id"),
+                    incursion.get("spirit_2_id"),
+                )
+                if spirit_id
+            },
+            validation_error=None,
             is_open=True,
         )
         render_assignment_dialog()

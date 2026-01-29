@@ -53,13 +53,13 @@ def _assignment_card(
     selection: str | None,
     options: list[ft.dropdown.Option],
     show_error: bool,
-    on_change,
+    on_select,
 ) -> ft.Card:
     dropdown = ft.Dropdown(
         options=options,
         value=selection,
         error_text="Selecciona un adversario" if show_error else None,
-        on_change=on_change,
+        on_select=on_select,
     )
     spirits_column = ft.Column(
         [
@@ -137,8 +137,14 @@ def periods_view(
         target = view_model.navigate_to
 
         async def do_navigation() -> None:
-            await navigate(page, target)
+            try:
+                await navigate(page, target)
+            except Exception as exc:
+                logger.exception(
+                    "Navigation failed target=%s error=%s", target, exc
+                )
 
+        logger.info("Scheduling navigation target=%s", target)
         if hasattr(page, "run_task"):
             page.run_task(do_navigation)
         else:
@@ -212,33 +218,111 @@ def periods_view(
             else ft.MainAxisAlignment.END
         )
         if row.action == "results":
+            def handle_open_results(
+                event: ft.ControlEvent,
+                period_id: str = row.period_id,
+            ) -> None:
+                logger.info(
+                    "UI click open results era_id=%s period_id=%s control=%s",
+                    era_id,
+                    period_id,
+                    event.control,
+                )
+                try:
+                    view_model.request_open_period(period_id)
+                except Exception as exc:
+                    logger.exception(
+                        "Failed to handle open results era_id=%s period_id=%s error=%s",
+                        era_id,
+                        period_id,
+                        exc,
+                    )
+
             actions.append(
                 ft.ElevatedButton(
                     "Ver resultados",
-                    on_click=lambda _: view_model.request_open_period(row.period_id),
+                    on_click=handle_open_results,
                 )
             )
         elif row.action == "incursions":
+            def handle_open_incursions(
+                event: ft.ControlEvent,
+                period_id: str = row.period_id,
+            ) -> None:
+                logger.info(
+                    "UI click open incursions era_id=%s period_id=%s control=%s",
+                    era_id,
+                    period_id,
+                    event.control,
+                )
+                try:
+                    view_model.request_open_period(period_id)
+                except Exception as exc:
+                    logger.exception(
+                        "Failed to handle open incursions era_id=%s period_id=%s error=%s",
+                        era_id,
+                        period_id,
+                        exc,
+                    )
+
             actions.append(
                 ft.ElevatedButton(
                     "Ver incursiones",
-                    on_click=lambda _: view_model.request_open_period(row.period_id),
+                    on_click=handle_open_incursions,
                 )
             )
         elif row.action == "assign":
+            def handle_assign_adversaries(
+                event: ft.ControlEvent,
+                period_id: str = row.period_id,
+            ) -> None:
+                logger.info(
+                    "UI click assign adversaries era_id=%s period_id=%s control=%s",
+                    era_id,
+                    period_id,
+                    event.control,
+                )
+                try:
+                    view_model.open_assignment_dialog(service, period_id)
+                except Exception as exc:
+                    logger.exception(
+                        "Failed to handle assign adversaries era_id=%s period_id=%s error=%s",
+                        era_id,
+                        period_id,
+                        exc,
+                    )
+
             actions.append(
                 ft.OutlinedButton(
                     "Asignar adversarios",
-                    on_click=lambda _: view_model.open_assignment_dialog(
-                        service, row.period_id
-                    ),
+                    on_click=handle_assign_adversaries,
                 )
             )
         elif row.action == "reveal":
+            def handle_reveal_period(
+                event: ft.ControlEvent,
+                period_id: str = row.period_id,
+            ) -> None:
+                logger.info(
+                    "UI click reveal period era_id=%s period_id=%s control=%s",
+                    era_id,
+                    period_id,
+                    event.control,
+                )
+                try:
+                    view_model.reveal_period(service, period_id)
+                except Exception as exc:
+                    logger.exception(
+                        "Failed to handle reveal period era_id=%s period_id=%s error=%s",
+                        era_id,
+                        period_id,
+                        exc,
+                    )
+
             actions.append(
                 ft.ElevatedButton(
                     "Revelar periodo",
-                    on_click=lambda _: view_model.reveal_period(service, row.period_id),
+                    on_click=handle_reveal_period,
                     height=48,
                     width=240,
                 )

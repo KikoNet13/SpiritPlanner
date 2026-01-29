@@ -8,9 +8,29 @@ logger = get_logger(__name__)
 
 
 async def navigate(page: ft.Page, route: str) -> None:
-    logger.debug("Navigating to route=%s", route)
+    overlay = list(getattr(page, "overlay", []) or [])
+    overlay_types = [type(item).__name__ for item in overlay]
+    view_routes = [view.route for view in page.views] if page.views else []
+    logger.info(
+        "Navigate start route=%s current_route=%s views=%s overlay_count=%s overlay_types=%s",
+        route,
+        page.route,
+        view_routes,
+        len(overlay),
+        overlay_types,
+    )
     await page.push_route(route)
-    logger.debug("Navigation complete route=%s", route)
+    overlay_after = list(getattr(page, "overlay", []) or [])
+    overlay_types_after = [type(item).__name__ for item in overlay_after]
+    view_routes_after = [view.route for view in page.views] if page.views else []
+    logger.info(
+        "Navigate complete route=%s current_route=%s views=%s overlay_count=%s overlay_types=%s",
+        route,
+        page.route,
+        view_routes_after,
+        len(overlay_after),
+        overlay_types_after,
+    )
 
 
 async def go(page: ft.Page, route: str) -> None:

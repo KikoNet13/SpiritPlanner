@@ -74,8 +74,14 @@ def eras_view() -> ft.Control:
         target = view_model.navigate_to
 
         async def do_navigation() -> None:
-            await navigate(page, target)
+            try:
+                await navigate(page, target)
+            except Exception as exc:
+                logger.exception(
+                    "Navigation failed target=%s error=%s", target, exc
+                )
 
+        logger.info("Scheduling navigation target=%s", target)
         if hasattr(page, "run_task"):
             page.run_task(do_navigation)
         else:
@@ -93,19 +99,57 @@ def eras_view() -> ft.Control:
         content_controls.append(ft.Text("No hay Eras disponibles."))
     else:
         for era in view_model.eras:
+            def handle_open_periods(
+                event: ft.ControlEvent,
+                era_id: str = era.era_id,
+            ) -> None:
+                logger.info(
+                    "UI click open periods era_id=%s control=%s",
+                    era_id,
+                    event.control,
+                )
+                try:
+                    view_model.request_open_periods(era_id)
+                except Exception as exc:
+                    logger.exception(
+                        "Failed to handle open periods era_id=%s error=%s",
+                        era_id,
+                        exc,
+                    )
+
             actions: list[ft.Control] = [
                 ft.ElevatedButton(
                     "Ver periodos",
-                    on_click=lambda _: view_model.request_open_periods(era.era_id),
+                    on_click=handle_open_periods,
                 )
             ]
             if era.active_incursion:
+                def handle_open_active_incursion(
+                    event: ft.ControlEvent,
+                    active_incursion=era.active_incursion,
+                ) -> None:
+                    logger.info(
+                        "UI click open active incursion era_id=%s period_id=%s incursion_id=%s control=%s",
+                        active_incursion.era_id,
+                        active_incursion.period_id,
+                        active_incursion.incursion_id,
+                        event.control,
+                    )
+                    try:
+                        view_model.request_open_active_incursion(active_incursion)
+                    except Exception as exc:
+                        logger.exception(
+                            "Failed to handle open active incursion era_id=%s period_id=%s incursion_id=%s error=%s",
+                            active_incursion.era_id,
+                            active_incursion.period_id,
+                            active_incursion.incursion_id,
+                            exc,
+                        )
+
                 actions.append(
                     ft.OutlinedButton(
                         "Ir a incursión activa",
-                        on_click=lambda _: view_model.request_open_active_incursion(
-                            era.active_incursion
-                        ),
+                        on_click=handle_open_active_incursion,
                     )
                 )
             content_controls.append(_era_card(era, actions))

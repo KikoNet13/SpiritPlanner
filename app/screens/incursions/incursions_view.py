@@ -76,8 +76,14 @@ def incursions_view(
         target = view_model.navigate_to
 
         async def do_navigation() -> None:
-            await navigate(page, target)
+            try:
+                await navigate(page, target)
+            except Exception as exc:
+                logger.exception(
+                    "Navigation failed target=%s error=%s", target, exc
+                )
 
+        logger.info("Scheduling navigation target=%s", target)
         if hasattr(page, "run_task"):
             page.run_task(do_navigation)
         else:
@@ -93,12 +99,32 @@ def incursions_view(
         content_controls.append(ft.Text("No hay incursiones disponibles."))
     else:
         for incursion in view_model.incursions:
+            def handle_open_incursion(
+                event: ft.ControlEvent,
+                incursion_id: str = incursion.incursion_id,
+            ) -> None:
+                logger.info(
+                    "UI click open incursion era_id=%s period_id=%s incursion_id=%s control=%s",
+                    era_id,
+                    period_id,
+                    incursion_id,
+                    event.control,
+                )
+                try:
+                    view_model.request_open_incursion(incursion_id)
+                except Exception as exc:
+                    logger.exception(
+                        "Failed to handle open incursion era_id=%s period_id=%s incursion_id=%s error=%s",
+                        era_id,
+                        period_id,
+                        incursion_id,
+                        exc,
+                    )
+
             content_controls.append(
                 _incursion_card(
                     incursion,
-                    lambda _: view_model.request_open_incursion(
-                        incursion.incursion_id
-                    ),
+                    handle_open_incursion,
                 )
             )
 

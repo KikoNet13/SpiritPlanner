@@ -29,6 +29,39 @@ async def main(page: ft.Page) -> None:
     service = FirestoreService()
     set_firestore_service(page.session, service)
 
+    def _overlay_snapshot() -> tuple[int, list[str]]:
+        overlay = list(getattr(page, "overlay", []) or [])
+        return len(overlay), [type(item).__name__ for item in overlay]
+
+    def _view_routes() -> list[str]:
+        return [view.route for view in page.views] if page.views else []
+
+    def _close_overlays(reason: str) -> None:
+        overlay_count, overlay_types = _overlay_snapshot()
+        if overlay_count == 0:
+            return
+        logger.info(
+            "Closing overlays reason=%s count=%s types=%s",
+            reason,
+            overlay_count,
+            overlay_types,
+        )
+        for _ in range(overlay_count):
+            try:
+                page.pop_dialog()
+            except Exception as exc:
+                logger.warning(
+                    "Failed to pop dialog reason=%s error=%s", reason, exc
+                )
+                break
+        overlay_count_after, overlay_types_after = _overlay_snapshot()
+        logger.info(
+            "Overlay state after close reason=%s count=%s types=%s",
+            reason,
+            overlay_count_after,
+            overlay_types_after,
+        )
+
     def build_views() -> list[ft.View]:
         # Routing declarativo: render_views recompone el stack a partir de page.route.
         # Para añadir rutas, extender este builder con un nuevo ft.View.
@@ -86,21 +119,52 @@ async def main(page: ft.Page) -> None:
         return views
 
     async def handle_route_change(event: ft.RouteChangeEvent) -> None:
-        logger.info("Route change event route=%s", event.route)
+        overlay_count, overlay_types = _overlay_snapshot()
+        logger.info(
+            "Route change event route=%s current_route=%s views=%s overlay_count=%s overlay_types=%s",
+            event.route,
+            page.route,
+            _view_routes(),
+            overlay_count,
+            overlay_types,
+        )
         page.render_views(build_views)
-        logger.debug("Route change handled. views_count=%s", len(page.views))
+        overlay_count, overlay_types = _overlay_snapshot()
+        logger.info(
+            "Route change handled route=%s views=%s overlay_count=%s overlay_types=%s",
+            page.route,
+            _view_routes(),
+            overlay_count,
+            overlay_types,
+        )
 
     async def handle_view_pop(event: ft.ViewPopEvent) -> None:
-        logger.info("View pop event")
+        overlay_count, overlay_types = _overlay_snapshot()
+        logger.info(
+            "View pop event view_route=%s views=%s overlay_count=%s overlay_types=%s",
+            getattr(event.view, "route", None),
+            _view_routes(),
+            overlay_count,
+            overlay_types,
+        )
         if event.view in page.views:
             page.views.remove(event.view)
-            logger.debug("View removed from stack. views_count=%s", len(page.views))
+            logger.info(
+                "View removed from stack views=%s",
+                _view_routes(),
+            )
+        else:
+            logger.warning(
+                "View pop event view not in stack view_route=%s",
+                getattr(event.view, "route", None),
+            )
+        _close_overlays("view_pop")
         if not page.views:
             logger.debug("No views left, navigating to /eras")
             await navigate(page, "/eras")
             return
         top_view = page.views[-1]
-        logger.debug("View pop, navigating to %s", top_view.route)
+        logger.info("View pop, navigating to %s", top_view.route)
         await navigate(page, top_view.route)
 
     page.on_route_change = handle_route_change

@@ -6,7 +6,6 @@ from app.screens.data_lookup import get_adversary_catalog, get_spirit_name
 from app.screens.periods.periods_components import incursions_preview, period_card
 from app.screens.periods.periods_handlers import (
     assign_period_adversaries,
-    close_dialog,
     reveal_period,
     show_message,
 )
@@ -18,6 +17,7 @@ from app.screens.periods.periods_state import (
 )
 from app.screens.shared_components import header_text
 from app.services.firestore_service import FirestoreService
+from app.utils.dialogs import close_dialog, show_dialog
 from app.utils.logger import get_logger, safe_event_handler
 from app.utils.navigation import go_to
 
@@ -195,7 +195,7 @@ def periods_view(
             if not success:
                 return
             dialog_state.is_open = False
-            close_dialog(page, assignment_dialog)
+            close_dialog(page)
             load_periods(update_list=True)
 
         def handle_cancel() -> None:
@@ -203,7 +203,7 @@ def periods_view(
                 "Assignment dialog cancelled period_id=%s", dialog_state.period_id
             )
             dialog_state.is_open = False
-            close_dialog(page, assignment_dialog)
+            close_dialog(page)
 
         assignment_dialog.title = ft.Text("Asignar adversarios")
         assignment_dialog.content = build_assignment_dialog_content(dialog_state)
@@ -235,9 +235,7 @@ def periods_view(
                 ),
             ),
         ]
-        page.dialog = assignment_dialog
-        assignment_dialog.open = True
-        page.update()
+        show_dialog(page, assignment_dialog)
         logger.debug(
             "Assignment dialog shown period_id=%s", dialog_state.period_id
         )
@@ -258,9 +256,16 @@ def periods_view(
 
     def build_open_assignment_handler(period_id: str):
         def handler(event: ft.ControlEvent) -> None:
+            def run() -> None:
+                show_message(
+                    page,
+                    "Debug: intentando abrir el diálogo de asignación.",
+                )
+                open_assignment_dialog(period_id)
+
             safe_event_handler(
                 page,
-                lambda: open_assignment_dialog(period_id),
+                run,
                 context={
                     "screen": "periods",
                     "action": "open_assignment_dialog",

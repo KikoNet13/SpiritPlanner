@@ -96,13 +96,16 @@ async def main(page: ft.Page) -> None:
 
     async def handle_view_pop(event: ft.ViewPopEvent) -> None:
         logger.info("View pop event")
-        if len(page.views) <= 1:
-            logger.debug("No parent view, navigating to /eras")
+        if event.view in page.views:
+            page.views.remove(event.view)
+            logger.debug("View removed from stack. views_count=%s", len(page.views))
+        if not page.views:
+            logger.debug("No views left, navigating to /eras")
             await navigate(page, "/eras")
             return
-        parent_view = page.views[-2]
-        logger.debug("View pop, navigating to %s", parent_view.route)
-        await navigate(page, parent_view.route)
+        top_view = page.views[-1]
+        logger.debug("View pop, navigating to %s", top_view.route)
+        await navigate(page, top_view.route)
 
     page.on_route_change = handle_route_change
     page.on_view_pop = handle_view_pop

@@ -10,19 +10,14 @@ from app.screens.periods.periods_model import (
 )
 from app.services.firestore_service import FirestoreService
 from app.utils.logger import get_logger
-from app.utils.navigation import go_to
 
 logger = get_logger(__name__)
 
 
 @ft.observable
 class PeriodsViewModel:
-    def __init__(
-        self, page: ft.Page, service: FirestoreService, era_id: str
-    ) -> None:
-        self.page = page
-        self.service = service
-        self.era_id = era_id
+    def __init__(self) -> None:
+        self.era_id: str | None = None
         self.rows: list[PeriodRowModel] = []
         self.loading = False
         self.error: str | None = None
@@ -32,19 +27,27 @@ class PeriodsViewModel:
         self.assignment_errors: dict[str, bool] = {}
         self.assignment_open = False
         self.assignment_version = 0
-        self.message_text: str | None = None
-        self.message_version = 0
+        self.toast_message: str | None = None
+        self.toast_version = 0
+        self.navigate_to: str | None = None
+        self.nav_version = 0
 
-    def load_periods(self) -> None:
+    def ensure_loaded(self, service: FirestoreService, era_id: str) -> None:
+        self.era_id = era_id
+        self.load_periods(service)
+
+    def load_periods(self, service: FirestoreService) -> None:
+        if not self.era_id:
+            return
         logger.info("Firestore list periods era_id=%s", self.era_id)
         self.loading = True
         self.error = None
         try:
-            periods = self.service.list_periods(self.era_id)
+            periods = service.list_periods(self.era_id)
             incursions_by_period: dict[str, list[dict]] = {}
             for period in periods:
                 if period.get("revealed_at"):
-                    incursions_by_period[period["id"]] = self.service.list_incursions(
+                    incursions_by_period[period["id"]] = service.list_incursions(
                         self.era_id, period["id"]
                     )
             self.rows = build_period_rows(periods, incursions_by_period)
@@ -57,20 +60,27 @@ class PeriodsViewModel:
             )
             self.error = "load_failed"
             self.rows = []
-            self.show_message("No se pudieron cargar los periodos.")
+            self.show_toast("No se pudieron cargar los periodos.")
         finally:
             self.loading = False
 
-    def open_period_handler(self, period_id: str):
+    def request_open_period(self, period_id: str) -> None:
+        if not self.era_id:
+            return
         logger.info("UI open period era_id=%s period_id=%s", self.era_id, period_id)
-        return go_to(self.page, f"/eras/{self.era_id}/periods/{period_id}")
+        self.navigate_to = f"/eras/{self.era_id}/periods/{period_id}"
+        self.nav_version += 1
 
-    def open_assignment_dialog(self, period_id: str) -> None:
+    def open_assignment_dialog(
+        self, service: FirestoreService, period_id: str
+    ) -> None:
+        if not self.era_id:
+            return
         logger.info("UI open assignment dialog period_id=%s", period_id)
-        incursions = self.service.list_incursions(self.era_id, period_id)
+        incursions = service.list_incursions(self.era_id, period_id)
         pending = [item for item in incursions if not item.get("adversary_id")]
         if not pending:
-            self.show_message("No hay incursiones pendientes de asignar.")
+            self.show_toast("No hay incursiones pendientes de asignar.")
             return
         self.assignment_period_id = period_id
         self.assignment_incursions = build_assignment_incursions(pending)
@@ -81,7 +91,9 @@ class PeriodsViewModel:
         self.assignment_open = True
         self.assignment_version += 1
 
-    def reveal_period(self, period_id: str) -> None:
+    def reveal_period(self, service: FirestoreService, period_id: str) -> None:
+        if not self.era_id:
+            return
         logger.info("UI reveal period period_id=%s", period_id)
         try:
             logger.info(
@@ -89,7 +101,7 @@ class PeriodsViewModel:
                 self.era_id,
                 period_id,
             )
-            self.service.reveal_period(self.era_id, period_id)
+            service.reveal_period(self.era_id, period_id)
         except Exception as exc:
             logger.error(
                 "Failed to reveal period era_id=%s period_id=%s error=%s",
@@ -98,9 +110,9 @@ class PeriodsViewModel:
                 exc,
                 exc_info=True,
             )
-            self.show_message("No se pudo revelar el periodo.")
+            self.show_toast("No se pudo revelar el periodo.")
             return
-        self.load_periods()
+        self.load_periods(service)
 
     def close_assignment_dialog(self) -> None:
         if not self.assignment_open:
@@ -129,11 +141,11 @@ class PeriodsViewModel:
             return True
         self.assignment_errors = {incursion_id: True for incursion_id in missing}
         self.assignment_version += 1
-        self.show_message("Selecciona un adversario para cada incursión.")
+        self.show_toast("Selecciona un adversario para cada incursión.")
         return False
 
-    def save_assignment(self) -> None:
-        if not self.assignment_period_id:
+    def save_assignment(self, service: FirestoreService) -> None:
+        if not self.assignment_period_id or not self.era_id:
             return
         logger.info(
             "UI save assignment period_id=%s",
@@ -147,7 +159,7 @@ class PeriodsViewModel:
                 self.era_id,
                 self.assignment_period_id,
             )
-            self.service.assign_period_adversaries(
+            service.assign_period_adversaries(
                 self.era_id,
                 self.assignment_period_id,
                 self.assignment_selections,
@@ -160,16 +172,19 @@ class PeriodsViewModel:
                 exc,
                 exc_info=True,
             )
-            self.show_message("No se pudieron asignar los adversarios.")
+            self.show_toast("No se pudieron asignar los adversarios.")
             return
         self.assignment_open = False
         self.assignment_version += 1
-        self.load_periods()
+        self.load_periods(service)
 
-    def show_message(self, text: str) -> None:
+    def show_toast(self, text: str) -> None:
         logger.info("User message shown: %s", text)
-        self.message_text = text
-        self.message_version += 1
+        self.toast_message = text
+        self.toast_version += 1
 
-    def clear_message(self) -> None:
-        self.message_text = None
+    def consume_toast(self) -> None:
+        self.toast_message = None
+
+    def consume_navigation(self) -> None:
+        self.navigate_to = None

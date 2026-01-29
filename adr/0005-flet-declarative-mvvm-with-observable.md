@@ -14,9 +14,14 @@ con estado observable y vistas derivadas sin mutaciones directas de controles.
   - `*_model.py`: dataclasses de dominio/DTO para la vista.
   - `*_viewmodel.py`: ViewModel `@ft.observable` con estado y efectos.
   - `*_view.py`: componentes `@ft.component` que renderizan desde el ViewModel.
-- La vista invoca metodos del ViewModel para cargar datos, disparar efectos y mutar estado.
-- Los datos se cargan desde Firestore en el ViewModel y se reflejan por reactividad.
-- Dialogos y snackbars se muestran con `page.show_dialog()` y se cierran con `page.pop_dialog()`.
+- ViewModel puro: no guarda `page` ni ejecuta efectos UI directos.
+- La vista usa hooks para:
+  - cargar datos con `ft.use_effect`,
+  - ejecutar efectos UI (navegacion y mensajes),
+  - consumir eventos del ViewModel.
+- `ft.use_state` no usa lambdas ni argumentos: `vm, _ = ft.use_state(MyViewModel())`.
+- El servicio de Firestore se inyecta via `page.session` y se pasa a metodos explicitos del ViewModel (`ensure_loaded`, `reload`, etc).
+- Dialogos y snackbars se muestran desde la vista con `page.show_dialog()` y se cierran con `page.pop_dialog()`.
 - Se evita `page.update()` salvo overlays/navegacion; los cambios de estado deben disparar re-render.
 
 ## Consecuencias

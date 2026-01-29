@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+
 import flet as ft
 
 from app.screens.data_lookup import get_adversary_catalog
 from app.screens.periods.periods_model import AssignmentIncursionModel, PeriodRowModel
 from app.screens.periods.periods_viewmodel import PeriodsViewModel
 from app.screens.shared_components import header_text, section_card
-from app.services.firestore_service import FirestoreService
 from app.utils.logger import get_logger
+from app.utils.navigation import navigate
 
 logger = get_logger(__name__)
 
@@ -106,27 +108,43 @@ def _assignment_card(
 
 @ft.component
 def periods_view(
-    page: ft.Page,
-    service: FirestoreService,
     era_id: str,
 ) -> ft.Control:
     logger.debug("Rendering periods_view era_id=%s", era_id)
-    view_model = ft.use_state(lambda: PeriodsViewModel(page, service, era_id))[0]
+    page = ft.context.page
+    service = page.session.get("firestore_service")
+    view_model, _ = ft.use_state(PeriodsViewModel())
     dialog_ref = ft.use_ref(None)
 
     def load() -> None:
-        view_model.load_periods()
+        view_model.ensure_loaded(service, era_id)
 
     ft.use_effect(load, [era_id])
 
-    def show_message() -> None:
-        if not view_model.message_text:
+    def show_toast() -> None:
+        if not view_model.toast_message:
             return
-        snack = ft.SnackBar(ft.Text(view_model.message_text))
+        snack = ft.SnackBar(ft.Text(view_model.toast_message))
         page.show_dialog(snack)
-        view_model.clear_message()
+        view_model.consume_toast()
 
-    ft.use_effect(show_message, [view_model.message_version])
+    ft.use_effect(show_toast, [view_model.toast_version])
+
+    def handle_navigation() -> None:
+        if not view_model.navigate_to:
+            return
+        target = view_model.navigate_to
+
+        async def do_navigation() -> None:
+            await navigate(page, target)
+
+        if hasattr(page, "run_task"):
+            page.run_task(do_navigation)
+        else:
+            asyncio.create_task(do_navigation())
+        view_model.consume_navigation()
+
+    ft.use_effect(handle_navigation, [view_model.nav_version])
 
     options = [
         ft.dropdown.Option(item.adversary_id, item.name)
@@ -165,7 +183,7 @@ def periods_view(
             ),
             ft.ElevatedButton(
                 "Guardar",
-                on_click=lambda _: view_model.save_assignment(),
+                on_click=lambda _: view_model.save_assignment(service),
             ),
         ]
         return dialog
@@ -196,28 +214,30 @@ def periods_view(
             actions.append(
                 ft.ElevatedButton(
                     "Ver resultados",
-                    on_click=view_model.open_period_handler(row.period_id),
+                    on_click=lambda _: view_model.request_open_period(row.period_id),
                 )
             )
         elif row.action == "incursions":
             actions.append(
                 ft.ElevatedButton(
                     "Ver incursiones",
-                    on_click=view_model.open_period_handler(row.period_id),
+                    on_click=lambda _: view_model.request_open_period(row.period_id),
                 )
             )
         elif row.action == "assign":
             actions.append(
                 ft.OutlinedButton(
                     "Asignar adversarios",
-                    on_click=lambda _: view_model.open_assignment_dialog(row.period_id),
+                    on_click=lambda _: view_model.open_assignment_dialog(
+                        service, row.period_id
+                    ),
                 )
             )
         elif row.action == "reveal":
             actions.append(
                 ft.ElevatedButton(
                     "Revelar periodo",
-                    on_click=lambda _: view_model.reveal_period(row.period_id),
+                    on_click=lambda _: view_model.reveal_period(service, row.period_id),
                     height=48,
                     width=240,
                 )

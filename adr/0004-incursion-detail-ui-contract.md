@@ -6,7 +6,7 @@ Status: Accepted
 
 - Esta pantalla ya tiene un estilo y UX que no debe degradarse.
 - Hay riesgo de entropia por refactors "declarativos" mal aplicados.
-- Se alinea con ADR 0002 (contrato declarativo) y con el UI contract existente en `REPO_MAP.md`.
+- Se alinea con ADR 0005 (contrato MVVM declarativo) y con el UI contract existente en `REPO_MAP.md`.
 
 ## Decision - UI contract
 
@@ -49,5 +49,5 @@ Status: Accepted
 ## Referencias
 
 - `REPO_MAP.md` (seccion incursion_detail_screen UI contract).
-- ADR 0002.
+- ADR 0005.
 - `FLET_NOTES.md`.

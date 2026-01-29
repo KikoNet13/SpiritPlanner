@@ -13,7 +13,6 @@ from app.screens.incursion_detail.incursion_detail_model import (
 from app.screens.incursion_detail.incursion_detail_viewmodel import (
     IncursionDetailViewModel,
 )
-from app.services.firestore_service import FirestoreService
 from app.utils.datetime_format import format_datetime_local
 from app.utils.logger import get_logger
 
@@ -68,8 +67,6 @@ def _split_date_time(dt: datetime | str | None) -> tuple[str, str]:
 
 @ft.component
 def incursion_detail_view(
-    page: ft.Page,
-    service: FirestoreService,
     era_id: str,
     period_id: str,
     incursion_id: str,
@@ -80,28 +77,70 @@ def incursion_detail_view(
         period_id,
         incursion_id,
     )
-    view_model = ft.use_state(
-        lambda: IncursionDetailViewModel(
-            page,
-            service,
-            era_id,
-            period_id,
-            incursion_id,
-        )
-    )[0]
+    page = ft.context.page
+    service = page.session.get("firestore_service")
+    view_model, _ = ft.use_state(IncursionDetailViewModel())
+    dialog_ref = ft.use_ref(None)
 
     def load() -> None:
-        view_model.load_detail()
+        view_model.ensure_loaded(service, era_id, period_id, incursion_id)
 
     ft.use_effect(load, [era_id, period_id, incursion_id])
 
-    def show_message() -> None:
-        if not view_model.message_text:
+    def show_toast() -> None:
+        if not view_model.toast_message:
             return
-        page.show_dialog(ft.SnackBar(ft.Text(view_model.message_text)))
-        view_model.clear_message()
+        page.show_dialog(ft.SnackBar(ft.Text(view_model.toast_message)))
+        view_model.consume_toast()
 
-    ft.use_effect(show_message, [view_model.message_version])
+    ft.use_effect(show_toast, [view_model.toast_version])
+
+    def score_dialog_effect() -> None:
+        if view_model.score_dialog_open and view_model.detail:
+            detail = view_model.detail
+            result_label = get_result_label(detail.result)
+            difficulty_value = detail.difficulty or 0
+            formula, _ = view_model.score_preview()
+            dialog = dialog_ref.current or ft.AlertDialog(modal=True)
+            dialog.title = ft.Text("Detalle de puntuación")
+            dialog.content = ft.Column(
+                [
+                    ft.Text(f"Resultado: {result_label}"),
+                    ft.Text(f"Dificultad: {difficulty_value}"),
+                    ft.Text(f"Jugadores: {detail.player_count}"),
+                    ft.Text(f"Dahan vivos: {detail.dahan_alive}"),
+                    ft.Text(f"Plaga en la isla: {detail.blight_on_island}"),
+                    ft.Text(
+                        f"Cartas restantes: {detail.invader_cards_remaining}"
+                    ),
+                    ft.Text(
+                        f"Cartas fuera del mazo: {detail.invader_cards_out_of_deck}"
+                    ),
+                    ft.Text(f"Fórmula: {formula}"),
+                    ft.Text(
+                        f"Puntuación: {detail.score}",
+                        weight=ft.FontWeight.BOLD,
+                    ),
+                ],
+                tight=True,
+            )
+            dialog.actions = [
+                ft.TextButton(
+                    "Cerrar",
+                    on_click=lambda _: view_model.close_score_dialog(),
+                )
+            ]
+            if dialog_ref.current is None:
+                dialog_ref.current = dialog
+                page.show_dialog(dialog)
+            else:
+                dialog.update()
+            return
+        if not view_model.score_dialog_open and dialog_ref.current:
+            page.pop_dialog()
+            dialog_ref.current = None
+
+    ft.use_effect(score_dialog_effect, [view_model.score_dialog_version])
 
     def timer_effect():
         if not view_model.timer_running:
@@ -181,7 +220,7 @@ def incursion_detail_view(
                             width=220,
                             value=view_model.adversary_level,
                             on_change=lambda event: view_model.update_adversary_level(
-                                event.control.value
+                                service, event.control.value
                             ),
                         ),
                         ft.Text(
@@ -311,7 +350,7 @@ def incursion_detail_view(
                 ft.ElevatedButton(
                     "Confirmar",
                     icon=ft.Icons.CHECK,
-                    on_click=lambda _: view_model.finalize_incursion(),
+                    on_click=lambda _: view_model.finalize_incursion(service),
                     bgcolor=ft.Colors.GREEN_600,
                     color=ft.Colors.WHITE,
                 ),
@@ -486,7 +525,7 @@ def incursion_detail_view(
             height=52,
             width=320,
             on_click=(
-                lambda _: view_model.handle_session_action()
+                lambda _: view_model.handle_session_action(service)
                 if view_model.session_state != SESSION_STATE_FINALIZED
                 else None
             ),

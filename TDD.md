@@ -22,7 +22,10 @@ Fuera de alcance: features no visibles en el codigo actual.
 
 ## Arquitectura (alto nivel)
 
-- UI: `app/` (Flet).
+- UI: `app/` (Flet) con MVVM declarativo:
+  - `*_model.py`: dataclasses de dominio/DTO para la vista.
+  - `*_viewmodel.py`: ViewModels `@ft.observable` con estado y efectos.
+  - `*_view.py`: componentes `@ft.component` con hooks.
 - Persistencia: Firestore via `app/services/firestore_service.py`.
 - Scripts PC: `pc/generate_era.py`, `pc/firestore_service.py`.
 - Catalogos: TSV en `pc/data/input`.

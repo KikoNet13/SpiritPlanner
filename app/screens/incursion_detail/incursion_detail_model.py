@@ -1,11 +1,52 @@
 from __future__ import annotations
 
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
 
 SESSION_STATE_NOT_STARTED = "NOT_STARTED"
 SESSION_STATE_IN_SESSION = "IN_SESSION"
 SESSION_STATE_BETWEEN_SESSIONS = "BETWEEN_SESSIONS"
 SESSION_STATE_FINALIZED = "FINALIZED"
+
+
+@dataclass(frozen=True)
+class IncursionDetailModel:
+    incursion_id: str
+    index: int
+    spirit_1_name: str
+    spirit_2_name: str
+    board_1_name: str
+    board_2_name: str
+    layout_name: str
+    adversary_id: str | None
+    adversary_name: str
+    adversary_level: str | None
+    difficulty: int | None
+    period_label: str
+    result: str | None
+    score: int | None
+    player_count: int | None
+    dahan_alive: int | None
+    blight_on_island: int | None
+    invader_cards_remaining: int | None
+    invader_cards_out_of_deck: int | None
+
+
+@dataclass(frozen=True)
+class SessionEntryModel:
+    started_at: datetime | None
+    ended_at: datetime | None
+
+
+@dataclass
+class FinalizeFormData:
+    result: str | None
+    player_count: str
+    dahan_alive: str
+    blight_on_island: str
+    invader_cards_remaining: str
+    invader_cards_out_of_deck: str
 
 
 def resolve_session_state(
@@ -46,21 +87,6 @@ def get_score_formula(result_value: str | None) -> str:
     return "—"
 
 
-def total_minutes(sessions: list[dict], now: datetime) -> int:
-    total_seconds = 0
-    for session in sessions:
-        started = session.get("started_at")
-        ended = session.get("ended_at") or now
-        if started is None:
-            continue
-        if started.tzinfo is None:
-            started = started.replace(tzinfo=now.tzinfo)
-        if ended.tzinfo is None:
-            ended = ended.replace(tzinfo=now.tzinfo)
-        total_seconds += max(0, int((ended - started).total_seconds()))
-    return int(total_seconds // 60)
-
-
 def compute_score_preview(
     result_value: str | None,
     difficulty: int,
@@ -92,3 +118,22 @@ def compute_score_preview(
             ),
         )
     return ("—", None)
+
+
+def _to_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def compute_total_seconds(
+    sessions: list[SessionEntryModel], reference: datetime | None = None
+) -> int:
+    ref = reference or datetime.now(timezone.utc)
+    total_seconds = 0
+    for session in sessions:
+        started_at = _to_utc(session.started_at)
+        ended_at = _to_utc(session.ended_at) or ref
+        if started_at and ended_at:
+            total_seconds += int((ended_at - started_at).total_seconds())
+    return max(total_seconds, 0)

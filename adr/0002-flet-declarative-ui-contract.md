@@ -1,6 +1,6 @@
 ﻿# ADR 0002 - Flet declarative UI contract
 
-Status: Accepted
+Status: Superseded by ADR 0005
 
 ## Contexto
 
@@ -27,3 +27,4 @@ Se necesita un contrato estable para mantener el codigo legible y predecible.
 - `FLET_NOTES.md`
 - `app/main.py`
 - `app/utils/navigation.py`
+- `adr/0005-flet-declarative-mvvm-with-observable.md`

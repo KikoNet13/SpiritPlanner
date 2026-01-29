@@ -4,7 +4,7 @@
 
 ## Estado real (segun codigo)
 
-- UI Flet con pantallas: Eras, Periodos, Incursions, Incursion detail.
+- UI Flet con pantallas: Eras, Periodos, Incursions, Incursion detail (MVVM declarativo con `*_model.py`/`*_viewmodel.py`/`*_view.py`).
 - Routing centralizado en `app/main.py` con helpers `go`/`go_to`.
 - FirestoreService implementa: `reveal_period`, `assign_period_adversaries`, `start_session`, `end_session`, `finalize_incursion`, `update_incursion_adversary_level`.
 - Scripts PC: `pc/generate_era.py` y `pc/firestore_service.py`.
@@ -12,7 +12,7 @@
 
 ## Foco actual
 
-- Consolidar contrato declarativo de UI (ADR 0002 / FLET_NOTES).
+- Consolidar contrato declarativo MVVM (ADR 0005).
 - Validacion end-to-end del flujo de sesiones y finalizacion (estado desconocido).
 - Aclarar export TSV de resultados (no visible en codigo actual).
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app.screens.data_lookup import get_spirit_name
 
 
 @dataclass(frozen=True)
-class PeriodRowState:
+class PeriodRowModel:
     period_id: str
     title: str
     action: str | None
@@ -14,22 +14,12 @@ class PeriodRowState:
     incursions_preview: tuple[str, ...]
 
 
-@dataclass
-class AssignmentDialogState:
-    period_id: str
-    incursions: list[dict]
-    selections: dict[str, str | None]
-    is_open: bool = False
-
-
-@dataclass
-class PeriodsViewState:
-    era_id: str
-    periods: list[dict] = field(default_factory=list)
-    rows: list[PeriodRowState] = field(default_factory=list)
-    loading: bool = False
-    error: str | None = None
-    dialog: AssignmentDialogState | None = None
+@dataclass(frozen=True)
+class AssignmentIncursionModel:
+    incursion_id: str
+    index: int
+    spirit_1_name: str
+    spirit_2_name: str
 
 
 def can_reveal(periods: list[dict], index: int) -> bool:
@@ -54,8 +44,8 @@ def get_period_action(period: dict, allow_reveal: bool) -> str | None:
 def build_period_rows(
     periods: list[dict],
     incursions_by_period: dict[str, list[dict]],
-) -> list[PeriodRowState]:
-    rows: list[PeriodRowState] = []
+) -> list[PeriodRowModel]:
+    rows: list[PeriodRowModel] = []
     for idx, period in enumerate(periods):
         period_id = period["id"]
         action = get_period_action(period, can_reveal(periods, idx))
@@ -70,7 +60,7 @@ def build_period_rows(
                     f"Incursión {incursion.get('index', 0)}: {spirit_1} / {spirit_2}"
                 )
         rows.append(
-            PeriodRowState(
+            PeriodRowModel(
                 period_id=period_id,
                 title=f"Periodo {period.get('index', 0)}",
                 action=action,
@@ -79,3 +69,17 @@ def build_period_rows(
             )
         )
     return rows
+
+
+def build_assignment_incursions(incursions: list[dict]) -> list[AssignmentIncursionModel]:
+    items: list[AssignmentIncursionModel] = []
+    for incursion in incursions:
+        items.append(
+            AssignmentIncursionModel(
+                incursion_id=incursion["id"],
+                index=incursion.get("index", 0),
+                spirit_1_name=get_spirit_name(incursion.get("spirit_1_id")),
+                spirit_2_name=get_spirit_name(incursion.get("spirit_2_id")),
+            )
+        )
+    return items

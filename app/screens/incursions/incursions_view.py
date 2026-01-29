@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+import flet as ft
+
+from app.screens.incursions.incursions_model import IncursionCardModel
+from app.screens.incursions.incursions_viewmodel import IncursionsViewModel
+from app.screens.shared_components import header_text, section_card, status_chip
+from app.services.firestore_service import FirestoreService
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+def _incursion_card(
+    model: IncursionCardModel,
+    on_open,
+) -> ft.Container:
+    return section_card(
+        ft.Column(
+            [
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.EXPLORE),
+                    title=ft.Text(model.title, weight=ft.FontWeight.BOLD),
+                    subtitle=ft.Column(
+                        [
+                            ft.Text(f"Espíritus: {model.spirit_info}"),
+                            ft.Text(f"Tableros: {model.board_info}"),
+                            ft.Text(f"Distribución: {model.layout_info}"),
+                            ft.Text(f"Adversario: {model.adversary_info}"),
+                            status_chip(model.status_label, model.status_color),
+                        ],
+                        spacing=4,
+                    ),
+                ),
+                ft.Row(
+                    [
+                        ft.ElevatedButton("Abrir", on_click=on_open),
+                    ],
+                    alignment=ft.MainAxisAlignment.END,
+                ),
+            ],
+            spacing=4,
+        )
+    )
+
+
+@ft.component
+def incursions_view(
+    page: ft.Page,
+    service: FirestoreService,
+    era_id: str,
+    period_id: str,
+) -> ft.Control:
+    logger.debug("Rendering incursions_view era_id=%s period_id=%s", era_id, period_id)
+    view_model = ft.use_state(
+        lambda: IncursionsViewModel(page, service, era_id, period_id)
+    )[0]
+
+    def load() -> None:
+        view_model.load_incursions()
+
+    ft.use_effect(load, [era_id, period_id])
+
+    content_controls: list[ft.Control] = []
+    if view_model.loading:
+        content_controls.append(ft.ProgressRing())
+    elif not view_model.incursions:
+        content_controls.append(ft.Text("No hay incursiones disponibles."))
+    else:
+        for incursion in view_model.incursions:
+            content_controls.append(
+                _incursion_card(
+                    incursion,
+                    view_model.open_incursion_handler(incursion.incursion_id),
+                )
+            )
+
+    incursions_list = ft.ListView(spacing=12, expand=True, controls=content_controls)
+
+    return ft.Column(
+        [
+            ft.AppBar(title=ft.Text("Incursiones"), center_title=True),
+            ft.Container(
+                content=ft.Column(
+                    [
+                        header_text("Incursiones"),
+                        incursions_list,
+                    ],
+                    expand=True,
+                ),
+                padding=16,
+                expand=True,
+            ),
+        ],
+        expand=True,
+        spacing=0,
+    )

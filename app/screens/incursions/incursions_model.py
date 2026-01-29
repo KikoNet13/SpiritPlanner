@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import flet as ft
 
 from app.screens.data_lookup import (
@@ -8,6 +10,18 @@ from app.screens.data_lookup import (
     get_layout_name,
     get_spirit_name,
 )
+
+
+@dataclass(frozen=True)
+class IncursionCardModel:
+    incursion_id: str
+    title: str
+    spirit_info: str
+    board_info: str
+    layout_info: str
+    adversary_info: str
+    status_label: str
+    status_color: str
 
 
 def get_incursion_status(incursion: dict) -> tuple[str, str]:

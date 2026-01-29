@@ -21,6 +21,7 @@ class AssignmentDialogState:
     selections: dict[str, str | None]
     selections_by_spirit_id: dict[str, str | None]
     validation_error: str | None = None
+    missing_incursion_ids: set[str] = field(default_factory=set)
     is_open: bool = False
 
 

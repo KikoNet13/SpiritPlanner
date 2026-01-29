@@ -185,6 +185,25 @@ def periods_view(
             logger.info(
                 "Saving adversary assignments period_id=%s", dialog_state.period_id
             )
+            missing_items: list[str] = []
+            for incursion in dialog_state.incursions:
+                incursion_id = incursion["id"]
+                adversary_id = dialog_state.selections.get(incursion_id)
+                if adversary_id:
+                    continue
+                missing_items.extend(
+                    [
+                        get_spirit_name(incursion.get("spirit_1_id")),
+                        get_spirit_name(incursion.get("spirit_2_id")),
+                    ]
+                )
+            if missing_items:
+                show_message(
+                    page,
+                    "Faltan adversarios para: "
+                    f"{', '.join(missing_items)}.",
+                )
+                return
             success = assign_period_adversaries(
                 page,
                 service,
@@ -197,6 +216,7 @@ def periods_view(
             dialog_state.is_open = False
             close_dialog(page)
             load_periods(update_list=True)
+            show_message(page, "Asignaciones guardadas")
 
         def handle_cancel() -> None:
             logger.info(

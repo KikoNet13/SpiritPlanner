@@ -4,12 +4,10 @@ import os
 
 import flet as ft
 
-from app.screens.eras.eras_screen import eras_view
-from app.screens.incursion_detail.incursion_detail_screen import (
-    incursion_detail_view,
-)
-from app.screens.incursions.incursions_screen import incursions_view
-from app.screens.periods.periods_screen import periods_view
+from app.screens.eras.eras_view import eras_view
+from app.screens.incursion_detail.incursion_detail_view import incursion_detail_view
+from app.screens.incursions.incursions_view import incursions_view
+from app.screens.periods.periods_view import periods_view
 from app.services.firestore_service import FirestoreService
 from app.utils.logger import configure_logging, get_logger
 from app.utils.navigation import navigate
@@ -28,15 +26,14 @@ async def main(page: ft.Page) -> None:
 
     logger.debug("Initializing FirestoreService")
     service = FirestoreService()
+    page.session.set("firestore_service", service)
 
     def build_views() -> list[ft.View]:
         # Routing declarativo: render_views recompone el stack a partir de page.route.
         # Para añadir rutas, extender este builder con un nuevo ft.View.
         current_route = page.route or "/eras"
         parts = [part for part in current_route.split("/") if part]
-        views: list[ft.View] = [
-            ft.View(route="/eras", controls=[eras_view(page, service)])
-        ]
+        views: list[ft.View] = [ft.View(route="/eras", controls=[eras_view()])]
 
         if len(parts) >= 2 and parts[0] == "eras":
             era_id = parts[1]
@@ -44,7 +41,7 @@ async def main(page: ft.Page) -> None:
             views.append(
                 ft.View(
                     route=f"/eras/{era_id}",
-                    controls=[periods_view(page, service, era_id)],
+                    controls=[periods_view(era_id)],
                 )
             )
 
@@ -59,7 +56,7 @@ async def main(page: ft.Page) -> None:
                     ft.View(
                         route=f"/eras/{era_id}/periods/{period_id}",
                         controls=[
-                            incursions_view(page, service, era_id, period_id)
+                            incursions_view(era_id, period_id)
                         ],
                     )
                 )
@@ -77,8 +74,6 @@ async def main(page: ft.Page) -> None:
                             route=f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
                             controls=[
                                 incursion_detail_view(
-                                    page,
-                                    service,
                                     era_id,
                                     period_id,
                                     incursion_id,

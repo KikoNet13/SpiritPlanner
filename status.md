@@ -4,7 +4,7 @@
 
 ## Estado real (segun codigo)
 
-- UI Flet con pantallas: Eras, Periodos, Incursions, Incursion detail (MVVM declarativo con `*_model.py`/`*_viewmodel.py`/`*_view.py`).
+- UI Flet con pantallas: Eras, Periodos, Incursions, Incursion detail (MVVM declarativo, ViewModel puro, `use_state` sin lambdas, FirestoreService via `page.session`).
 - Routing centralizado en `app/main.py` con helpers `go`/`go_to`.
 - FirestoreService implementa: `reveal_period`, `assign_period_adversaries`, `start_session`, `end_session`, `finalize_incursion`, `update_incursion_adversary_level`.
 - Scripts PC: `pc/generate_era.py` y `pc/firestore_service.py`.

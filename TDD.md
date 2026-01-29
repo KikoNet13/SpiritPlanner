@@ -24,8 +24,10 @@ Fuera de alcance: features no visibles en el codigo actual.
 
 - UI: `app/` (Flet) con MVVM declarativo:
   - `*_model.py`: dataclasses de dominio/DTO para la vista.
-  - `*_viewmodel.py`: ViewModels `@ft.observable` con estado y efectos.
-  - `*_view.py`: componentes `@ft.component` con hooks.
+  - `*_viewmodel.py`: ViewModels `@ft.observable` con estado puro (sin `page`).
+  - `*_view.py`: componentes `@ft.component` con hooks y efectos UI via `ft.use_effect`.
+  - `ft.use_state` crea el ViewModel sin lambdas: `vm, _ = ft.use_state(MyViewModel())`.
+  - `FirestoreService` se inyecta via `page.session` y se pasa a metodos explicitos del ViewModel.
 - Persistencia: Firestore via `app/services/firestore_service.py`.
 - Scripts PC: `pc/generate_era.py`, `pc/firestore_service.py`.
 - Catalogos: TSV en `pc/data/input`.

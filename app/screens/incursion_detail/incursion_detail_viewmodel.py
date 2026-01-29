@@ -21,8 +21,6 @@ from app.screens.incursion_detail.incursion_detail_model import (
     SESSION_STATE_NOT_STARTED,
     build_period_label,
     compute_score_preview,
-    get_result_label,
-    get_score_formula,
     resolve_session_state,
 )
 from app.services.firestore_service import FirestoreService
@@ -33,19 +31,10 @@ logger = get_logger(__name__)
 
 @ft.observable
 class IncursionDetailViewModel:
-    def __init__(
-        self,
-        page: ft.Page,
-        service: FirestoreService,
-        era_id: str,
-        period_id: str,
-        incursion_id: str,
-    ) -> None:
-        self.page = page
-        self.service = service
-        self.era_id = era_id
-        self.period_id = period_id
-        self.incursion_id = incursion_id
+    def __init__(self) -> None:
+        self.era_id: str | None = None
+        self.period_id: str | None = None
+        self.incursion_id: str | None = None
         self.detail: IncursionDetailModel | None = None
         self.sessions: list[SessionEntryModel] = []
         self.open_session = False
@@ -63,12 +52,28 @@ class IncursionDetailViewModel:
             invader_cards_out_of_deck="",
         )
         self.show_finalize_confirm = False
-        self.message_text: str | None = None
-        self.message_version = 0
+        self.toast_message: str | None = None
+        self.toast_version = 0
+        self.score_dialog_open = False
+        self.score_dialog_version = 0
         self.timer_running = False
         self.timer_now: datetime | None = None
 
-    def load_detail(self) -> None:
+    def ensure_loaded(
+        self,
+        service: FirestoreService,
+        era_id: str,
+        period_id: str,
+        incursion_id: str,
+    ) -> None:
+        self.era_id = era_id
+        self.period_id = period_id
+        self.incursion_id = incursion_id
+        self.load_detail(service)
+
+    def load_detail(self, service: FirestoreService) -> None:
+        if not self.era_id or not self.period_id or not self.incursion_id:
+            return
         logger.info(
             "Firestore load incursion detail era_id=%s period_id=%s incursion_id=%s",
             self.era_id,
@@ -78,7 +83,7 @@ class IncursionDetailViewModel:
         self.loading = True
         self.error = None
         try:
-            incursions = self.service.list_incursions(self.era_id, self.period_id)
+            incursions = service.list_incursions(self.era_id, self.period_id)
             incursion = next(
                 (item for item in incursions if item["id"] == self.incursion_id), None
             )
@@ -93,12 +98,12 @@ class IncursionDetailViewModel:
             period = next(
                 (
                     item
-                    for item in self.service.list_periods(self.era_id)
+                    for item in service.list_periods(self.era_id)
                     if item["id"] == self.period_id
                 ),
                 None,
             )
-            sessions = self.service.list_sessions(
+            sessions = service.list_sessions(
                 self.era_id, self.period_id, self.incursion_id
             )
             self.sessions = [
@@ -160,14 +165,18 @@ class IncursionDetailViewModel:
         finally:
             self.loading = False
 
-    def update_adversary_level(self, level: str | None) -> None:
+    def update_adversary_level(
+        self, service: FirestoreService, level: str | None
+    ) -> None:
         if not self.detail:
             return
         if self.session_state == SESSION_STATE_FINALIZED or self.has_sessions:
             return
+        if not self.era_id or not self.period_id or not self.incursion_id:
+            return
         adversary_id = self.detail.adversary_id
         if not adversary_id:
-            self.show_message("No hay adversario asignado.")
+            self.show_toast("No hay adversario asignado.")
             return
         difficulty = get_adversary_difficulty(adversary_id, level)
         logger.info(
@@ -176,7 +185,7 @@ class IncursionDetailViewModel:
             level,
         )
         try:
-            self.service.update_incursion_adversary_level(
+            service.update_incursion_adversary_level(
                 era_id=self.era_id,
                 period_id=self.period_id,
                 incursion_id=self.incursion_id,
@@ -188,7 +197,7 @@ class IncursionDetailViewModel:
             logger.error(
                 "Failed to update adversary level error=%s", exc, exc_info=True
             )
-            self.show_message(str(exc))
+            self.show_toast(str(exc))
             return
         self.adversary_level = level
         self.detail = replace(
@@ -230,15 +239,17 @@ class IncursionDetailViewModel:
         except ValueError:
             return None
 
-    def finalize_incursion(self) -> None:
+    def finalize_incursion(self, service: FirestoreService) -> None:
         if not self.detail:
             return
+        if not self.era_id or not self.period_id or not self.incursion_id:
+            return
         if self.session_state == SESSION_STATE_FINALIZED:
-            self.show_message("La incursión ya está finalizada.")
+            self.show_toast("La incursión ya está finalizada.")
             return
         result_value = self.finalize_form.result
         if not result_value:
-            self.show_message("Debes indicar el resultado.")
+            self.show_toast("Debes indicar el resultado.")
             return
         player_count = self._parse_int(self.finalize_form.player_count, 2)
         dahan_alive = self._parse_int(self.finalize_form.dahan_alive, 0)
@@ -254,19 +265,19 @@ class IncursionDetailViewModel:
             invader_remaining,
             invader_out,
         ):
-            self.show_message("Revisa los valores numéricos.")
+            self.show_toast("Revisa los valores numéricos.")
             return
         if self.open_session:
             logger.info(
                 "Closing active session before finalize incursion_id=%s",
                 self.incursion_id,
             )
-            self.service.end_session(self.era_id, self.period_id, self.incursion_id)
+            service.end_session(self.era_id, self.period_id, self.incursion_id)
         try:
             logger.info(
                 "Firestore finalize incursion incursion_id=%s", self.incursion_id
             )
-            self.service.finalize_incursion(
+            service.finalize_incursion(
                 era_id=self.era_id,
                 period_id=self.period_id,
                 incursion_id=self.incursion_id,
@@ -278,84 +289,62 @@ class IncursionDetailViewModel:
                 blight_on_island=blight_on_island,
             )
         except ValueError:
-            self.show_message("Revisa los valores numéricos.")
+            self.show_toast("Revisa los valores numéricos.")
             return
         self.toggle_finalize_confirm(False)
-        self.load_detail()
+        self.load_detail(service)
 
-    def handle_session_action(self) -> None:
+    def handle_session_action(self, service: FirestoreService) -> None:
         if self.session_state == SESSION_STATE_FINALIZED:
-            self.show_message("La incursión ya está finalizada.")
+            self.show_toast("La incursión ya está finalizada.")
+            return
+        if not self.era_id or not self.period_id or not self.incursion_id:
             return
         if self.open_session:
             logger.info(
                 "Firestore end session incursion_id=%s", self.incursion_id
             )
-            self.service.end_session(self.era_id, self.period_id, self.incursion_id)
-            self.load_detail()
+            service.end_session(self.era_id, self.period_id, self.incursion_id)
+            self.load_detail(service)
             return
         if not self.adversary_level or self.detail.difficulty is None:
-            self.show_message("Debes seleccionar un nivel válido.")
+            self.show_toast("Debes seleccionar un nivel válido.")
             return
         try:
             logger.info(
                 "Firestore start session incursion_id=%s", self.incursion_id
             )
-            self.service.start_session(self.era_id, self.period_id, self.incursion_id)
+            service.start_session(self.era_id, self.period_id, self.incursion_id)
         except ValueError as exc:
             logger.error("Failed to start session error=%s", exc, exc_info=True)
-            self.show_message(str(exc))
+            self.show_toast(str(exc))
             return
-        self.load_detail()
+        self.load_detail(service)
 
-    def show_message(self, text: str) -> None:
+    def show_toast(self, text: str) -> None:
         logger.info("User message shown: %s", text)
-        self.message_text = text
-        self.message_version += 1
+        self.toast_message = text
+        self.toast_version += 1
 
-    def clear_message(self) -> None:
-        self.message_text = None
+    def consume_toast(self) -> None:
+        self.toast_message = None
 
     def tick_timer(self) -> None:
         if not self.timer_running:
             return
         self.timer_now = datetime.now(timezone.utc)
 
-    def open_score_dialog(self) -> None:
+    def request_score_dialog(self) -> None:
         if not self.detail:
             return
-        result_label = get_result_label(self.detail.result)
-        difficulty_value = self.detail.difficulty or 0
-        formula = get_score_formula(self.detail.result)
-        dialog = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Detalle de puntuación"),
-            content=ft.Column(
-                [
-                    ft.Text(f"Resultado: {result_label}"),
-                    ft.Text(f"Dificultad: {difficulty_value}"),
-                    ft.Text(f"Jugadores: {self.detail.player_count}"),
-                    ft.Text(f"Dahan vivos: {self.detail.dahan_alive}"),
-                    ft.Text(f"Plaga en la isla: {self.detail.blight_on_island}"),
-                    ft.Text(
-                        f"Cartas restantes: {self.detail.invader_cards_remaining}"
-                    ),
-                    ft.Text(
-                        f"Cartas fuera del mazo: {self.detail.invader_cards_out_of_deck}"
-                    ),
-                    ft.Text(f"Fórmula: {formula}"),
-                    ft.Text(
-                        f"Puntuación: {self.detail.score}",
-                        weight=ft.FontWeight.BOLD,
-                    ),
-                ],
-                tight=True,
-            ),
-            actions=[
-                ft.TextButton("Cerrar", on_click=lambda _: self.page.pop_dialog())
-            ],
-        )
-        self.page.show_dialog(dialog)
+        self.score_dialog_open = True
+        self.score_dialog_version += 1
+
+    def close_score_dialog(self) -> None:
+        if not self.score_dialog_open:
+            return
+        self.score_dialog_open = False
+        self.score_dialog_version += 1
 
     def available_adversary_levels(self) -> list[str]:
         if not self.detail:

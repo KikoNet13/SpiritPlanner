@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import asyncio
+
 import flet as ft
 
 from app.screens.eras.eras_model import EraCardModel
 from app.screens.eras.eras_viewmodel import ErasViewModel
 from app.screens.shared_components import header_text, section_card, status_chip
-from app.services.firestore_service import FirestoreService
 from app.utils.logger import get_logger
+from app.utils.navigation import navigate
 
 logger = get_logger(__name__)
 
@@ -46,14 +48,40 @@ def _era_card(model: EraCardModel, actions: list[ft.Control]) -> ft.Container:
 
 
 @ft.component
-def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
+def eras_view() -> ft.Control:
     logger.debug("Rendering eras_view")
-    view_model = ft.use_state(lambda: ErasViewModel(page, service))[0]
+    page = ft.context.page
+    service = page.session.get("firestore_service")
+    view_model, _ = ft.use_state(ErasViewModel())
 
     def load() -> None:
-        view_model.load_eras()
+        view_model.ensure_loaded(service)
 
     ft.use_effect(load, [])
+
+    def show_toast() -> None:
+        if not view_model.toast_message:
+            return
+        page.show_dialog(ft.SnackBar(ft.Text(view_model.toast_message)))
+        view_model.consume_toast()
+
+    ft.use_effect(show_toast, [view_model.toast_version])
+
+    def handle_navigation() -> None:
+        if not view_model.navigate_to:
+            return
+        target = view_model.navigate_to
+
+        async def do_navigation() -> None:
+            await navigate(page, target)
+
+        if hasattr(page, "run_task"):
+            page.run_task(do_navigation)
+        else:
+            asyncio.create_task(do_navigation())
+        view_model.consume_navigation()
+
+    ft.use_effect(handle_navigation, [view_model.nav_version])
 
     title = header_text("Eras")
     content_controls: list[ft.Control] = []
@@ -67,14 +95,14 @@ def eras_view(page: ft.Page, service: FirestoreService) -> ft.Control:
             actions: list[ft.Control] = [
                 ft.ElevatedButton(
                     "Ver periodos",
-                    on_click=view_model.open_periods_handler(era.era_id),
+                    on_click=lambda _: view_model.request_open_periods(era.era_id),
                 )
             ]
             if era.active_incursion:
                 actions.append(
                     ft.OutlinedButton(
                         "Ir a incursión activa",
-                        on_click=view_model.open_active_incursion_handler(
+                        on_click=lambda _: view_model.request_open_active_incursion(
                             era.active_incursion
                         ),
                     )

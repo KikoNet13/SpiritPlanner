@@ -12,29 +12,33 @@ from app.screens.incursions.incursions_model import (
 )
 from app.services.firestore_service import FirestoreService
 from app.utils.logger import get_logger
-from app.utils.navigation import go_to
 
 logger = get_logger(__name__)
 
 
 @ft.observable
 class IncursionsViewModel:
-    def __init__(
-        self,
-        page: ft.Page,
-        service: FirestoreService,
-        era_id: str,
-        period_id: str,
-    ) -> None:
-        self.page = page
-        self.service = service
-        self.era_id = era_id
-        self.period_id = period_id
+    def __init__(self) -> None:
+        self.era_id: str | None = None
+        self.period_id: str | None = None
         self.loading = False
         self.error: str | None = None
         self.incursions: list[IncursionCardModel] = []
+        self.toast_message: str | None = None
+        self.toast_version = 0
+        self.navigate_to: str | None = None
+        self.nav_version = 0
 
-    def load_incursions(self) -> None:
+    def ensure_loaded(
+        self, service: FirestoreService, era_id: str, period_id: str
+    ) -> None:
+        self.era_id = era_id
+        self.period_id = period_id
+        self.load_incursions(service)
+
+    def load_incursions(self, service: FirestoreService) -> None:
+        if not self.era_id or not self.period_id:
+            return
         logger.info(
             "Firestore list incursions era_id=%s period_id=%s",
             self.era_id,
@@ -43,7 +47,7 @@ class IncursionsViewModel:
         self.loading = True
         self.error = None
         try:
-            incursions = self.service.list_incursions(self.era_id, self.period_id)
+            incursions = service.list_incursions(self.era_id, self.period_id)
             cards: list[IncursionCardModel] = []
             for incursion in incursions:
                 status_label, status_color = get_incursion_status(incursion)
@@ -73,14 +77,27 @@ class IncursionsViewModel:
         finally:
             self.loading = False
 
-    def open_incursion_handler(self, incursion_id: str):
+    def request_open_incursion(self, incursion_id: str) -> None:
+        if not self.era_id or not self.period_id:
+            return
         logger.info(
             "UI open incursion era_id=%s period_id=%s incursion_id=%s",
             self.era_id,
             self.period_id,
             incursion_id,
         )
-        return go_to(
-            self.page,
-            f"/eras/{self.era_id}/periods/{self.period_id}/incursions/{incursion_id}",
+        self.navigate_to = (
+            f"/eras/{self.era_id}/periods/{self.period_id}/incursions/{incursion_id}"
         )
+        self.nav_version += 1
+
+    def show_toast(self, message: str) -> None:
+        logger.info("User message shown: %s", message)
+        self.toast_message = message
+        self.toast_version += 1
+
+    def consume_toast(self) -> None:
+        self.toast_message = None
+
+    def consume_navigation(self) -> None:
+        self.navigate_to = None

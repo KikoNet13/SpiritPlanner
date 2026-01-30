@@ -11,7 +11,7 @@ async def navigate(page: ft.Page, route: str) -> None:
     overlay = list(getattr(page, "overlay", []) or [])
     overlay_types = [type(item).__name__ for item in overlay]
     view_routes = [view.route for view in page.views] if page.views else []
-    logger.info(
+    logger.debug(
         "Navigate start route=%s current_route=%s views=%s overlay_count=%s overlay_types=%s",
         route,
         page.route,
@@ -21,9 +21,9 @@ async def navigate(page: ft.Page, route: str) -> None:
     )
     top_route = page.views[-1].route if page.views else None
     if route == page.route and top_route == route:
-        logger.info("Navigate noop route=%s", route)
+        logger.debug("Navigate noop route=%s", route)
         return
-    logger.info(
+    logger.debug(
         "Navigate go route=%s current_route=%s top_route=%s",
         route,
         page.route,
@@ -33,7 +33,7 @@ async def navigate(page: ft.Page, route: str) -> None:
     overlay_after = list(getattr(page, "overlay", []) or [])
     overlay_types_after = [type(item).__name__ for item in overlay_after]
     view_routes_after = [view.route for view in page.views] if page.views else []
-    logger.info(
+    logger.debug(
         "Navigate complete route=%s current_route=%s views=%s overlay_count=%s overlay_types=%s",
         route,
         page.route,
@@ -49,7 +49,7 @@ async def go(page: ft.Page, route: str) -> None:
 
 def go_to(page: ft.Page, route: str):
     async def handler(event: ft.ControlEvent) -> None:
-        logger.info(
+        logger.debug(
             "UI navigation event route=%s control=%s", route, event.control
         )
         await navigate(page, route)

@@ -112,7 +112,7 @@ async def main(page: ft.Page) -> None:
         view = ft.View(route=route, controls=[control])
         view.data = {"screen": screen}
         if debug_mode:
-            logger.info(
+            logger.debug(
                 "Created view route=%s screen=%s control_root=%s",
                 route,
                 screen,
@@ -188,6 +188,7 @@ async def main(page: ft.Page) -> None:
         current_route = page.route or "/eras"
         built_routes = _build_route_stack(current_route)
         resolved_screen = _resolve_route(current_route)["resolved_screen"]
+        before_routes = _view_routes()
         page.render_views(build_views)
         overlay_count, overlay_types = _overlay_snapshot()
         top_route = page.views[-1].route if page.views else None
@@ -196,16 +197,16 @@ async def main(page: ft.Page) -> None:
         if top_view and isinstance(getattr(top_view, "data", None), dict):
             top_screen = top_view.data.get("screen")
         logger.info(
-            "Route change handled route=%s top_route=%s top_screen=%s resolved_screen=%s views=%s built_routes=%s overlay_count=%s overlay_types=%s",
+            "Route change handled route=%s top_route=%s top_screen=%s resolved_screen=%s views=%s",
             page.route,
             top_route,
             top_screen,
             resolved_screen,
             _view_routes(),
-            built_routes,
-            overlay_count,
-            overlay_types,
         )
+        after_routes = _view_routes()
+        if before_routes != after_routes:
+            page.update()
         if top_route and top_route != page.route:
             logger.warning(
                 "Route/view mismatch route=%s top_route=%s",
@@ -231,7 +232,7 @@ async def main(page: ft.Page) -> None:
 
     async def handle_view_pop(event: ft.ViewPopEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
-        logger.info(
+        logger.debug(
             "View pop event view_route=%s views=%s overlay_count=%s overlay_types=%s",
             getattr(event.view, "route", None),
             _view_routes(),
@@ -240,14 +241,14 @@ async def main(page: ft.Page) -> None:
         )
         if len(page.views) > 1:
             page.views.pop()
-            logger.info("View popped from stack views=%s", _view_routes())
+            logger.debug("View popped from stack views=%s", _view_routes())
         _close_overlays("view_pop")
         if not page.views:
             logger.debug("No views left, navigating to /eras")
             page.go("/eras")
             return
         top_view = page.views[-1]
-        logger.info(
+        logger.debug(
             "View pop, navigating back route=%s current_route=%s",
             top_view.route,
             page.route,

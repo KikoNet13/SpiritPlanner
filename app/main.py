@@ -111,6 +111,13 @@ async def main(page: ft.Page) -> None:
     def _build_view(route: str, screen: str, control: ft.Control) -> ft.View:
         view = ft.View(route=route, controls=[control])
         view.data = {"screen": screen}
+        if debug_mode:
+            logger.info(
+                "Created view route=%s screen=%s control_root=%s",
+                route,
+                screen,
+                type(control).__name__,
+            )
         return view
 
     def build_views() -> list[ft.View]:

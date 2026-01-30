@@ -8,6 +8,7 @@ from app.screens.eras.eras_model import EraCardModel
 from app.screens.eras.eras_viewmodel import ErasViewModel
 from app.screens.shared_components import header_text, section_card, status_chip
 from app.services.service_registry import get_firestore_service
+from app.utils.debug_hud import debug_hud
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
 
@@ -159,6 +160,7 @@ def eras_view() -> ft.Control:
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Eras"), center_title=True),
+            debug_hud(page, "Eras"),
             ft.Container(
                 content=ft.Column(
                     [

@@ -120,7 +120,7 @@ async def main(page: ft.Page) -> None:
 
     async def handle_route_change(event: ft.RouteChangeEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
-        logger.info(
+        logger.debug(
             "Route change event route=%s current_route=%s views=%s overlay_count=%s overlay_types=%s",
             event.route,
             page.route,
@@ -128,14 +128,16 @@ async def main(page: ft.Page) -> None:
             overlay_count,
             overlay_types,
         )
+        built_routes = [view.route for view in build_views()]
         page.render_views(build_views)
         overlay_count, overlay_types = _overlay_snapshot()
         top_route = page.views[-1].route if page.views else None
         logger.info(
-            "Route change handled route=%s top_route=%s views=%s overlay_count=%s overlay_types=%s",
+            "Route change handled route=%s top_route=%s views=%s built_routes=%s overlay_count=%s overlay_types=%s",
             page.route,
             top_route,
             _view_routes(),
+            built_routes,
             overlay_count,
             overlay_types,
         )
@@ -145,6 +147,15 @@ async def main(page: ft.Page) -> None:
                 page.route,
                 top_route,
             )
+        if built_routes:
+            built_top = built_routes[-1]
+            if built_top != page.route or (top_route and built_top != top_route):
+                logger.warning(
+                    "Route/build mismatch route=%s top_route=%s built_top=%s",
+                    page.route,
+                    top_route,
+                    built_top,
+                )
 
     async def handle_view_pop(event: ft.ViewPopEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
@@ -164,7 +175,17 @@ async def main(page: ft.Page) -> None:
             page.go("/eras")
             return
         top_view = page.views[-1]
-        logger.info("View pop, navigating back to %s", top_view.route)
+        logger.info(
+            "View pop, navigating back route=%s current_route=%s",
+            top_view.route,
+            page.route,
+        )
+        if top_view.route != page.route:
+            logger.warning(
+                "Route/view mismatch on back route=%s top_route=%s",
+                page.route,
+                top_view.route,
+            )
         page.go(top_view.route)
 
     page.on_route_change = handle_route_change

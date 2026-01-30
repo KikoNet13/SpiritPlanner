@@ -14,6 +14,7 @@ from app.screens.incursion_detail.incursion_detail_viewmodel import (
     IncursionDetailViewModel,
 )
 from app.services.service_registry import get_firestore_service
+from app.utils.debug_hud import debug_hud
 from app.utils.datetime_format import format_datetime_local
 from app.utils.logger import get_logger
 
@@ -690,6 +691,7 @@ def incursion_detail_view(
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Incursión"), center_title=True),
+            debug_hud(page, "Incursión"),
             content,
         ],
         expand=True,

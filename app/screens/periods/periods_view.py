@@ -9,6 +9,7 @@ from app.screens.periods.periods_model import AssignmentIncursionModel, PeriodRo
 from app.screens.periods.periods_viewmodel import PeriodsViewModel
 from app.screens.shared_components import header_text, section_card
 from app.services.service_registry import get_firestore_service
+from app.utils.debug_hud import debug_hud
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
 
@@ -353,6 +354,7 @@ def periods_view(
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Periodos"), center_title=True),
+            debug_hud(page, "Periodos"),
             ft.Container(
                 content=ft.Column(
                     [

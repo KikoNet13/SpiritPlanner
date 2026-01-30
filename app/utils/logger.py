@@ -45,6 +45,13 @@ class _RingBufferHandler(logging.Handler):
 
 _LOGGER_CONFIGURED = False
 _RING_BUFFER: Deque[str] = deque(maxlen=_DEFAULT_BUFFER_SIZE)
+_QUIET_LOGGERS: tuple[str, ...] = (
+    "app.screens.data_lookup",
+    "google",
+    "google.api_core",
+    "google.cloud",
+    "urllib3",
+)
 
 
 def configure_logging(debug: bool = False) -> None:
@@ -71,10 +78,17 @@ def configure_logging(debug: bool = False) -> None:
     ring_handler.setLevel(logging.DEBUG)
     root_logger.addHandler(ring_handler)
 
+    _configure_quiet_loggers()
+
     _configure_file_handler(root_logger, formatter)
 
     _LOGGER_CONFIGURED = True
     root_logger.debug("Logging configured debug=%s", debug)
+
+
+def _configure_quiet_loggers() -> None:
+    for logger_name in _QUIET_LOGGERS:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 def _configure_file_handler(

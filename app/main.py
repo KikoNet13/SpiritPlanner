@@ -245,12 +245,6 @@ async def main(page: ft.Page) -> None:
             top_view.route,
             page.route,
         )
-        if top_view.route != page.route:
-            logger.warning(
-                "Route/view mismatch on back route=%s top_route=%s",
-                page.route,
-                top_view.route,
-            )
         page.go(top_view.route)
 
     page.on_route_change = handle_route_change

@@ -20,19 +20,16 @@ async def navigate(page: ft.Page, route: str) -> None:
         overlay_types,
     )
     top_route = page.views[-1].route if page.views else None
-    if route == page.route:
-        if not page.views or top_route != route:
-            logger.info(
-                "Navigate resync route=%s current_route=%s top_route=%s",
-                route,
-                page.route,
-                top_route,
-            )
-            page.go(route)
-        else:
-            logger.info("Navigate noop route=%s", route)
+    if route == page.route and top_route == route:
+        logger.info("Navigate noop route=%s", route)
         return
-    await page.push_route(route)
+    logger.info(
+        "Navigate go route=%s current_route=%s top_route=%s",
+        route,
+        page.route,
+        top_route,
+    )
+    page.go(route)
     overlay_after = list(getattr(page, "overlay", []) or [])
     overlay_types_after = [type(item).__name__ for item in overlay_after]
     view_routes_after = [view.route for view in page.views] if page.views else []

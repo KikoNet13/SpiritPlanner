@@ -162,9 +162,8 @@ async def main(page: ft.Page) -> None:
         current_route = page.route or "/eras"
         built_routes = _build_route_stack(current_route)
         resolved_screen = _resolve_route(current_route)["resolved_screen"]
-        page.views.clear()
-        page.views.extend(build_views())
-        page.update()
+        before_routes = _view_routes()
+        page.render_views(build_views)
         overlay_count, overlay_types = _overlay_snapshot()
         top_route = page.views[-1].route if page.views else None
         top_view = page.views[-1] if page.views else None
@@ -180,6 +179,9 @@ async def main(page: ft.Page) -> None:
             built_routes,
             _view_routes(),
         )
+        after_routes = _view_routes()
+        if before_routes != after_routes:
+            page.update()
         if top_route and top_route != page.route:
             logger.warning(
                 "Route/view mismatch route=%s top_route=%s",

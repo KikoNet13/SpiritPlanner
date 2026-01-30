@@ -130,13 +130,21 @@ async def main(page: ft.Page) -> None:
         )
         page.render_views(build_views)
         overlay_count, overlay_types = _overlay_snapshot()
+        top_route = page.views[-1].route if page.views else None
         logger.info(
-            "Route change handled route=%s views=%s overlay_count=%s overlay_types=%s",
+            "Route change handled route=%s top_route=%s views=%s overlay_count=%s overlay_types=%s",
             page.route,
+            top_route,
             _view_routes(),
             overlay_count,
             overlay_types,
         )
+        if top_route and top_route != page.route:
+            logger.warning(
+                "Route/view mismatch route=%s top_route=%s",
+                page.route,
+                top_route,
+            )
 
     async def handle_view_pop(event: ft.ViewPopEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
@@ -147,25 +155,17 @@ async def main(page: ft.Page) -> None:
             overlay_count,
             overlay_types,
         )
-        if event.view in page.views:
-            page.views.remove(event.view)
-            logger.info(
-                "View removed from stack views=%s",
-                _view_routes(),
-            )
-        else:
-            logger.warning(
-                "View pop event view not in stack view_route=%s",
-                getattr(event.view, "route", None),
-            )
+        if len(page.views) > 1:
+            page.views.pop()
+            logger.info("View popped from stack views=%s", _view_routes())
         _close_overlays("view_pop")
         if not page.views:
             logger.debug("No views left, navigating to /eras")
-            await navigate(page, "/eras")
+            page.go("/eras")
             return
         top_view = page.views[-1]
-        logger.info("View pop, navigating to %s", top_view.route)
-        await navigate(page, top_view.route)
+        logger.info("View pop, navigating back to %s", top_view.route)
+        page.go(top_view.route)
 
     page.on_route_change = handle_route_change
     page.on_view_pop = handle_view_pop

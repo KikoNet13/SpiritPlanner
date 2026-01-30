@@ -2,6 +2,7 @@
 
 > **NO CANÓNICO.**
 > La fuente de verdad es:
+>
 > 1) `TDD.md`
 > 2) `adr/*` (especialmente **ADR 0005**, contrato vigente de UI/MVVM)
 >
@@ -12,11 +13,13 @@
 ## 1) Arquitectura UI vigente (MVVM declarativa)
 
 **Tripletas por pantalla:**
+
 - `*_model.py`: `@dataclass` (datos + helpers puros opcionales)
 - `*_viewmodel.py`: `@ft.observable` (estado + intents; **sin `page`**)
 - `*_view.py`: `@ft.component` + hooks (render + efectos UI)
 
 **Reglas clave:**
+
 - ViewModel “puro”: no guarda `page`, no crea `Controls`, no muestra diálogos/snackbars.
 - Efectos UI (navegación, snackbars, diálogos) **solo desde la View**, usando:
   - `page = ft.context.page`
@@ -43,16 +46,19 @@
 ## 4) Routing / navegación (declarativo)
 
 **Contrato operativo:**
+
 - Stack se recompone desde `page.route` con `page.render_views(build_views)`.
 - Navegación **unificada**: usar **solo `page.go(route)`** (no mezclar con `push_route()`).
 - Back: `on_view_pop` hace `page.views.pop()` y luego `page.go(page.views[-1].route)`.
 
 **Muy importante (Flet issue #5943):**
+
 - Crear las views **SIEMPRE** con keywords:
   - `ft.View(route="/eras/1", controls=[...])`
 - Evitar `ft.View("/eras/1", [...])` (posicional), por comportamiento errático en algunas versiones.
 
 **Resolución de rutas:**
+
 - Match de rutas **por especificidad** (más específica primero, genérica al final):
   1) `.../incursions/{incursion_id}` (detalle)
   2) `.../periods/{period_id}` (incursions list)
@@ -64,11 +70,13 @@
 ## 5) Updates / refresh (disciplina)
 
 Preferencia:
+
 1) Reactividad (re-render por cambios en `@ft.observable`).
 2) Actualizaciones puntuales: `control.update()` solo si es imprescindible.
 3) `page.update()` solo para overlays o casos excepcionales.
 
 Overlays:
+
 - Diálogos/snackbars se disparan desde la View.
 - Evitar crear `Controls` globales fuera de contexto de render (puede provocar errores de renderer).
 

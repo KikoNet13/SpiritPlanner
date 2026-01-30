@@ -4,7 +4,6 @@ from collections import deque
 from datetime import datetime
 import json
 import logging
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import traceback
 from typing import Callable, Deque, Iterable
@@ -97,12 +96,9 @@ def _configure_file_handler(
     logs_dir = Path(__file__).resolve().parents[2] / "logs"
     try:
         logs_dir.mkdir(parents=True, exist_ok=True)
-        file_handler = RotatingFileHandler(
-            logs_dir / "spiritplanner.log",
-            maxBytes=1_000_000,
-            backupCount=3,
-            encoding="utf-8",
-        )
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_path = logs_dir / f"spiritplanner-{timestamp}.log"
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
     except OSError:
         logger.warning(
             "Logging file handler disabled: unable to open log file in %s",
@@ -114,6 +110,23 @@ def _configure_file_handler(
     file_handler.setFormatter(formatter)
     file_handler.addFilter(_NoiseFilter())
     logger.addHandler(file_handler)
+    _cleanup_old_logs(logs_dir)
+
+
+def _cleanup_old_logs(logs_dir: Path, keep: int = 10) -> None:
+    try:
+        log_files = sorted(
+            logs_dir.glob("spiritplanner-*.log"),
+            key=lambda path: path.stat().st_mtime,
+        )
+    except OSError:
+        return
+    excess = log_files[:-keep]
+    for path in excess:
+        try:
+            path.unlink()
+        except OSError:
+            continue
 
 
 def get_logger(name: str | None = None) -> logging.Logger:

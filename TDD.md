@@ -32,12 +32,28 @@ Fuera de alcance: features no visibles en el codigo actual.
 - Scripts PC: `pc/generate_era.py`, `pc/firestore_service.py`.
 - Catalogos: TSV en `pc/data/input`.
 
-## Routing (vigente)
+## Routing / navegacion (Flet declarativo)
 
-- `/eras`
-- `/eras/{era_id}`
-- `/eras/{era_id}/periods/{period_id}`
-- `/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}`
+Fuente normativa: `adr/0006-flet-declarative-routing-contract.md`.
+
+Contrato canonico:
+
+- Render declarativo: el entrypoint usa `page.render_views(App)`.
+- Fuente de verdad: `page.route`.
+- El stack de pantallas se reconstruye en cada render como `list[ft.View]` a partir de `page.route` (p.ej. `build_route_stack(route)`).
+- Navegacion forward: usar **solo** `page.push_route(route)`.
+- Prohibido usar `page.go()` para navegacion normal y prohibido mezclar `go()` con `push_route()`.
+- Back: `page.on_view_pop` **no** muta `page.views` manualmente (no `page.views.pop()`); navega empujando la ruta anterior (p.ej. `page.push_route(previous_route)`).
+- Creacion de views: usar siempre keywords (`ft.View(route="...", controls=[...])`), evitando args posicionales.
+- Helpers `go`/`go_to` (si existen) deben envolver `page.push_route()` o se consideran obsoletos.
+
+Resolucion de rutas:
+
+- Match por especificidad (mas especifica primero, generica al final):
+  1) `.../incursions/{incursion_id}`
+  2) `.../periods/{period_id}`
+  3) `/eras/{era_id}`
+  4) `/eras`
 
 ## Modelo de datos (Firestore)
 

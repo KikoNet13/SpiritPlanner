@@ -25,16 +25,16 @@ async def main(page: ft.Page) -> None:
     page.theme_mode = ft.ThemeMode.LIGHT
     page.scroll = ft.ScrollMode.AUTO
 
-    logger.debug("Initializing FirestoreService")
-    service = FirestoreService()
-    set_firestore_service(page.session, service)
-
     def _overlay_snapshot() -> tuple[int, list[str]]:
         overlay = list(getattr(page, "overlay", []) or [])
         return len(overlay), [type(item).__name__ for item in overlay]
 
     def _view_routes() -> list[str]:
         return [view.route for view in page.views] if page.views else []
+
+    def _controls_snapshot() -> tuple[int, list[str]]:
+        controls = list(getattr(page, "controls", []) or [])
+        return len(controls), [type(control).__name__ for control in controls]
 
     def _resolve_route(route: str) -> dict[str, str | None]:
         parts = [part for part in route.split("/") if part]
@@ -95,8 +95,8 @@ async def main(page: ft.Page) -> None:
         return view
 
     def build_views() -> list[ft.View]:
-        # Routing declarativo: render_views recompone el stack a partir de page.route.
-        # Para añadir rutas, extender este builder con un nuevo ft.View.
+        # Routing declarativo: render_views recompone el stack desde page.route.
+        # Para agregar rutas, extender este builder con un nuevo ft.View.
         current_route = page.route or "/eras"
         info = _resolve_route(current_route)
         era_id = info["era_id"]
@@ -149,7 +149,27 @@ async def main(page: ft.Page) -> None:
 
         return views
 
-    async def handle_route_change(event: ft.RouteChangeEvent) -> None:
+    logger.debug("Initializing FirestoreService")
+    service = FirestoreService()
+    set_firestore_service(page.session, service)
+    controls_count, control_types = _controls_snapshot()
+    logger.info(
+        "Startup view containers controls_count=%s views_count=%s",
+        controls_count,
+        len(page.views) if page.views else 0,
+    )
+    if controls_count > 0:
+        logger.warning(
+            "Startup page.controls present count=%s types=%s",
+            controls_count,
+            control_types,
+        )
+        page.controls.clear()
+        logger.info("Startup page.controls cleared")
+    else:
+        page.controls.clear()
+
+    def handle_route_change(event: ft.RouteChangeEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
         logger.debug(
             "Route change event route=%s current_route=%s views=%s overlay_count=%s overlay_types=%s",
@@ -162,7 +182,6 @@ async def main(page: ft.Page) -> None:
         current_route = page.route or "/eras"
         built_routes = _build_route_stack(current_route)
         resolved_screen = _resolve_route(current_route)["resolved_screen"]
-        before_routes = _view_routes()
         page.render_views(build_views)
         overlay_count, overlay_types = _overlay_snapshot()
         top_route = page.views[-1].route if page.views else None
@@ -170,18 +189,24 @@ async def main(page: ft.Page) -> None:
         top_screen = None
         if top_view and isinstance(getattr(top_view, "data", None), dict):
             top_screen = top_view.data.get("screen")
+        controls_count, control_types = _controls_snapshot()
         logger.info(
-            "Route change handled route=%s top_route=%s top_screen=%s resolved_screen=%s built_routes=%s views=%s",
+            "Route change handled route=%s top_route=%s top_screen=%s resolved_screen=%s built_routes=%s views=%s controls_count=%s views_count=%s",
             page.route,
             top_route,
             top_screen,
             resolved_screen,
             built_routes,
             _view_routes(),
+            controls_count,
+            len(page.views) if page.views else 0,
         )
-        after_routes = _view_routes()
-        if before_routes != after_routes:
-            page.update()
+        if controls_count > 0:
+            logger.warning(
+                "Route change page.controls present count=%s types=%s",
+                controls_count,
+                control_types,
+            )
         if top_route and top_route != page.route:
             logger.warning(
                 "Route/view mismatch route=%s top_route=%s",
@@ -204,8 +229,15 @@ async def main(page: ft.Page) -> None:
                 resolved_screen,
                 top_screen,
             )
+        page.update()
+        logger.info(
+            "Route change update called views_count=%s top_route=%s top_screen=%s",
+            len(page.views) if page.views else 0,
+            top_route,
+            top_screen,
+        )
 
-    async def handle_view_pop(event: ft.ViewPopEvent) -> None:
+    def handle_view_pop(event: ft.ViewPopEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
         logger.debug(
             "View pop event view_route=%s views=%s overlay_count=%s overlay_types=%s",
@@ -229,3 +261,4 @@ async def main(page: ft.Page) -> None:
 if __name__ == "__main__":
     logger.info("Starting SpiritPlanner application")
     ft.run(main)
+

@@ -62,77 +62,111 @@ async def main(page: ft.Page) -> None:
             overlay_types_after,
         )
 
+    def _resolve_route(route: str) -> dict[str, str | None]:
+        parts = [part for part in route.split("/") if part]
+        era_id = None
+        period_id = None
+        incursion_id = None
+        resolved_screen = "eras"
+        if (
+            len(parts) >= 6
+            and parts[0] == "eras"
+            and parts[2] == "periods"
+            and parts[4] == "incursions"
+        ):
+            era_id = parts[1]
+            period_id = parts[3]
+            incursion_id = parts[5]
+            resolved_screen = "incursion_detail"
+        elif len(parts) >= 4 and parts[0] == "eras" and parts[2] == "periods":
+            era_id = parts[1]
+            period_id = parts[3]
+            resolved_screen = "incursions"
+        elif len(parts) >= 2 and parts[0] == "eras":
+            era_id = parts[1]
+            resolved_screen = "periods"
+        return {
+            "era_id": era_id,
+            "period_id": period_id,
+            "incursion_id": incursion_id,
+            "resolved_screen": resolved_screen,
+        }
+
+    def _build_route_stack(route: str) -> list[str]:
+        info = _resolve_route(route)
+        routes = ["/eras"]
+        era_id = info["era_id"]
+        period_id = info["period_id"]
+        incursion_id = info["incursion_id"]
+        if era_id:
+            routes.append(f"/eras/{era_id}")
+        if era_id and period_id:
+            routes.append(f"/eras/{era_id}/periods/{period_id}")
+        if era_id and period_id and incursion_id:
+            routes.append(
+                f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}"
+            )
+        return routes
+
+    def _build_view(route: str, screen: str, control: ft.Control) -> ft.View:
+        view = ft.View(route=route, controls=[control])
+        view.data = {"screen": screen}
+        return view
+
     def build_views() -> list[ft.View]:
         # Routing declarativo: render_views recompone el stack a partir de page.route.
         # Para añadir rutas, extender este builder con un nuevo ft.View.
         current_route = page.route or "/eras"
-        parts = [part for part in current_route.split("/") if part]
-        views: list[ft.View] = [ft.View(route="/eras", controls=[eras_view()])]
+        info = _resolve_route(current_route)
+        era_id = info["era_id"]
+        period_id = info["period_id"]
+        incursion_id = info["incursion_id"]
+        views: list[ft.View] = [
+            _build_view("/eras", "eras", eras_view())
+        ]
 
-        if len(parts) >= 2 and parts[0] == "eras":
-            era_id = parts[1]
+        if era_id:
             logger.debug("Building periods view era_id=%s", era_id)
             views.append(
-                ft.View(
-                    route=f"/eras/{era_id}",
-                    controls=[periods_view(era_id)],
+                _build_view(
+                    f"/eras/{era_id}",
+                    "periods",
+                    periods_view(era_id),
                 )
             )
-
-            if len(parts) >= 4 and parts[2] == "periods":
-                period_id = parts[3]
-                logger.debug(
-                    "Building incursions view era_id=%s period_id=%s",
-                    era_id,
-                    period_id,
+        if era_id and period_id:
+            logger.debug(
+                "Building incursions view era_id=%s period_id=%s",
+                era_id,
+                period_id,
+            )
+            views.append(
+                _build_view(
+                    f"/eras/{era_id}/periods/{period_id}",
+                    "incursions",
+                    incursions_view(era_id, period_id),
                 )
-                views.append(
-                    ft.View(
-                        route=f"/eras/{era_id}/periods/{period_id}",
-                        controls=[
-                            incursions_view(era_id, period_id)
-                        ],
-                    )
-                )
-
-                if len(parts) >= 6 and parts[4] == "incursions":
-                    incursion_id = parts[5]
-                    logger.debug(
-                        "Building incursion detail view era_id=%s period_id=%s incursion_id=%s",
+            )
+        if era_id and period_id and incursion_id:
+            logger.debug(
+                "Building incursion detail view era_id=%s period_id=%s incursion_id=%s",
+                era_id,
+                period_id,
+                incursion_id,
+            )
+            views.append(
+                _build_view(
+                    f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
+                    "incursion_detail",
+                    incursion_detail_view(
                         era_id,
                         period_id,
                         incursion_id,
-                    )
-                    views.append(
-                        ft.View(
-                            route=f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
-                            controls=[
-                                incursion_detail_view(
-                                    era_id,
-                                    period_id,
-                                    incursion_id,
-                                )
-                            ],
-                        )
-                    )
+                    ),
+                )
+            )
 
         return views
-
-    def _build_route_stack(current_route: str) -> list[str]:
-        parts = [part for part in current_route.split("/") if part]
-        routes = ["/eras"]
-        if len(parts) >= 2 and parts[0] == "eras":
-            era_id = parts[1]
-            routes.append(f"/eras/{era_id}")
-            if len(parts) >= 4 and parts[2] == "periods":
-                period_id = parts[3]
-                routes.append(f"/eras/{era_id}/periods/{period_id}")
-                if len(parts) >= 6 and parts[4] == "incursions":
-                    incursion_id = parts[5]
-                    routes.append(
-                        f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}"
-                    )
-        return routes
 
     async def handle_route_change(event: ft.RouteChangeEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
@@ -144,14 +178,22 @@ async def main(page: ft.Page) -> None:
             overlay_count,
             overlay_types,
         )
-        built_routes = _build_route_stack(page.route or "/eras")
+        current_route = page.route or "/eras"
+        built_routes = _build_route_stack(current_route)
+        resolved_screen = _resolve_route(current_route)["resolved_screen"]
         page.render_views(build_views)
         overlay_count, overlay_types = _overlay_snapshot()
         top_route = page.views[-1].route if page.views else None
+        top_view = page.views[-1] if page.views else None
+        top_screen = None
+        if top_view and isinstance(getattr(top_view, "data", None), dict):
+            top_screen = top_view.data.get("screen")
         logger.info(
-            "Route change handled route=%s top_route=%s views=%s built_routes=%s overlay_count=%s overlay_types=%s",
+            "Route change handled route=%s top_route=%s top_screen=%s resolved_screen=%s views=%s built_routes=%s overlay_count=%s overlay_types=%s",
             page.route,
             top_route,
+            top_screen,
+            resolved_screen,
             _view_routes(),
             built_routes,
             overlay_count,
@@ -172,6 +214,13 @@ async def main(page: ft.Page) -> None:
                     top_route,
                     built_top,
                 )
+        if top_route == page.route and top_screen and top_screen != resolved_screen:
+            logger.warning(
+                "Route/screen mismatch route=%s resolved_screen=%s top_screen=%s",
+                page.route,
+                resolved_screen,
+                top_screen,
+            )
 
     async def handle_view_pop(event: ft.ViewPopEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()

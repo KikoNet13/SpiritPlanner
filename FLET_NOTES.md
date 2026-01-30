@@ -21,9 +21,10 @@
 **Reglas clave:**
 
 - ViewModel “puro”: no guarda `page`, no crea `Controls`, no muestra diálogos/snackbars.
-- Efectos UI (navegación, snackbars, diálogos) **solo desde la View**, usando:
+- Efectos UI de pantalla (snackbars, diálogos) **solo desde la View**, usando:
   - `page = ft.context.page`
   - `ft.use_effect(...)` para reaccionar a cambios de estado/intents
+- App-level router/coordinator (p. ej. `AppModel`) **puede** manejar `on_view_pop` y disparar navegación.
 
 ---
 
@@ -48,8 +49,10 @@
 **Contrato operativo:**
 
 - Stack se recompone desde `page.route` con `page.render_views(build_views)`.
-- Navegación **unificada**: usar **solo `page.go(route)`** (no mezclar con `push_route()`).
-- Back: `on_view_pop` hace `page.views.pop()` y luego `page.go(page.views[-1].route)`.
+- Navegación **unificada**: usar **solo `page.push_route(route)`**.
+- Back: `on_view_pop` **no** muta `page.views` manualmente; Flet hace el pop.
+  - `previous_route` se obtiene de la pila actual (`page.views`) tras el pop automático.
+  - Navegar empujando la ruta anterior con `page.push_route(previous_route)`.
 
 **Muy importante (Flet issue #5943):**
 
@@ -99,6 +102,7 @@ Overlays:
 - ¿La tarea respeta `TDD.md` y `adr/*`?
 - ¿VM sin `page` y efectos solo en View?
 - ¿`ft.View(route=..., controls=...)` en todas las rutas?
-- ¿Navegación solo con `page.go()`?
+- ¿Navegación solo con `page.push_route()`?
+- ¿Back sin pop manual de `page.views`?
 - ¿`use_state` con `vm, _ = ...`?
 - ¿Servicios leídos desde la View (p.ej. `page.session`)?

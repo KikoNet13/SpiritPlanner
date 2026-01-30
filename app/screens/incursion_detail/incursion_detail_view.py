@@ -221,7 +221,7 @@ def incursion_detail_view(
                             disabled=not bool(level_options),
                             width=220,
                             value=view_model.adversary_level,
-                            on_change=lambda event: view_model.update_adversary_level(
+                            on_select=lambda event: view_model.update_adversary_level(
                                 service, event.control.value
                             ),
                         ),
@@ -401,7 +401,7 @@ def incursion_detail_view(
                                     ],
                                     value=result_value,
                                     disabled=finalize_readonly,
-                                    on_change=lambda event: view_model.update_finalize_field(
+                                    on_select=lambda event: view_model.update_finalize_field(
                                         "result", event.control.value
                                     ),
                                 ),

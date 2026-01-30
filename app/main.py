@@ -118,6 +118,22 @@ async def main(page: ft.Page) -> None:
 
         return views
 
+    def _build_route_stack(current_route: str) -> list[str]:
+        parts = [part for part in current_route.split("/") if part]
+        routes = ["/eras"]
+        if len(parts) >= 2 and parts[0] == "eras":
+            era_id = parts[1]
+            routes.append(f"/eras/{era_id}")
+            if len(parts) >= 4 and parts[2] == "periods":
+                period_id = parts[3]
+                routes.append(f"/eras/{era_id}/periods/{period_id}")
+                if len(parts) >= 6 and parts[4] == "incursions":
+                    incursion_id = parts[5]
+                    routes.append(
+                        f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}"
+                    )
+        return routes
+
     async def handle_route_change(event: ft.RouteChangeEvent) -> None:
         overlay_count, overlay_types = _overlay_snapshot()
         logger.debug(
@@ -128,7 +144,7 @@ async def main(page: ft.Page) -> None:
             overlay_count,
             overlay_types,
         )
-        built_routes = [view.route for view in build_views()]
+        built_routes = _build_route_stack(page.route or "/eras")
         page.render_views(build_views)
         overlay_count, overlay_types = _overlay_snapshot()
         top_route = page.views[-1].route if page.views else None

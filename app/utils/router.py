@@ -9,14 +9,14 @@ _ROUTER_REGISTRY: WeakKeyDictionary[ft.Page, "RouterCoordinator"] = WeakKeyDicti
 
 
 def normalize_route(route: str | None) -> str:
-    if not route or route == "/":
+    if not route:
         return "/eras"
-    normalized = route
+    normalized = route.strip()
     if not normalized.startswith("/"):
         normalized = f"/{normalized}"
     if normalized.endswith("/") and normalized != "/":
         normalized = normalized.rstrip("/")
-    if not normalized:
+    if not normalized or normalized == "/":
         return "/eras"
     return normalized
 
@@ -46,15 +46,7 @@ def build_route_stack(route: str) -> list[str]:
     if len(parts) == 4:
         return routes
 
-    if len(parts) < 5 or parts[4] != "incursions":
-        return ["/eras"]
-
-    routes.append(f"/eras/{era_id}/periods/{period_id}/incursions")
-
-    if len(parts) == 5:
-        return routes
-
-    if len(parts) == 6:
+    if len(parts) == 6 and parts[4] == "incursions":
         incursion_id = parts[5]
         routes.append(
             f"/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}"
@@ -73,7 +65,7 @@ class RouterCoordinator:
         self.route = normalize_route(e.route)
 
     async def on_view_pop(self, e: ft.ViewPopEvent) -> None:
-        page = e.page
+        page = e.page or ft.context.page
         views = [
             view
             for view in (

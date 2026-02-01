@@ -478,11 +478,11 @@ class FirestoreService:
         period_id: str,
         incursion_id: str,
         result: str,
-        player_count: int,
-        invader_cards_remaining: int,
-        invader_cards_out_of_deck: int,
         dahan_alive: int,
         blight_on_island: int,
+        player_count: int | None = None,
+        invader_cards_remaining: int | None = None,
+        invader_cards_out_of_deck: int | None = None,
     ) -> None:
         logger.info(
             "Finalize incursion era_id=%s period_id=%s incursion_id=%s result=%s",
@@ -510,28 +510,27 @@ class FirestoreService:
         score = calculate_score(
             difficulty=difficulty,
             result=result,
-            invader_cards_remaining=invader_cards_remaining,
-            invader_cards_out_of_deck=invader_cards_out_of_deck,
-            player_count=player_count,
             dahan_alive=dahan_alive,
             blight_on_island=blight_on_island,
         )
 
         self.end_session(era_id, period_id, incursion_id)
         logger.debug("Updating incursion finalize fields incursion_id=%s", incursion_id)
-        incursion_ref.update(
-            {
-                "ended_at": self._utc_now(),
-                "result": result,
-                "player_count": player_count,
-                "invader_cards_remaining": invader_cards_remaining,
-                "invader_cards_out_of_deck": invader_cards_out_of_deck,
-                "dahan_alive": dahan_alive,
-                "blight_on_island": blight_on_island,
-                "score": score,
-                "is_active": False,
-            }
-        )
+        update_payload: dict[str, object | None] = {
+            "ended_at": self._utc_now(),
+            "result": result,
+            "dahan_alive": dahan_alive,
+            "blight_on_island": blight_on_island,
+            "score": score,
+            "is_active": False,
+        }
+        if player_count is not None:
+            update_payload["player_count"] = player_count
+        if invader_cards_remaining is not None:
+            update_payload["invader_cards_remaining"] = invader_cards_remaining
+        if invader_cards_out_of_deck is not None:
+            update_payload["invader_cards_out_of_deck"] = invader_cards_out_of_deck
+        incursion_ref.update(update_payload)
         logger.debug("Clearing active incursion era_id=%s", era_id)
         self.db.collection("eras").document(era_id).update(
             {

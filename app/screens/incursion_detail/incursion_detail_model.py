@@ -26,11 +26,8 @@ class IncursionDetailModel:
     period_label: str
     result: str | None
     score: int | None
-    player_count: int | None
     dahan_alive: int | None
     blight_on_island: int | None
-    invader_cards_remaining: int | None
-    invader_cards_out_of_deck: int | None
 
 
 @dataclass(frozen=True)
@@ -42,11 +39,8 @@ class SessionEntryModel:
 @dataclass
 class FinalizeFormData:
     result: str | None
-    player_count: str
     dahan_alive: str
     blight_on_island: str
-    invader_cards_remaining: str
-    invader_cards_out_of_deck: str
 
 
 def resolve_session_state(
@@ -76,13 +70,11 @@ def get_result_label(result_value: str | None) -> str:
 def get_score_formula(result_value: str | None) -> str:
     if result_value == "win":
         return (
-            "5 × dificultad + 10 + 2 × cartas restantes + "
-            "jugadores × dahan vivos − jugadores × plaga"
+            "5 × dificultad + 10 + dahan vivos − plaga"
         )
     if result_value == "loss":
         return (
-            "2 × dificultad + cartas fuera del mazo + "
-            "jugadores × dahan vivos − jugadores × plaga"
+            "2 × dificultad + dahan vivos − plaga"
         )
     return "—"
 
@@ -90,21 +82,17 @@ def get_score_formula(result_value: str | None) -> str:
 def compute_score_preview(
     result_value: str | None,
     difficulty: int,
-    player_count: int,
     dahan_alive: int,
     blight_on_island: int,
-    invader_remaining: int,
-    invader_out: int,
 ) -> tuple[str, int | None]:
+    base = dahan_alive - blight_on_island
     if result_value == "win":
         return (
             get_score_formula(result_value),
             (
                 5 * difficulty
                 + 10
-                + 2 * invader_remaining
-                + player_count * dahan_alive
-                - player_count * blight_on_island
+                + base
             ),
         )
     if result_value == "loss":
@@ -112,9 +100,7 @@ def compute_score_preview(
             get_score_formula(result_value),
             (
                 2 * difficulty
-                + invader_out
-                + player_count * dahan_alive
-                - player_count * blight_on_island
+                + base
             ),
         )
     return ("—", None)

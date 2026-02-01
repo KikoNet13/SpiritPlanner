@@ -111,9 +111,6 @@ Campos de juego (app):
 - `difficulty` (int | null).
 - `is_active` (bool).
 - `result` ("win" | "loss").
-- `player_count` (int).
-- `invader_cards_remaining` (int).
-- `invader_cards_out_of_deck` (int).
 - `dahan_alive` (int).
 - `blight_on_island` (int).
 - `score` (int).
@@ -185,8 +182,8 @@ Campos observados:
 
 Segun `app/services/score_service.py`:
 
-- win: `5*difficulty + 10 + 2*invader_cards_remaining + player_count*dahan_alive - player_count*blight_on_island`
-- loss: `2*difficulty + invader_cards_out_of_deck + player_count*dahan_alive - player_count*blight_on_island`
+- win: `5*difficulty + 10 + dahan_alive - blight_on_island`
+- loss: `2*difficulty + dahan_alive - blight_on_island`
 
 ## Export TSV
 

@@ -109,15 +109,8 @@ def incursion_detail_view(
                 [
                     ft.Text(f"Resultado: {result_label}"),
                     ft.Text(f"Dificultad: {difficulty_value}"),
-                    ft.Text(f"Jugadores: {detail.player_count}"),
                     ft.Text(f"Dahan vivos: {detail.dahan_alive}"),
                     ft.Text(f"Plaga en la isla: {detail.blight_on_island}"),
-                    ft.Text(
-                        f"Cartas restantes: {detail.invader_cards_remaining}"
-                    ),
-                    ft.Text(
-                        f"Cartas fuera del mazo: {detail.invader_cards_out_of_deck}"
-                    ),
                     ft.Text(f"Fórmula: {formula}"),
                     ft.Text(
                         f"Puntuación: {detail.score}",
@@ -347,7 +340,10 @@ def incursion_detail_view(
 
         confirm_row = ft.Row(
             spacing=8,
-            visible=view_model.show_finalize_confirm,
+            visible=(
+                view_model.show_finalize_confirm
+                and view_model.session_state != SESSION_STATE_FINALIZED
+            ),
             controls=[
                 ft.ElevatedButton(
                     "Confirmar",
@@ -379,9 +375,6 @@ def incursion_detail_view(
                 ),
             )
 
-        invader_remaining_visible = (result_value == "win") or not finalize_readonly
-        invader_out_visible = (result_value == "loss") or not finalize_readonly
-
         finalize_panel = ft.Card(
             content=ft.Container(
                 content=ft.Column(
@@ -406,20 +399,6 @@ def incursion_detail_view(
                                     ),
                                 ),
                                 ft.TextField(
-                                    label="Jugadores",
-                                    value=view_model.finalize_form.player_count,
-                                    keyboard_type=ft.KeyboardType.NUMBER,
-                                    disabled=finalize_readonly,
-                                    on_change=lambda event: view_model.update_finalize_field(
-                                        "player_count", event.control.value
-                                    ),
-                                ),
-                            ],
-                            spacing=8,
-                        ),
-                        ft.Row(
-                            [
-                                ft.TextField(
                                     label="Dahan vivos",
                                     value=view_model.finalize_form.dahan_alive,
                                     keyboard_type=ft.KeyboardType.NUMBER,
@@ -428,6 +407,11 @@ def incursion_detail_view(
                                         "dahan_alive", event.control.value
                                     ),
                                 ),
+                            ],
+                            spacing=8,
+                        ),
+                        ft.Row(
+                            [
                                 ft.TextField(
                                     label="Plaga en la isla",
                                     value=view_model.finalize_form.blight_on_island,
@@ -436,31 +420,7 @@ def incursion_detail_view(
                                     on_change=lambda event: view_model.update_finalize_field(
                                         "blight_on_island", event.control.value
                                     ),
-                                ),
-                            ],
-                            spacing=8,
-                        ),
-                        ft.Row(
-                            [
-                                ft.TextField(
-                                    label="Cartas invasoras restantes",
-                                    value=view_model.finalize_form.invader_cards_remaining,
-                                    keyboard_type=ft.KeyboardType.NUMBER,
-                                    disabled=finalize_readonly,
-                                    visible=invader_remaining_visible,
-                                    on_change=lambda event: view_model.update_finalize_field(
-                                        "invader_cards_remaining", event.control.value
-                                    ),
-                                ),
-                                ft.TextField(
-                                    label="Cartas invasoras fuera del mazo",
-                                    value=view_model.finalize_form.invader_cards_out_of_deck,
-                                    keyboard_type=ft.KeyboardType.NUMBER,
-                                    disabled=finalize_readonly,
-                                    visible=invader_out_visible,
-                                    on_change=lambda event: view_model.update_finalize_field(
-                                        "invader_cards_out_of_deck", event.control.value
-                                    ),
+                                    expand=1,
                                 ),
                             ],
                             spacing=8,
@@ -515,30 +475,27 @@ def incursion_detail_view(
         primary_label = (
             "Iniciar sesión" if not view_model.open_session else "Finalizar sesión"
         )
-        primary_button = ft.FilledButton(
-            content=ft.Row(
-                [
-                    ft.Text(primary_icon, size=18),
-                    ft.Text(primary_label, size=15, weight=ft.FontWeight.BOLD),
-                ],
-                alignment=ft.MainAxisAlignment.CENTER,
-                spacing=10,
-            ),
-            height=52,
-            width=320,
-            on_click=(
-                lambda _: view_model.handle_session_action(service)
-                if view_model.session_state != SESSION_STATE_FINALIZED
-                else None
-            ),
-            disabled=view_model.session_state == SESSION_STATE_FINALIZED,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.BLUE_700,
-                color=ft.Colors.WHITE,
-                padding=ft.padding.symmetric(vertical=12, horizontal=18),
-                shape=ft.RoundedRectangleBorder(radius=14),
-            ),
-        )
+        primary_button = None
+        if view_model.session_state != SESSION_STATE_FINALIZED:
+            primary_button = ft.FilledButton(
+                content=ft.Row(
+                    [
+                        ft.Text(primary_icon, size=18),
+                        ft.Text(primary_label, size=15, weight=ft.FontWeight.BOLD),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=10,
+                ),
+                height=52,
+                width=320,
+                on_click=lambda _: view_model.handle_session_action(service),
+                style=ft.ButtonStyle(
+                    bgcolor=ft.Colors.BLUE_700,
+                    color=ft.Colors.WHITE,
+                    padding=ft.padding.symmetric(vertical=12, horizontal=18),
+                    shape=ft.RoundedRectangleBorder(radius=14),
+                ),
+            )
 
         session_rows: list[ft.DataRow] = []
         if not view_model.sessions:
@@ -661,8 +618,7 @@ def incursion_detail_view(
                 [
                     time_text,
                     ft.Column(
-                        [primary_button]
-                        + ([finalize_button] if finalize_button else []),
+                        [control for control in [primary_button, finalize_button] if control],
                         spacing=10,
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     ),

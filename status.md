@@ -21,3 +21,4 @@
 - Entropia de UI por actualizaciones dispersas.
 - Cambios de routing sin ADR.
 - Puntero `active_incursion_id` desincronizado sin repair.
+- Auditoría de routing vs ADR 0006 disponible en `ROUTING_AUDIT.md`.

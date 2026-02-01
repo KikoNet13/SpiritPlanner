@@ -34,13 +34,6 @@ def build_view(route: str) -> ft.View:
     ):
         control = incursions_view(parts[1], parts[3])
     elif (
-        len(parts) == 5
-        and parts[0] == "eras"
-        and parts[2] == "periods"
-        and parts[4] == "incursions"
-    ):
-        control = incursions_view(parts[1], parts[3])
-    elif (
         len(parts) == 6
         and parts[0] == "eras"
         and parts[2] == "periods"

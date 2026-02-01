@@ -5,24 +5,20 @@ import asyncio
 import flet as ft
 
 from app.utils.logger import get_logger
-from app.utils.router import get_router
+from app.utils.router import normalize_route
 
 logger = get_logger(__name__)
 
 
-def _resolve_page(page: ft.Page | None) -> ft.Page:
-    return page or ft.context.page
-
-
 async def navigate(page: ft.Page, route: str) -> None:
-    resolved_page = _resolve_page(page)
-    router = get_router(resolved_page)
+    resolved_page = ft.context.page
+    normalized_route = normalize_route(route)
     logger.debug(
         "Navigate push_route route=%s current_route=%s",
-        route,
-        router.route,
+        normalized_route,
+        resolved_page.route,
     )
-    asyncio.create_task(resolved_page.push_route(route))
+    asyncio.create_task(resolved_page.push_route(normalized_route))
 
 
 async def go(page: ft.Page, route: str) -> None:
@@ -34,7 +30,6 @@ def go_to(page: ft.Page, route: str):
         logger.debug(
             "UI navigation event route=%s control=%s", route, event.control
         )
-        event_page = getattr(event, "page", None)
-        await navigate(event_page or page, route)
+        await navigate(page, route)
 
     return handler

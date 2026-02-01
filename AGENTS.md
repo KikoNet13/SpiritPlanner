@@ -25,7 +25,26 @@ No canonico: `README.md`, `STATUS.md`, `DOCUMENTATION.md`, `FLET_NOTES.md`.
 
 ## Routing (critico)
 
-- Routing centralizado en `app/main.py` y helpers `go` / `go_to`.
+- Contrato unico (ADR 0006 + TDD):
+
+  - Entry-point: `page.render_views(App)`.
+  - Stack: `App()` devuelve `list[ft.View]` reconstruida desde `page.route`.
+  - Navegacion forward: **solo** `page.push_route(route)`.
+  - Prohibido: `page.go()` para navegacion normal.
+  - Back: `page.on_view_pop` **no** muta `page.views` manualmente (no `page.views.pop()`); navega empujando la ruta anterior con `page.push_route(previous_route)`.
+
+- Helpers (`go()` / `go_to()`):
+
+  - Envoltorios de `push_route` o **obsoletos; no usar en codigo nuevo**.
+  - No pedir refactors aqui; solo documentacion.
+
+- MVVM:
+
+  - Screen ViewModels: no dependen de `page` ni de APIs de navegacion.
+  - App-level coordinator/router: puede manejar `on_view_pop` y disparar navegacion (routing global permitido).
+
+- Nota: Si un PR introduce `page.go()` o `page.views.pop()` manual para navegacion, se considera desviacion del contrato y debe corregirse.
+
 - Prohibido cambiar routing sin ADR especifico.
 
 ## Markdown (higiene y lint)

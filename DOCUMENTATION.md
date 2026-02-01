@@ -50,10 +50,15 @@ pc/                             # Scripts CLI (generación de Era)
 
 ### app/main.py
 
-- `main(page)`: configura tema y scroll, instancia `FirestoreService`, define `add_view`, engancha `handle_route_change` y `handle_view_pop`, y navega a `/eras`.
-- `add_view(route, content)`: helper interno que envuelve un control en `ft.View` y lo añade a la pila de vistas.
-- `handle_route_change(event)`: recompone la pila de vistas en función de la URL (`/eras`, `/periods`, `/incursions`, `/incursion_detail`) y actualiza la página.
-- `handle_view_pop(event)`: gestiona el backstack manual; si no quedan vistas, navega a `/eras`.
+> ⚠️ OBSOLETO (desde ADR 0006)
+> Esta sección describe un enfoque anterior de navegación.
+> Fuente de verdad: `adr/0006-flet-declarative-routing-contract.md` y `TDD.md`.
+
+- `main(page)`: entry-point de routing declarativo con `page.render_views(App)`.
+- `App()`: devuelve `list[ft.View]` reconstruida desde `page.route` en cada cambio.
+- Navegación forward: usar `page.push_route(route)` como estándar.
+- Back: `page.on_view_pop` no muta `page.views` manualmente; empuja la ruta anterior con `page.push_route(previous_route)`.
+- Prohibido mezclar `page.go()` con `page.push_route()` en navegación normal.
 
 ### app/utils/logger.py
 
@@ -225,3 +230,7 @@ pc/                             # Scripts CLI (generación de Era)
 - No duplicar datos de Firestore en cachés locales ni modificar nombres de campos.
 - No mezclar lógica de negocio con UI ni añadir capas adicionales de abstracción.
 - No alterar reglas de asignación, unicidad de incursión activa o cálculo de puntuación sin actualizar `FirestoreService` y `score_service`.
+
+## 9. Nota final
+
+Este documento es de apoyo y puede estar desactualizado; lo canónico es TDD + ADR.

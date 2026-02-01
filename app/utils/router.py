@@ -66,17 +66,17 @@ class RouterCoordinator:
 
     async def on_view_pop(self, e: ft.ViewPopEvent) -> None:
         page = e.page or ft.context.page
-        views = [
-            view
-            for view in (
-                ft.unwrap_component(view) for view in (page.views or [])
-            )
-            if isinstance(view, ft.View)
-        ]
-        if len(views) > 1:
-            await page.push_route(views[-2].route)
-        else:
-            await page.push_route("/eras")
+        popped_route = None
+        if e.view is not None:
+            popped_route = e.view.route
+        elif e.route:
+            popped_route = e.route
+        current_route = normalize_route(popped_route or page.route)
+        stack = build_route_stack(current_route)
+        if len(stack) > 1:
+            await page.push_route(stack[-2])
+            return
+        await page.push_route("/eras")
 
 
 def get_router(page: ft.Page) -> RouterCoordinator:

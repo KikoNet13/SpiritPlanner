@@ -4,15 +4,18 @@ import os
 
 import flet as ft
 
+from app.utils.router import build_route_stack
+
 DEBUG_HUD = os.getenv("SPIRITPLANNER_DEBUG") == "1"
 
 
 def debug_hud(page: ft.Page, screen_name: str) -> ft.Control:
     if not DEBUG_HUD:
         return ft.Container()
-    top_route = page.views[-1].route if page.views else "-"
+    route_stack = build_route_stack(page.route)
+    top_route = route_stack[-1] if route_stack else "-"
     content = (
-        f"Ruta: {page.route} | Top: {top_route} | Vistas: {len(page.views)} "
+        f"Ruta: {page.route or '-'} | Top: {top_route} | Vistas: {len(route_stack)} "
         f"| Pantalla: {screen_name}"
     )
     return ft.Container(

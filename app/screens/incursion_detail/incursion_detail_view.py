@@ -14,9 +14,9 @@ from app.screens.incursion_detail.incursion_detail_viewmodel import (
     IncursionDetailViewModel,
 )
 from app.services.service_registry import get_firestore_service
-from app.utils.debug_hud import debug_hud
 from app.utils.datetime_format import format_datetime_local
 from app.utils.logger import get_logger
+from app.utils.router import register_route_loader
 
 logger = get_logger(__name__)
 
@@ -88,6 +88,26 @@ def incursion_detail_view(
         view_model.ensure_loaded(service, era_id, period_id, incursion_id)
 
     ft.use_effect(load, [era_id, period_id, incursion_id])
+
+    def register_loader() -> None:
+        def loader(params: dict[str, str]) -> None:
+            resolved_era_id = params.get("era_id", era_id)
+            resolved_period_id = params.get("period_id", period_id)
+            resolved_incursion_id = params.get("incursion_id", incursion_id)
+            view_model.ensure_loaded(
+                service,
+                resolved_era_id,
+                resolved_period_id,
+                resolved_incursion_id,
+            )
+
+        register_route_loader(
+            page,
+            "/eras/{era_id}/periods/{period_id}/incursions/{incursion_id}",
+            loader,
+        )
+
+    ft.use_effect(register_loader, [era_id, period_id, incursion_id])
 
     def show_toast() -> None:
         if not view_model.toast_message:
@@ -647,7 +667,6 @@ def incursion_detail_view(
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Incursión"), center_title=True),
-            debug_hud(page, "Incursión"),
             content,
         ],
         expand=True,

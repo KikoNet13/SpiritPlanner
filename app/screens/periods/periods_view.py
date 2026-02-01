@@ -9,9 +9,9 @@ from app.screens.periods.periods_model import AssignmentIncursionModel, PeriodRo
 from app.screens.periods.periods_viewmodel import PeriodsViewModel
 from app.screens.shared_components import header_text, section_card
 from app.services.service_registry import get_firestore_service
-from app.utils.debug_hud import debug_hud
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
+from app.utils.router import register_route_loader
 
 logger = get_logger(__name__)
 
@@ -122,6 +122,15 @@ def periods_view(
         view_model.ensure_loaded(service, era_id)
 
     ft.use_effect(load, [era_id])
+
+    def register_loader() -> None:
+        def loader(params: dict[str, str]) -> None:
+            resolved_era_id = params.get("era_id", era_id)
+            view_model.ensure_loaded(service, resolved_era_id)
+
+        register_route_loader(page, "/eras/{era_id}", loader)
+
+    ft.use_effect(register_loader, [era_id])
 
     def show_toast() -> None:
         if not view_model.toast_message:
@@ -354,7 +363,6 @@ def periods_view(
     return ft.Column(
         [
             ft.AppBar(title=ft.Text("Periodos"), center_title=True),
-            debug_hud(page, "Periodos"),
             ft.Container(
                 content=ft.Column(
                     [

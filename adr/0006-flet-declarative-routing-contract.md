@@ -1,12 +1,14 @@
 # ADR 0006 - Flet declarative routing contract
 
-Status: Proposed
+Status: Accepted
 
 ## Contexto
 
 Necesitamos un contrato de navegación estable en Flet usando el paradigma declarativo oficial, con una pila de pantallas navegable sin errores (forward/back) y con reconstrucción determinista de `views` a partir de la `route`.
 
 Actualmente hay reglas/documentos internos que contradicen este enfoque (p.ej. “solo page.go” y “pop manual de page.views”), lo que genera ambigüedad y bugs.
+
+Este contrato ya está implementado y validado en `main`.
 
 ## Decision
 

@@ -2,6 +2,11 @@
 
 > NO CANONICO / puede estar desactualizado / ver TDD.md y adr/
 
+## 0. Fuentes de verdad
+
+- Canónico: `TDD.md` + `adr/` (especialmente ADR 0006).
+- Guía operativa: `FLET_NOTES.md`.
+
 ## 1. Visión general
 
 SpiritPlanner es una aplicación en Python con Flet y Firestore para gestionar Eras, Periodos, Incursiones y sus Sesiones. Firestore es la única fuente de verdad y la UI es declarativa. La organización del código sigue separaciones claras por pantalla (UI, estado derivado y efectos) y se apoya en componentes reutilizables para que la lectura y edición sean rápidas.
@@ -51,14 +56,11 @@ pc/                             # Scripts CLI (generación de Era)
 ### app/main.py
 
 > ⚠️ OBSOLETO (desde ADR 0006)
-> Esta sección describe un enfoque anterior de navegación.
-> Fuente de verdad: `adr/0006-flet-declarative-routing-contract.md` y `TDD.md`.
+> Esta sección ya no describe el contrato de routing.
+> Fuente de verdad: `adr/0006-flet-declarative-routing-contract.md` + `TDD.md`.
+> Guía operativa: `FLET_NOTES.md`.
 
-- `main(page)`: entry-point de routing declarativo con `page.render_views(App)`.
-- `App()`: devuelve `list[ft.View]` reconstruida desde `page.route` en cada cambio.
-- Navegación forward: usar `page.push_route(route)` como estándar.
-- Back: `page.on_view_pop` no muta `page.views` manualmente; empuja la ruta anterior con `page.push_route(previous_route)`.
-- Prohibido mezclar `page.go()` con `page.push_route()` en navegación normal.
+- `main(page)`: entry-point de la app y configuración base de Flet.
 
 ### app/utils/logger.py
 

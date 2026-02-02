@@ -26,15 +26,15 @@ class IncursionCardModel:
 
 def get_incursion_status(incursion: dict) -> tuple[str, str]:
     if incursion.get("ended_at") or incursion.get("result"):
-        return "Finalizado", ft.Colors.BLUE_600
+        return "Finalizada", ft.Colors.BLUE_600
     if incursion.get("is_active"):
-        return "Activo", ft.Colors.GREEN_600
-    return "No iniciado", ft.Colors.GREY_500
+        return "Activa", ft.Colors.GREEN_600
+    return "Pendiente", ft.Colors.GREY_500
 
 
 def get_spirit_info(incursion: dict) -> str:
     return (
-        f"{get_spirit_name(incursion.get('spirit_1_id'))} / "
+        f"{get_spirit_name(incursion.get('spirit_1_id'))} · "
         f"{get_spirit_name(incursion.get('spirit_2_id'))}"
     )
 

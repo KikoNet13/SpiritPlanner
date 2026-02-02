@@ -60,7 +60,7 @@ class PeriodsViewModel:
             )
             self.error = "load_failed"
             self.rows = []
-            self.show_toast("No se pudieron cargar los periodos.")
+            self.show_toast("No se pudieron cargar los períodos.")
         finally:
             self.loading = False
 

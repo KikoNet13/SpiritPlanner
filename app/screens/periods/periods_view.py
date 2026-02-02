@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 import flet as ft
 
 from app.screens.data_lookup import get_adversary_catalog
 from app.screens.periods.periods_model import AssignmentIncursionModel, PeriodRowModel
 from app.screens.periods.periods_viewmodel import PeriodsViewModel
-from app.screens.shared_components import header_text, section_card
+from app.screens.shared_components import section_card, status_chip
 from app.services.service_registry import get_firestore_service
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
@@ -17,36 +18,56 @@ logger = get_logger(__name__)
 
 
 def _period_card(
-    title: str,
-    actions: list[ft.Control],
-    incursions_section: ft.Control,
-    actions_alignment: ft.MainAxisAlignment = ft.MainAxisAlignment.END,
+    row: PeriodRowModel,
+    action: ft.Control | None,
+    preview_lines: list[ft.Control],
 ) -> ft.Container:
+    body_controls: list[ft.Control] = [
+        ft.Text(f"Incursiones: {row.incursion_count}"),
+    ]
+    if preview_lines:
+        body_controls.extend(preview_lines)
+    action_row = None
+    if action:
+        action_row = ft.Row(
+            [action],
+            alignment=ft.MainAxisAlignment.END,
+        )
     return section_card(
         ft.Column(
             [
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.CALENDAR_TODAY),
-                    title=ft.Text(title, weight=ft.FontWeight.BOLD),
-                ),
                 ft.Row(
-                    actions,
-                    wrap=True,
-                    spacing=8,
-                    alignment=actions_alignment,
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.CALENDAR_TODAY),
+                                ft.Text(row.title, weight=ft.FontWeight.BOLD),
+                            ],
+                            spacing=8,
+                        ),
+                        status_chip(row.status_label, row.status_color),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                incursions_section,
+                ft.Column(body_controls, spacing=4),
+                action_row or ft.Container(),
             ],
-            spacing=4,
+            spacing=8,
         )
     )
 
 
-def _incursions_preview(entries: list[ft.Control]) -> ft.Container:
-    return ft.Container(
-        content=ft.Column(entries, spacing=4),
-        padding=ft.Padding.only(left=12, right=12, bottom=4),
-    )
+def _incursions_preview(entries: list[str]) -> list[ft.Control]:
+    return [
+        ft.Text(entry, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+        for entry in entries[:2]
+    ]
+
+
+def _extract_index(value: str) -> str | None:
+    match = re.search(r"(\d+)$", value)
+    return match.group(1) if match else None
 
 
 def _assignment_card(
@@ -221,40 +242,8 @@ def periods_view(
     ft.use_effect(sync_dialog, [view_model.assignment_open, view_model.assignment_version])
 
     def build_period_card(row: PeriodRowModel) -> ft.Control:
-        actions: list[ft.Control] = []
-        actions_alignment = (
-            ft.MainAxisAlignment.CENTER
-            if row.center_actions
-            else ft.MainAxisAlignment.END
-        )
-        if row.action == "results":
-            def handle_open_results(
-                event: ft.ControlEvent,
-                period_id: str = row.period_id,
-            ) -> None:
-                logger.info(
-                    "UI click open results era_id=%s period_id=%s control=%s",
-                    era_id,
-                    period_id,
-                    event.control,
-                )
-                try:
-                    view_model.request_open_period(period_id)
-                except Exception as exc:
-                    logger.exception(
-                        "Failed to handle open results era_id=%s period_id=%s error=%s",
-                        era_id,
-                        period_id,
-                        exc,
-                    )
-
-            actions.append(
-                ft.Button(
-                    "Ver resultados",
-                    on_click=handle_open_results,
-                )
-            )
-        elif row.action == "incursions":
+        action = None
+        if row.action in {"results", "incursions"}:
             def handle_open_incursions(
                 event: ft.ControlEvent,
                 period_id: str = row.period_id,
@@ -275,11 +264,9 @@ def periods_view(
                         exc,
                     )
 
-            actions.append(
-                ft.Button(
-                    "Ver incursiones",
-                    on_click=handle_open_incursions,
-                )
+            action = ft.Button(
+                "Ver incursiones",
+                on_click=handle_open_incursions,
             )
         elif row.action == "assign":
             def handle_assign_adversaries(
@@ -302,11 +289,9 @@ def periods_view(
                         exc,
                     )
 
-            actions.append(
-                ft.OutlinedButton(
-                    "Asignar adversarios",
-                    on_click=handle_assign_adversaries,
-                )
+            action = ft.Button(
+                "Asignar adversarios",
+                on_click=handle_assign_adversaries,
             )
         elif row.action == "reveal":
             def handle_reveal_period(
@@ -329,49 +314,57 @@ def periods_view(
                         exc,
                     )
 
-            actions.append(
-                ft.Button(
-                    "Revelar periodo",
-                    on_click=handle_reveal_period,
-                    height=48,
-                    width=240,
-                )
+            action = ft.Button(
+                "Revelar",
+                on_click=handle_reveal_period,
             )
 
-        incursions_section = (
-            _incursions_preview([ft.Text(entry) for entry in row.incursions_preview])
+        preview_lines = (
+            _incursions_preview(list(row.incursions_preview))
             if row.incursions_preview
-            else ft.Container()
+            else []
         )
-        return _period_card(
-            row.title,
-            actions,
-            incursions_section,
-            actions_alignment=actions_alignment,
-        )
+        return _period_card(row, action, preview_lines)
 
     content_controls: list[ft.Control] = []
     if view_model.loading:
         content_controls.append(ft.ProgressRing())
     elif not view_model.rows:
-        content_controls.append(ft.Text("No hay periodos disponibles."))
+        content_controls.append(ft.Text("No hay períodos disponibles."))
     else:
         content_controls.extend(build_period_card(row) for row in view_model.rows)
 
-    periods_list = ft.ListView(spacing=12, expand=True, controls=content_controls)
+    periods_list = ft.ListView(spacing=8, expand=True, controls=content_controls)
+    era_label = _extract_index(era_id) or era_id
+    context_header = ft.Text(
+        f"Era {era_label}",
+        size=16,
+        weight=ft.FontWeight.W_600,
+        color=ft.Colors.BLUE_GREY_700,
+    )
+    max_content_width = min(
+        960.0,
+        max(320.0, float(page.width or 960.0) - 32.0),
+    )
 
     return ft.Column(
         [
-            ft.AppBar(title=ft.Text("Periodos"), center_title=True),
+            ft.AppBar(title=ft.Text("Períodos"), center_title=False),
             ft.Container(
-                content=ft.Column(
-                    [
-                        header_text("Era"),
-                        periods_list,
-                    ],
+                content=ft.Container(
+                    content=ft.Column(
+                        [
+                            context_header,
+                            periods_list,
+                        ],
+                        expand=True,
+                        spacing=8,
+                    ),
+                    width=max_content_width,
                     expand=True,
                 ),
                 padding=16,
+                alignment=ft.alignment.top_center,
                 expand=True,
             ),
         ],

@@ -22,9 +22,7 @@ def _period_card(
     action: ft.Control | None,
     preview_lines: list[ft.Control],
 ) -> ft.Container:
-    body_controls: list[ft.Control] = [
-        ft.Text(f"Incursiones: {row.incursion_count}"),
-    ]
+    body_controls: list[ft.Control] = []
     if preview_lines:
         body_controls.extend(preview_lines)
     action_row = None
@@ -70,7 +68,7 @@ def _incursions_preview(entries: list[str]) -> list[ft.Control]:
             max_lines=1,
             overflow=ft.TextOverflow.ELLIPSIS,
         )
-        for entry in entries[:2]
+        for entry in entries[:4]
     ]
 
 

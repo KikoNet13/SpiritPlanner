@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 import flet as ft
 
 from app.screens.eras.eras_model import EraCardModel
 from app.screens.eras.eras_viewmodel import ErasViewModel
-from app.screens.shared_components import header_text, section_card, status_chip
+from app.screens.shared_components import section_card, status_chip
 from app.services.service_registry import get_firestore_service
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
@@ -15,36 +16,58 @@ from app.utils.router import register_route_loader
 logger = get_logger(__name__)
 
 
-def _era_card(model: EraCardModel, actions: list[ft.Control]) -> ft.Container:
+def _extract_index(value: str) -> str | None:
+    match = re.search(r"(\d+)$", value)
+    return match.group(1) if match else None
+
+
+def _active_incursion_line(model: EraCardModel) -> str:
+    if not model.active_incursion:
+        return "Sin incursión activa"
+    active = model.active_incursion
+    period_index = _extract_index(str(active.period_id))
+    incursion_index = _extract_index(str(active.incursion_id))
+    if period_index and incursion_index:
+        return (
+            f"Incursión activa: Período {period_index} · "
+            f"Incursión {incursion_index}"
+        )
+    return "Incursión activa"
+
+
+def _era_card(
+    model: EraCardModel,
+    action_row: ft.Control,
+) -> ft.Container:
     return section_card(
         ft.Column(
             [
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.STARS),
-                    title=ft.Text(f"Era {model.index}", weight=ft.FontWeight.BOLD),
-                    subtitle=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    status_chip(model.status_label, model.status_color),
-                                    status_chip(
-                                        model.incursion_label, model.incursion_color
-                                    ),
-                                ],
-                                spacing=8,
-                            )
-                        ],
-                        spacing=4,
-                    ),
-                ),
                 ft.Row(
-                    actions,
-                    wrap=True,
-                    spacing=8,
-                    alignment=ft.MainAxisAlignment.END,
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.STARS),
+                                ft.Text(
+                                    f"Era {model.index}",
+                                    weight=ft.FontWeight.BOLD,
+                                ),
+                            ],
+                            spacing=8,
+                        ),
+                        status_chip(model.status_label, model.status_color),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
+                ft.Column(
+                    [
+                        ft.Text(_active_incursion_line(model)),
+                    ],
+                    spacing=4,
+                ),
+                action_row,
             ],
-            spacing=4,
+            spacing=8,
         )
     )
 
@@ -96,7 +119,6 @@ def eras_view() -> ft.Control:
 
     ft.use_effect(handle_navigation, [view_model.nav_version])
 
-    title = header_text("Eras")
     content_controls: list[ft.Control] = []
 
     if view_model.loading:
@@ -123,12 +145,11 @@ def eras_view() -> ft.Control:
                         exc,
                     )
 
-            actions: list[ft.Control] = [
-                ft.Button(
-                    "Ver periodos",
-                    on_click=handle_open_periods,
-                )
-            ]
+            secondary_action = ft.OutlinedButton(
+                "Ver períodos",
+                on_click=handle_open_periods,
+            )
+            primary_action = None
             if era.active_incursion:
                 def handle_open_active_incursion(
                     event: ft.ControlEvent,
@@ -152,28 +173,45 @@ def eras_view() -> ft.Control:
                             exc,
                         )
 
-                actions.append(
-                    ft.OutlinedButton(
-                        "Ir a incursión activa",
-                        on_click=handle_open_active_incursion,
-                    )
+                primary_action = ft.Button(
+                    "Continuar",
+                    on_click=handle_open_active_incursion,
                 )
-            content_controls.append(_era_card(era, actions))
+            if primary_action:
+                action_row = ft.Row(
+                    [secondary_action, primary_action],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                )
+            else:
+                action_row = ft.Row(
+                    [secondary_action],
+                    alignment=ft.MainAxisAlignment.START,
+                )
+            content_controls.append(_era_card(era, action_row))
 
-    eras_list = ft.ListView(spacing=12, expand=True, controls=content_controls)
+    eras_list = ft.ListView(spacing=8, expand=True, controls=content_controls)
+    max_content_width = min(
+        960.0,
+        max(320.0, float(page.width or 960.0) - 32.0),
+    )
 
     return ft.Column(
         [
-            ft.AppBar(title=ft.Text("Eras"), center_title=True),
+            ft.AppBar(title=ft.Text("Eras"), center_title=False),
             ft.Container(
-                content=ft.Column(
-                    [
-                        title,
-                        eras_list,
-                    ],
+                content=ft.Container(
+                    content=ft.Column(
+                        [
+                            eras_list,
+                        ],
+                        expand=True,
+                        spacing=8,
+                    ),
+                    width=max_content_width,
                     expand=True,
                 ),
                 padding=16,
+                alignment=ft.alignment.top_center,
                 expand=True,
             ),
         ],

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 import flet as ft
 
 from app.screens.incursions.incursions_model import IncursionCardModel
 from app.screens.incursions.incursions_viewmodel import IncursionsViewModel
-from app.screens.shared_components import header_text, section_card, status_chip
+from app.screens.shared_components import section_card, status_chip
 from app.services.service_registry import get_firestore_service
 from app.utils.logger import get_logger
 from app.utils.navigation import navigate
@@ -22,19 +23,28 @@ def _incursion_card(
     return section_card(
         ft.Column(
             [
-                ft.ListTile(
-                    leading=ft.Icon(ft.Icons.EXPLORE),
-                    title=ft.Text(model.title, weight=ft.FontWeight.BOLD),
-                    subtitle=ft.Column(
-                        [
-                            ft.Text(f"Espíritus: {model.spirit_info}"),
-                            ft.Text(f"Tableros: {model.board_info}"),
-                            ft.Text(f"Distribución: {model.layout_info}"),
-                            ft.Text(f"Adversario: {model.adversary_info}"),
-                            status_chip(model.status_label, model.status_color),
-                        ],
-                        spacing=4,
-                    ),
+                ft.Row(
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.EXPLORE),
+                                ft.Text(model.title, weight=ft.FontWeight.BOLD),
+                            ],
+                            spacing=8,
+                        ),
+                        status_chip(model.status_label, model.status_color),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                ft.Column(
+                    [
+                        ft.Text(f"Espíritus: {model.spirit_info}"),
+                        ft.Text(f"Tableros: {model.board_info}"),
+                        ft.Text(f"Distribución: {model.layout_info}"),
+                        ft.Text(f"Adversario: {model.adversary_info}"),
+                    ],
+                    spacing=4,
                 ),
                 ft.Row(
                     [
@@ -43,9 +53,14 @@ def _incursion_card(
                     alignment=ft.MainAxisAlignment.END,
                 ),
             ],
-            spacing=4,
+            spacing=8,
         )
     )
+
+
+def _extract_index(value: str) -> str | None:
+    match = re.search(r"(\d+)$", value)
+    return match.group(1) if match else None
 
 
 @ft.component
@@ -141,20 +156,38 @@ def incursions_view(
                 )
             )
 
-    incursions_list = ft.ListView(spacing=12, expand=True, controls=content_controls)
+    incursions_list = ft.ListView(spacing=8, expand=True, controls=content_controls)
+    era_label = _extract_index(era_id) or era_id
+    period_label = _extract_index(period_id) or period_id
+    context_header = ft.Text(
+        f"Era {era_label} · Período {period_label}",
+        size=16,
+        weight=ft.FontWeight.W_600,
+        color=ft.Colors.BLUE_GREY_700,
+    )
+    max_content_width = min(
+        960.0,
+        max(320.0, float(page.width or 960.0) - 32.0),
+    )
 
     return ft.Column(
         [
-            ft.AppBar(title=ft.Text("Incursiones"), center_title=True),
+            ft.AppBar(title=ft.Text("Incursiones"), center_title=False),
             ft.Container(
-                content=ft.Column(
-                    [
-                        header_text("Incursiones"),
-                        incursions_list,
-                    ],
+                content=ft.Container(
+                    content=ft.Column(
+                        [
+                            context_header,
+                            incursions_list,
+                        ],
+                        expand=True,
+                        spacing=8,
+                    ),
+                    width=max_content_width,
                     expand=True,
                 ),
                 padding=16,
+                alignment=ft.alignment.top_center,
                 expand=True,
             ),
         ],

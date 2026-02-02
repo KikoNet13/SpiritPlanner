@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import flet as ft
+
 from app.screens.data_lookup import get_spirit_name
 
 
@@ -11,6 +13,9 @@ class PeriodRowModel:
     title: str
     action: str | None
     center_actions: bool
+    status_label: str
+    status_color: str
+    incursion_count: int
     incursions_preview: tuple[str, ...]
 
 
@@ -41,6 +46,29 @@ def get_period_action(period: dict, allow_reveal: bool) -> str | None:
     return None
 
 
+def get_period_status(period: dict) -> tuple[str, str]:
+    if period.get("ended_at"):
+        return "Finalizado", ft.Colors.BLUE_600
+    if period.get("adversaries_assigned_at"):
+        return "Preparado", ft.Colors.GREEN_600
+    if period.get("revealed_at"):
+        return "Revelado", ft.Colors.AMBER_700
+    return "Pendiente", ft.Colors.GREY_500
+
+
+def get_incursion_count(period: dict, incursions: list[dict]) -> int:
+    raw_count = period.get("incursions_count")
+    if raw_count is None:
+        raw_count = period.get("incursions")
+    if isinstance(raw_count, (list, tuple)):
+        raw_count = len(raw_count)
+    if isinstance(raw_count, int) and raw_count > 0:
+        return raw_count
+    if incursions:
+        return len(incursions)
+    return 4
+
+
 def build_period_rows(
     periods: list[dict],
     incursions_by_period: dict[str, list[dict]],
@@ -49,22 +77,27 @@ def build_period_rows(
     for idx, period in enumerate(periods):
         period_id = period["id"]
         action = get_period_action(period, can_reveal(periods, idx))
+        status_label, status_color = get_period_status(period)
         center_actions = action == "reveal"
         incursions = incursions_by_period.get(period_id, [])
+        incursion_count = get_incursion_count(period, incursions)
         preview_lines: list[str] = []
         if period.get("revealed_at") and incursions:
             for incursion in incursions:
                 spirit_1 = get_spirit_name(incursion.get("spirit_1_id"))
                 spirit_2 = get_spirit_name(incursion.get("spirit_2_id"))
                 preview_lines.append(
-                    f"Incursión {incursion.get('index', 0)}: {spirit_1} / {spirit_2}"
+                    f"Incursión {incursion.get('index', 0)}: {spirit_1} · {spirit_2}"
                 )
         rows.append(
             PeriodRowModel(
                 period_id=period_id,
-                title=f"Periodo {period.get('index', 0)}",
+                title=f"Período {period.get('index', 0)}",
                 action=action,
                 center_actions=center_actions,
+                status_label=status_label,
+                status_color=status_color,
+                incursion_count=incursion_count,
                 incursions_preview=tuple(preview_lines),
             )
         )

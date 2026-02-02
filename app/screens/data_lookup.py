@@ -24,9 +24,15 @@ class AdversaryInfo:
 
 
 def _data_dir() -> Path:
-    data_dir = Path(__file__).resolve().parents[2] / "pc" / "data" / "input"
-    logger.debug("Resolved data directory=%s", data_dir)
-    return data_dir
+    project_root = Path(__file__).resolve().parents[2]
+    packaged_dir = project_root / "app" / "assets" / "catalogs"
+    if packaged_dir.exists():
+        logger.debug("Resolved data directory (packaged)=%s", packaged_dir)
+        return packaged_dir
+
+    fallback_dir = project_root / "pc" / "data" / "input"
+    logger.debug("Resolved data directory (fallback)=%s", fallback_dir)
+    return fallback_dir
 
 
 def _load_tsv_rows(filename: str, required_fields: Iterable[str]) -> list[dict[str, str]]:

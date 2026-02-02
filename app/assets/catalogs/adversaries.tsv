@@ -1,0 +1,26 @@
+adversary_id	name	level	difficulty	points
+brandenburg_prussia	Brandeburgo-Prusia	Base	1	1
+brandenburg_prussia	Brandeburgo-Prusia	1	2	2
+brandenburg_prussia	Brandeburgo-Prusia	2	4	4
+brandenburg_prussia	Brandeburgo-Prusia	3	6	6
+brandenburg_prussia	Brandeburgo-Prusia	4	7	7
+brandenburg_prussia	Brandeburgo-Prusia	5	9	9
+brandenburg_prussia	Brandeburgo-Prusia	6	10	10
+england	Inglaterra	Base	1	1
+england	Inglaterra	1	3	3
+england	Inglaterra	2	4	4
+england	Inglaterra	3	6	6
+england	Inglaterra	4	7	7
+england	Inglaterra	5	9	9
+england	Inglaterra	6	10	10
+sweden	Suecia	Base	1	1
+sweden	Suecia	1	2	2
+sweden	Suecia	2	3	3
+sweden	Suecia	3	6	6
+sweden	Suecia	4	7	7
+sweden	Suecia	5	8	8
+sweden	Suecia	6	9	9
+scenario	Escenario	Ataque por sorpresa	0	0
+scenario	Escenario	Proteger el corazón de la isla	0	0
+scenario	Escenario	Rituales de terror	3	3
+scenario	Escenario	La insurrección de los dahan	4	4

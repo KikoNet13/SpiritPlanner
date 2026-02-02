@@ -364,7 +364,7 @@ def periods_view(
                     expand=True,
                 ),
                 padding=16,
-                alignment=ft.alignment.top_center,
+                alignment=ft.Alignment.TOP_CENTER,
                 expand=True,
             ),
         ],

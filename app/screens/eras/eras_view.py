@@ -68,6 +68,7 @@ def _era_card(
                 action_row,
             ],
             spacing=8,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
     )
 
@@ -180,12 +181,19 @@ def eras_view() -> ft.Control:
             if primary_action:
                 action_row = ft.Row(
                     [secondary_action, primary_action],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    alignment=ft.MainAxisAlignment.END,
+                    spacing=8,
+                    expand=True,
                 )
             else:
+                primary_action = ft.Button(
+                    "Ver períodos",
+                    on_click=handle_open_periods,
+                )
                 action_row = ft.Row(
-                    [secondary_action],
-                    alignment=ft.MainAxisAlignment.START,
+                    [primary_action],
+                    alignment=ft.MainAxisAlignment.END,
+                    expand=True,
                 )
             content_controls.append(_era_card(era, action_row))
 

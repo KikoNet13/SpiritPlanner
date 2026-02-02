@@ -28,6 +28,9 @@ class IncursionDetailModel:
     score: int | None
     dahan_alive: int | None
     blight_on_island: int | None
+    player_count: int | None
+    invader_cards_remaining: int | None
+    invader_cards_out_of_deck: int | None
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,8 @@ class FinalizeFormData:
     result: str | None
     dahan_alive: str
     blight_on_island: str
+    invader_cards_remaining: str
+    invader_cards_out_of_deck: str
 
 
 def resolve_session_state(
@@ -70,11 +75,11 @@ def get_result_label(result_value: str | None) -> str:
 def get_score_formula(result_value: str | None) -> str:
     if result_value == "win":
         return (
-            "5 × dificultad + 10 + dahan vivos − plaga"
+            "5 × dificultad + 10 + 2 × cartas en mazo + 2 × dahan vivos − 2 × plaga"
         )
     if result_value == "loss":
         return (
-            "2 × dificultad + dahan vivos − plaga"
+            "2 × dificultad + 1 × cartas fuera del mazo + 2 × dahan vivos − 2 × plaga"
         )
     return "—"
 
@@ -84,14 +89,18 @@ def compute_score_preview(
     difficulty: int,
     dahan_alive: int,
     blight_on_island: int,
+    player_count: int,
+    invader_cards_remaining: int,
+    invader_cards_out_of_deck: int,
 ) -> tuple[str, int | None]:
-    base = dahan_alive - blight_on_island
+    base = player_count * (dahan_alive - blight_on_island)
     if result_value == "win":
         return (
             get_score_formula(result_value),
             (
                 5 * difficulty
                 + 10
+                + 2 * invader_cards_remaining
                 + base
             ),
         )
@@ -100,6 +109,7 @@ def compute_score_preview(
             get_score_formula(result_value),
             (
                 2 * difficulty
+                + invader_cards_out_of_deck
                 + base
             ),
         )

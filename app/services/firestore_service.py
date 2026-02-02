@@ -506,12 +506,26 @@ class FirestoreService:
             raise ValueError("La incursion ya esta finalizada. El score es inmutable.")
 
         difficulty = int(incursion_data.get("difficulty", 0) or 0)
+        resolved_player_count = 2
+        if result == "win":
+            if invader_cards_remaining is None:
+                raise ValueError("Debes indicar las cartas en el mazo.")
+            if invader_cards_remaining < 0:
+                raise ValueError("Las cartas en el mazo deben ser 0 o más.")
+        if result == "loss":
+            if invader_cards_out_of_deck is None:
+                raise ValueError("Debes indicar las cartas fuera del mazo.")
+            if invader_cards_out_of_deck < 0:
+                raise ValueError("Las cartas fuera del mazo deben ser 0 o más.")
         logger.debug("Calculating score difficulty=%s result=%s", difficulty, result)
         score = calculate_score(
             difficulty=difficulty,
             result=result,
             dahan_alive=dahan_alive,
             blight_on_island=blight_on_island,
+            player_count=resolved_player_count,
+            invader_cards_remaining=invader_cards_remaining,
+            invader_cards_out_of_deck=invader_cards_out_of_deck,
         )
 
         self.end_session(era_id, period_id, incursion_id)
@@ -523,12 +537,11 @@ class FirestoreService:
             "blight_on_island": blight_on_island,
             "score": score,
             "is_active": False,
+            "player_count": resolved_player_count,
         }
-        if player_count is not None:
-            update_payload["player_count"] = player_count
-        if invader_cards_remaining is not None:
+        if result == "win":
             update_payload["invader_cards_remaining"] = invader_cards_remaining
-        if invader_cards_out_of_deck is not None:
+        if result == "loss":
             update_payload["invader_cards_out_of_deck"] = invader_cards_out_of_deck
         incursion_ref.update(update_payload)
         logger.debug("Clearing active incursion era_id=%s", era_id)

@@ -47,6 +47,8 @@ class IncursionDetailViewModel:
             result=None,
             dahan_alive="",
             blight_on_island="",
+            invader_cards_remaining="",
+            invader_cards_out_of_deck="",
         )
         self.show_finalize_confirm = False
         self.toast_message: str | None = None
@@ -133,6 +135,9 @@ class IncursionDetailViewModel:
                 score=incursion.get("score"),
                 dahan_alive=incursion.get("dahan_alive"),
                 blight_on_island=incursion.get("blight_on_island"),
+                player_count=incursion.get("player_count"),
+                invader_cards_remaining=incursion.get("invader_cards_remaining"),
+                invader_cards_out_of_deck=incursion.get("invader_cards_out_of_deck"),
             )
             self.detail = detail
             self.adversary_level = detail.adversary_level
@@ -140,6 +145,8 @@ class IncursionDetailViewModel:
                 result=detail.result,
                 dahan_alive=str(detail.dahan_alive or ""),
                 blight_on_island=str(detail.blight_on_island or ""),
+                invader_cards_remaining=str(detail.invader_cards_remaining or ""),
+                invader_cards_out_of_deck=str(detail.invader_cards_out_of_deck or ""),
             )
             self.show_finalize_confirm = False
             self.timer_running = (
@@ -205,6 +212,12 @@ class IncursionDetailViewModel:
             result=value if field == "result" else data.result,
             dahan_alive=value if field == "dahan_alive" else data.dahan_alive,
             blight_on_island=value if field == "blight_on_island" else data.blight_on_island,
+            invader_cards_remaining=(
+                value if field == "invader_cards_remaining" else data.invader_cards_remaining
+            ),
+            invader_cards_out_of_deck=(
+                value if field == "invader_cards_out_of_deck" else data.invader_cards_out_of_deck
+            ),
         )
         self.finalize_form = updated
 
@@ -236,6 +249,24 @@ class IncursionDetailViewModel:
         if None in (dahan_alive, blight_on_island):
             self.show_toast("Revisa los valores numéricos.")
             return
+        invader_cards_remaining = None
+        invader_cards_out_of_deck = None
+        if result_value == "win":
+            invader_cards_remaining = self._parse_int(
+                self.finalize_form.invader_cards_remaining, None
+            )
+            if invader_cards_remaining is None or invader_cards_remaining < 0:
+                self.show_toast("Debes indicar las cartas en el mazo (0 o más).")
+                return
+        if result_value == "loss":
+            invader_cards_out_of_deck = self._parse_int(
+                self.finalize_form.invader_cards_out_of_deck, None
+            )
+            if invader_cards_out_of_deck is None or invader_cards_out_of_deck < 0:
+                self.show_toast(
+                    "Debes indicar las cartas fuera del mazo (0 o más)."
+                )
+                return
         if self.open_session:
             logger.info(
                 "Closing active session before finalize incursion_id=%s",
@@ -253,9 +284,12 @@ class IncursionDetailViewModel:
                 result=result_value,
                 dahan_alive=dahan_alive,
                 blight_on_island=blight_on_island,
+                player_count=2,
+                invader_cards_remaining=invader_cards_remaining,
+                invader_cards_out_of_deck=invader_cards_out_of_deck,
             )
-        except ValueError:
-            self.show_toast("Revisa los valores numéricos.")
+        except ValueError as exc:
+            self.show_toast(str(exc))
             return
         self.toggle_finalize_confirm(False)
         self.load_detail(service)
@@ -324,9 +358,19 @@ class IncursionDetailViewModel:
         difficulty = self.detail.difficulty or 0
         dahan_alive = self._parse_int(self.finalize_form.dahan_alive, 0) or 0
         blight_on_island = self._parse_int(self.finalize_form.blight_on_island, 0) or 0
+        invader_cards_remaining = (
+            self._parse_int(self.finalize_form.invader_cards_remaining, 0) or 0
+        )
+        invader_cards_out_of_deck = (
+            self._parse_int(self.finalize_form.invader_cards_out_of_deck, 0) or 0
+        )
+        player_count = self.detail.player_count or 2
         return compute_score_preview(
             self.finalize_form.result,
             difficulty,
             dahan_alive,
             blight_on_island,
+            player_count,
+            invader_cards_remaining,
+            invader_cards_out_of_deck,
         )

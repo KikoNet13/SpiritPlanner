@@ -351,6 +351,8 @@ def incursion_detail_view(
 
         finalize_readonly = view_model.session_state == SESSION_STATE_FINALIZED
         result_value = view_model.finalize_form.result
+        is_win = result_value == "win"
+        is_loss = result_value == "loss"
         formula, score_preview = view_model.score_preview()
         preview_score_text = (
             f"Puntuación: {score_preview}"
@@ -443,6 +445,34 @@ def incursion_detail_view(
                                     expand=1,
                                 ),
                             ],
+                            spacing=8,
+                        ),
+                        ft.Row(
+                            [
+                                ft.TextField(
+                                    label="Cartas en el mazo",
+                                    value=view_model.finalize_form.invader_cards_remaining,
+                                    keyboard_type=ft.KeyboardType.NUMBER,
+                                    disabled=finalize_readonly,
+                                    visible=is_win,
+                                    on_change=lambda event: view_model.update_finalize_field(
+                                        "invader_cards_remaining", event.control.value
+                                    ),
+                                    expand=1,
+                                ),
+                                ft.TextField(
+                                    label="Cartas fuera del mazo",
+                                    value=view_model.finalize_form.invader_cards_out_of_deck,
+                                    keyboard_type=ft.KeyboardType.NUMBER,
+                                    disabled=finalize_readonly,
+                                    visible=is_loss,
+                                    on_change=lambda event: view_model.update_finalize_field(
+                                        "invader_cards_out_of_deck", event.control.value
+                                    ),
+                                    expand=1,
+                                ),
+                            ],
+                            visible=is_win or is_loss,
                             spacing=8,
                         ),
                         ft.Column(

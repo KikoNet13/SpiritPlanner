@@ -1,0 +1,65 @@
+{
+  "layouts": {
+    "alternating_shores": {
+      "left": {
+        "dx": -0.428,
+        "dy": -0.022,
+        "rot_deg": -115.0
+      },
+      "right": {
+        "dx": 0.428,
+        "dy": 0.057,
+        "rot_deg": 65.0
+      }
+    },
+    "circle_fragment": {
+      "left": {
+        "dx": -0.372,
+        "dy": 0.009,
+        "rot_deg": -30.0
+      },
+      "right": {
+        "dx": 0.378,
+        "dy": 0.0,
+        "rot_deg": 90.0
+      }
+    },
+    "coastline": {
+      "left": {
+        "dx": -0.423,
+        "dy": 0.099,
+        "rot_deg": 60.0
+      },
+      "right": {
+        "dx": 0.453,
+        "dy": 0.103,
+        "rot_deg": 60.0
+      }
+    },
+    "opposite_shores": {
+      "left": {
+        "dx": -0.469,
+        "dy": 0.014,
+        "rot_deg": 0.0
+      },
+      "right": {
+        "dx": 0.41,
+        "dy": 0.003,
+        "rot_deg": 180.0
+      }
+    },
+    "sunrise_fragment": {
+      "left": {
+        "dx": -0.45,
+        "dy": 0.083,
+        "rot_deg": 90.0
+      },
+      "right": {
+        "dx": 0.31,
+        "dy": 0.085,
+        "rot_deg": 150.0
+      }
+    }
+  },
+  "schema_version": 1
+}

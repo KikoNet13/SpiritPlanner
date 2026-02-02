@@ -11,7 +11,7 @@ def status_chip(label: str, color: str) -> ft.Container:
     return ft.Container(
         content=ft.Text(label, size=12, color=ft.Colors.WHITE),
         bgcolor=color,
-        padding=ft.padding.symmetric(horizontal=8, vertical=4),
+        padding=ft.Padding.symmetric(horizontal=8, vertical=4),
         border_radius=12,
     )
 
@@ -26,7 +26,7 @@ def section_card(
     return ft.Container(
         content=content,
         padding=padding,
-        border=ft.border.all(1, border_color),
+        border=ft.Border.all(1, border_color),
         border_radius=border_radius,
         bgcolor=bgcolor,
     )
@@ -41,4 +41,4 @@ def action_button(
 ) -> ft.Control:
     if variant == "outlined":
         return ft.OutlinedButton(label, icon=icon, on_click=on_click, disabled=disabled)
-    return ft.ElevatedButton(label, icon=icon, on_click=on_click, disabled=disabled)
+    return ft.Button(label, icon=icon, on_click=on_click, disabled=disabled)

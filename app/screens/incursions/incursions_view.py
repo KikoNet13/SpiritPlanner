@@ -38,7 +38,7 @@ def _incursion_card(
                 ),
                 ft.Row(
                     [
-                        ft.ElevatedButton("Abrir", on_click=on_open),
+                        ft.Button("Abrir", on_click=on_open),
                     ],
                     alignment=ft.MainAxisAlignment.END,
                 ),

@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import os
+import warnings
 
 import flet as ft
+
+# Silences google-api-core Python EOL warning on Python 3.10 in local dev shells.
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    module="google.api_core._python_version_support",
+)
 
 from app.screens.eras.eras_view import eras_view
 from app.screens.incursion_detail.incursion_detail_view import incursion_detail_view

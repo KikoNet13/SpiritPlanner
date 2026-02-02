@@ -124,7 +124,7 @@ def eras_view() -> ft.Control:
                     )
 
             actions: list[ft.Control] = [
-                ft.ElevatedButton(
+                ft.Button(
                     "Ver periodos",
                     on_click=handle_open_periods,
                 )

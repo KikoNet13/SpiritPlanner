@@ -45,7 +45,7 @@ def _period_card(
 def _incursions_preview(entries: list[ft.Control]) -> ft.Container:
     return ft.Container(
         content=ft.Column(entries, spacing=4),
-        padding=ft.padding.only(left=12, right=12, bottom=4),
+        padding=ft.Padding.only(left=12, right=12, bottom=4),
     )
 
 
@@ -198,7 +198,7 @@ def periods_view(
                 "Cancelar",
                 on_click=lambda _: view_model.close_assignment_dialog(),
             ),
-            ft.ElevatedButton(
+            ft.Button(
                 "Guardar",
                 on_click=lambda _: view_model.save_assignment(service),
             ),
@@ -249,7 +249,7 @@ def periods_view(
                     )
 
             actions.append(
-                ft.ElevatedButton(
+                ft.Button(
                     "Ver resultados",
                     on_click=handle_open_results,
                 )
@@ -276,7 +276,7 @@ def periods_view(
                     )
 
             actions.append(
-                ft.ElevatedButton(
+                ft.Button(
                     "Ver incursiones",
                     on_click=handle_open_incursions,
                 )
@@ -330,7 +330,7 @@ def periods_view(
                     )
 
             actions.append(
-                ft.ElevatedButton(
+                ft.Button(
                     "Revelar periodo",
                     on_click=handle_reveal_period,
                     height=48,

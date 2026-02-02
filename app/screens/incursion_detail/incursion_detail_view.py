@@ -35,7 +35,7 @@ def _light_section(content: ft.Control) -> ft.Container:
         content=content,
         padding=16,
         border_radius=16,
-        border=ft.border.all(1, ft.Colors.GREY_300),
+        border=ft.Border.all(1, ft.Colors.GREY_300),
         bgcolor=ft.Colors.WHITE,
     )
 
@@ -252,7 +252,7 @@ def incursion_detail_view(
                     spacing=6,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                padding=ft.padding.symmetric(horizontal=16, vertical=12),
+                padding=ft.Padding.symmetric(horizontal=16, vertical=12),
                 bgcolor=ft.Colors.BLUE_GREY_50,
                 border_radius=8,
                 alignment=ft.Alignment.CENTER,
@@ -284,7 +284,7 @@ def incursion_detail_view(
                     spacing=6,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                padding=ft.padding.symmetric(horizontal=16, vertical=12),
+                padding=ft.Padding.symmetric(horizontal=16, vertical=12),
                 bgcolor=ft.Colors.BLUE_GREY_50,
                 border_radius=8,
                 alignment=ft.Alignment.CENTER,
@@ -367,7 +367,7 @@ def incursion_detail_view(
                 and view_model.session_state != SESSION_STATE_FINALIZED
             ),
             controls=[
-                ft.ElevatedButton(
+                ft.Button(
                     "Confirmar",
                     icon=ft.Icons.CHECK,
                     on_click=lambda _: view_model.finalize_incursion(service),
@@ -392,90 +392,154 @@ def incursion_detail_view(
                 style=ft.ButtonStyle(
                     color=ft.Colors.BLUE_GREY_800,
                     overlay_color=ft.Colors.BLUE_GREY_50,
-                    padding=ft.padding.symmetric(vertical=10, horizontal=14),
+                    padding=ft.Padding.symmetric(vertical=10, horizontal=14),
                     shape=ft.RoundedRectangleBorder(radius=12),
                 ),
             )
 
-        finalize_panel = ft.Card(
-            content=ft.Container(
+        lower_block_max_width = min(560.0, max(340.0, float(page.width or 900) - 64.0))
+        result_panel_width = lower_block_max_width
+        sessions_table_width = max(300.0, result_panel_width - 24.0)
+
+        grid_gap = 12
+        grid_vertical_spacing = 10
+        use_single_column_grid = result_panel_width < 520.0
+        single_column_width = max(220.0, result_panel_width - 24.0)
+        grid_column_width = max(150.0, (result_panel_width - 24.0 - grid_gap) / 2.0)
+
+        def _result_dropdown(field_width: float) -> ft.Dropdown:
+            return ft.Dropdown(
+                label="Resultado",
+                options=[
+                    ft.dropdown.Option("win", "Victoria"),
+                    ft.dropdown.Option("loss", "Derrota"),
+                ],
+                value=result_value,
+                width=field_width,
+                disabled=finalize_readonly,
+                on_select=lambda event: view_model.update_finalize_field(
+                    "result", event.control.value
+                ),
+            )
+
+        def _dahan_alive_field(field_width: float) -> ft.TextField:
+            return ft.TextField(
+                label="Dahan vivos",
+                value=view_model.finalize_form.dahan_alive,
+                keyboard_type=ft.KeyboardType.NUMBER,
+                width=field_width,
+                disabled=finalize_readonly,
+                on_change=lambda event: view_model.update_finalize_field(
+                    "dahan_alive", event.control.value
+                ),
+            )
+
+        def _blight_field(field_width: float) -> ft.TextField:
+            return ft.TextField(
+                label="Plaga en la isla",
+                value=view_model.finalize_form.blight_on_island,
+                keyboard_type=ft.KeyboardType.NUMBER,
+                width=field_width,
+                disabled=finalize_readonly,
+                on_change=lambda event: view_model.update_finalize_field(
+                    "blight_on_island", event.control.value
+                ),
+            )
+
+        def _cards_field(field_width: float) -> ft.Control:
+            if is_win:
+                return ft.TextField(
+                    label="Cartas en el mazo",
+                    value=view_model.finalize_form.invader_cards_remaining,
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                    width=field_width,
+                    disabled=finalize_readonly,
+                    on_change=lambda event: view_model.update_finalize_field(
+                        "invader_cards_remaining", event.control.value
+                    ),
+                )
+            if is_loss:
+                return ft.TextField(
+                    label="Cartas fuera del mazo",
+                    value=view_model.finalize_form.invader_cards_out_of_deck,
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                    width=field_width,
+                    disabled=finalize_readonly,
+                    on_change=lambda event: view_model.update_finalize_field(
+                        "invader_cards_out_of_deck", event.control.value
+                    ),
+                )
+            return ft.Container(width=field_width)
+
+        if use_single_column_grid:
+            stacked_controls: list[ft.Control] = [
+                _result_dropdown(single_column_width),
+                _dahan_alive_field(single_column_width),
+                _blight_field(single_column_width),
+            ]
+            if is_win or is_loss:
+                stacked_controls.append(_cards_field(single_column_width))
+            result_fields_grid: ft.Control = ft.Column(
+                stacked_controls,
+                spacing=grid_vertical_spacing,
+            )
+        else:
+            left_column = ft.Container(
+                width=grid_column_width,
                 content=ft.Column(
                     [
+                        _result_dropdown(grid_column_width),
+                        _blight_field(grid_column_width),
+                    ],
+                    spacing=grid_vertical_spacing,
+                ),
+            )
+            right_column = ft.Container(
+                width=grid_column_width,
+                content=ft.Column(
+                    [
+                        _dahan_alive_field(grid_column_width),
+                        _cards_field(grid_column_width),
+                    ],
+                    spacing=grid_vertical_spacing,
+                ),
+            )
+            result_fields_grid = ft.Row(
+                [left_column, right_column],
+                spacing=grid_gap,
+                alignment=ft.MainAxisAlignment.START,
+            )
+
+        result_panel = ft.Container(
+            width=result_panel_width,
+            padding=12,
+            border=ft.Border.all(1, ft.Colors.GREY_300),
+            border_radius=12,
+            bgcolor=ft.Colors.WHITE,
+            content=ft.Column(
+                [
+                    ft.Text(
+                        "Resultado",
+                        size=16,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.BLUE_GREY_800,
+                    ),
+                    (
                         ft.Text(
-                            "Finalizar incursión",
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.BLUE_GREY_800,
-                        ),
-                        ft.Row(
-                            [
-                                ft.Dropdown(
-                                    label="Resultado",
-                                    options=[
-                                        ft.dropdown.Option("win", "Victoria"),
-                                        ft.dropdown.Option("loss", "Derrota"),
-                                    ],
-                                    value=result_value,
-                                    disabled=finalize_readonly,
-                                    on_select=lambda event: view_model.update_finalize_field(
-                                        "result", event.control.value
-                                    ),
-                                ),
-                                ft.TextField(
-                                    label="Dahan vivos",
-                                    value=view_model.finalize_form.dahan_alive,
-                                    keyboard_type=ft.KeyboardType.NUMBER,
-                                    disabled=finalize_readonly,
-                                    on_change=lambda event: view_model.update_finalize_field(
-                                        "dahan_alive", event.control.value
-                                    ),
-                                ),
-                            ],
-                            spacing=8,
-                        ),
-                        ft.Row(
-                            [
-                                ft.TextField(
-                                    label="Plaga en la isla",
-                                    value=view_model.finalize_form.blight_on_island,
-                                    keyboard_type=ft.KeyboardType.NUMBER,
-                                    disabled=finalize_readonly,
-                                    on_change=lambda event: view_model.update_finalize_field(
-                                        "blight_on_island", event.control.value
-                                    ),
-                                    expand=1,
-                                ),
-                            ],
-                            spacing=8,
-                        ),
-                        ft.Row(
-                            [
-                                ft.TextField(
-                                    label="Cartas en el mazo",
-                                    value=view_model.finalize_form.invader_cards_remaining,
-                                    keyboard_type=ft.KeyboardType.NUMBER,
-                                    disabled=finalize_readonly,
-                                    visible=is_win,
-                                    on_change=lambda event: view_model.update_finalize_field(
-                                        "invader_cards_remaining", event.control.value
-                                    ),
-                                    expand=1,
-                                ),
-                                ft.TextField(
-                                    label="Cartas fuera del mazo",
-                                    value=view_model.finalize_form.invader_cards_out_of_deck,
-                                    keyboard_type=ft.KeyboardType.NUMBER,
-                                    disabled=finalize_readonly,
-                                    visible=is_loss,
-                                    on_change=lambda event: view_model.update_finalize_field(
-                                        "invader_cards_out_of_deck", event.control.value
-                                    ),
-                                    expand=1,
-                                ),
-                            ],
-                            visible=is_win or is_loss,
-                            spacing=8,
-                        ),
-                        ft.Column(
+                            (
+                                f"Resultado final: {get_result_label(detail.result)} · "
+                                f"Puntuación {detail.score}"
+                            ),
+                            size=12,
+                            color=ft.Colors.BLUE_GREY_600,
+                        )
+                        if view_model.session_state == SESSION_STATE_FINALIZED
+                        else ft.Container(height=0)
+                    ),
+                    result_fields_grid,
+                    ft.Container(
+                        padding=ft.Padding.only(top=8),
+                        content=ft.Column(
                             [
                                 ft.Text(
                                     f"Fórmula: {formula}",
@@ -495,13 +559,11 @@ def incursion_detail_view(
                             ],
                             spacing=2,
                         ),
-                        confirm_row,
-                    ],
-                    spacing=10,
-                ),
-                padding=12,
+                    ),
+                    confirm_row,
+                ],
+                spacing=10,
             ),
-            elevation=2,
         )
 
         total_seconds_value = compute_total_seconds(
@@ -542,7 +604,7 @@ def incursion_detail_view(
                 style=ft.ButtonStyle(
                     bgcolor=ft.Colors.BLUE_700,
                     color=ft.Colors.WHITE,
-                    padding=ft.padding.symmetric(vertical=12, horizontal=18),
+                    padding=ft.Padding.symmetric(vertical=12, horizontal=18),
                     shape=ft.RoundedRectangleBorder(radius=14),
                 ),
             )
@@ -555,8 +617,8 @@ def incursion_detail_view(
                     size=12,
                     color=ft.Colors.BLUE_GREY_400,
                 ),
-                padding=ft.padding.only(top=6),
-                width=420,
+                padding=ft.Padding.only(top=6),
+                width=sessions_table_width,
             )
         else:
             for session in sorted(
@@ -649,36 +711,58 @@ def incursion_detail_view(
                     data_row_min_height=28,
                     divider_thickness=0,
                 ),
-                padding=ft.padding.only(top=6),
-                width=300,
+                padding=ft.Padding.only(top=6),
+                width=sessions_table_width,
             )
 
-        result_summary = None
-        if view_model.session_state == SESSION_STATE_FINALIZED:
-            result_label = get_result_label(detail.result)
-            result_summary = ft.Text(
-                f"Resultado final: {result_label} · Puntuación {detail.score}",
-                size=12,
-                color=ft.Colors.BLUE_GREY_600,
-                text_align=ft.TextAlign.CENTER,
-            )
-
-        bottom_section = _light_section(
-            ft.Column(
+        sessions_panel = ft.Container(
+            width=result_panel_width,
+            padding=12,
+            border=ft.Border.all(1, ft.Colors.GREY_300),
+            border_radius=12,
+            bgcolor=ft.Colors.WHITE,
+            content=ft.Column(
                 [
-                    time_text,
-                    ft.Column(
-                        [control for control in [primary_button, finalize_button] if control],
-                        spacing=10,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    ft.Text(
+                        "Sesiones",
+                        size=16,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.BLUE_GREY_800,
                     ),
-                    result_summary if result_summary else ft.Container(),
-                    finalize_panel,
                     sessions_detail,
                 ],
-                spacing=14,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            )
+                spacing=8,
+            ),
+        )
+
+        bottom_section = ft.Container(
+            alignment=ft.Alignment.CENTER,
+            padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+            content=ft.Container(
+                width=lower_block_max_width,
+                content=ft.Column(
+                    [
+                        ft.Container(
+                            content=time_text,
+                            width=lower_block_max_width,
+                            alignment=ft.Alignment.CENTER,
+                        ),
+                        ft.Container(
+                            content=ft.Column(
+                                [control for control in [primary_button, finalize_button] if control],
+                                spacing=10,
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            ),
+                            width=lower_block_max_width,
+                            alignment=ft.Alignment.CENTER,
+                        ),
+                        result_panel,
+                        sessions_panel,
+                    ],
+                    spacing=14,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+            ),
         )
 
         content = ft.Container(

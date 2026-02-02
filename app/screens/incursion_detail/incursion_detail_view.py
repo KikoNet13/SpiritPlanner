@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import math
+import struct
 from datetime import datetime, timezone
+from pathlib import Path
 
 import flet as ft
 
 from app.screens.incursion_detail.incursion_detail_model import (
+    IncursionDetailModel,
     SESSION_STATE_FINALIZED,
     compute_total_seconds,
     get_result_label,
@@ -19,6 +24,168 @@ from app.utils.logger import get_logger
 from app.utils.router import register_route_loader
 
 logger = get_logger(__name__)
+
+
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+CALIBRATION_PATH = ASSETS_DIR / "layouts" / "calibration.json"
+BOARDS_DIR = ASSETS_DIR / "boards"
+VIEWPORT_ASPECT_RATIO = 12 / 7
+DEFAULT_BOARD_HEIGHT_PCT = 0.90
+CENTER_ALIGN = ft.Alignment(0, 0)
+PREVIEW_TEXT_COLOR = ft.Colors.BLUE_GREY_100
+PREVIEW_BG_COLOR = ft.Colors.BLUE_GREY_700
+
+_CALIBRATION_CACHE: dict[str, dict[str, dict[str, float]]] | None = None
+_BOARD_ASPECT_CACHE: dict[str, float] = {}
+
+
+def _safe_float(value: object, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _read_png_size(path: Path) -> tuple[int, int]:
+    if not path.exists():
+        return (1, 1)
+
+    with path.open("rb") as file:
+        header = file.read(24)
+
+    png_sig = b"\x89PNG\r\n\x1a\n"
+    if len(header) < 24 or header[:8] != png_sig:
+        return (1, 1)
+
+    width, height = struct.unpack(">II", header[16:24])
+    if width <= 0 or height <= 0:
+        return (1, 1)
+    return width, height
+
+
+def _load_layout_calibration() -> dict[str, dict[str, dict[str, float]]]:
+    global _CALIBRATION_CACHE
+    if _CALIBRATION_CACHE is not None:
+        return _CALIBRATION_CACHE
+
+    try:
+        data = json.loads(CALIBRATION_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        _CALIBRATION_CACHE = {}
+        return _CALIBRATION_CACHE
+
+    layouts = data.get("layouts")
+    if not isinstance(layouts, dict):
+        layouts = {}
+    _CALIBRATION_CACHE = layouts
+    return layouts
+
+
+def _get_board_aspect(board_id: str) -> float | None:
+    if board_id in _BOARD_ASPECT_CACHE:
+        return _BOARD_ASPECT_CACHE[board_id]
+
+    board_path = BOARDS_DIR / f"{board_id}.png"
+    if not board_path.exists():
+        return None
+
+    width, height = _read_png_size(board_path)
+    aspect = width / height if height else 1.0
+    _BOARD_ASPECT_CACHE[board_id] = aspect
+    return aspect
+
+
+def _build_layout_preview(detail: IncursionDetailModel) -> ft.Control:
+    page = ft.context.page
+    page_width = float(page.width or 900.0)
+    preview_width = max(200.0, min(320.0, page_width * 0.3))
+    preview_height = preview_width / VIEWPORT_ASPECT_RATIO
+
+    def build_fallback(message: str) -> ft.Container:
+        return ft.Container(
+            aspect_ratio=VIEWPORT_ASPECT_RATIO,
+            width=preview_width,
+            bgcolor=PREVIEW_BG_COLOR,
+            border_radius=12,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            alignment=ft.Alignment.CENTER,
+            content=ft.Text(
+                message,
+                color=PREVIEW_TEXT_COLOR,
+                size=12,
+            ),
+        )
+
+    if not detail.layout_id or not detail.board_1_id or not detail.board_2_id:
+        return build_fallback("Preview no disponible")
+
+    calibration = _load_layout_calibration()
+    layout_data = calibration.get(detail.layout_id)
+    if not isinstance(layout_data, dict):
+        return build_fallback("Preview no disponible")
+
+    left_slot = layout_data.get("left")
+    right_slot = layout_data.get("right")
+    if not isinstance(left_slot, dict) or not isinstance(right_slot, dict):
+        return build_fallback("Preview no disponible")
+
+    left_aspect = _get_board_aspect(detail.board_1_id)
+    right_aspect = _get_board_aspect(detail.board_2_id)
+    if left_aspect is None or right_aspect is None:
+        return build_fallback("Preview no disponible")
+
+    board_base_height_px = preview_height * DEFAULT_BOARD_HEIGHT_PCT
+
+    def build_board_control(
+        board_id: str,
+        board_aspect: float,
+        slot_data: dict[str, object],
+    ) -> ft.Image:
+        transform = {
+            "dx": _safe_float(slot_data.get("dx"), 0.0),
+            "dy": _safe_float(slot_data.get("dy"), 0.0),
+            "rot_deg": _safe_float(slot_data.get("rot_deg"), 0.0),
+        }
+
+        translate_x_px = transform["dx"] * board_base_height_px
+        translate_y_px = transform["dy"] * board_base_height_px
+        board_height_px = board_base_height_px
+        board_width_px = board_height_px * board_aspect
+
+        center_x = (preview_width / 2) + translate_x_px
+        center_y = (preview_height / 2) + translate_y_px
+
+        return ft.Image(
+            src=f"boards/{board_id}.png",
+            fit=ft.BoxFit.CONTAIN,
+            width=board_width_px,
+            height=board_height_px,
+            left=center_x - (board_width_px / 2),
+            top=center_y - (board_height_px / 2),
+            rotate=ft.Rotate(
+                angle=math.radians(transform["rot_deg"]),
+                alignment=CENTER_ALIGN,
+            ),
+        )
+
+    preview_stack = ft.Stack(
+        width=preview_width,
+        height=preview_height,
+        controls=[
+            build_board_control(detail.board_1_id, left_aspect, left_slot),
+            build_board_control(detail.board_2_id, right_aspect, right_slot),
+        ],
+    )
+
+    return ft.Container(
+        aspect_ratio=VIEWPORT_ASPECT_RATIO,
+        width=preview_width,
+        bgcolor=PREVIEW_BG_COLOR,
+        border_radius=12,
+        clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        alignment=ft.Alignment.CENTER,
+        content=preview_stack,
+    )
 
 
 def _dark_section(content: ft.Control) -> ft.Container:
@@ -329,18 +496,7 @@ def incursion_detail_view(
                         color=ft.Colors.BLUE_GREY_100,
                         text_align=ft.TextAlign.CENTER,
                     ),
-                    ft.Container(
-                        height=140,
-                        width=240,
-                        bgcolor=ft.Colors.BLUE_GREY_700,
-                        border_radius=12,
-                        alignment=ft.Alignment.CENTER,
-                        content=ft.Text(
-                            "Imagen de layout",
-                            color=ft.Colors.BLUE_GREY_100,
-                            size=12,
-                        ),
-                    ),
+                    _build_layout_preview(detail),
                     ft.Divider(color=ft.Colors.BLUE_GREY_700),
                     adversary_level_block,
                 ],

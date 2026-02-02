@@ -32,6 +32,7 @@ def _period_card(
         action_row = ft.Row(
             [action],
             alignment=ft.MainAxisAlignment.END,
+            expand=True,
         )
     return section_card(
         ft.Column(
@@ -51,16 +52,24 @@ def _period_card(
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
                 ft.Column(body_controls, spacing=4),
+                ft.Container(expand=True),
                 action_row or ft.Container(),
             ],
             spacing=8,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
     )
 
 
 def _incursions_preview(entries: list[str]) -> list[ft.Control]:
     return [
-        ft.Text(entry, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+        ft.Text(
+            entry,
+            size=12,
+            color=ft.Colors.BLUE_GREY_600,
+            max_lines=1,
+            overflow=ft.TextOverflow.ELLIPSIS,
+        )
         for entry in entries[:2]
     ]
 
@@ -317,6 +326,31 @@ def periods_view(
             action = ft.Button(
                 "Revelar",
                 on_click=handle_reveal_period,
+            )
+        elif row.status_label == "Pendiente":
+            def handle_reveal_pending_period(
+                event: ft.ControlEvent,
+                period_id: str = row.period_id,
+            ) -> None:
+                logger.info(
+                    "UI click reveal pending period era_id=%s period_id=%s control=%s",
+                    era_id,
+                    period_id,
+                    event.control,
+                )
+                try:
+                    view_model.reveal_period(service, period_id)
+                except Exception as exc:
+                    logger.exception(
+                        "Failed to handle reveal pending period era_id=%s period_id=%s error=%s",
+                        era_id,
+                        period_id,
+                        exc,
+                    )
+
+            action = ft.Button(
+                "Revelar",
+                on_click=handle_reveal_pending_period,
             )
 
         preview_lines = (

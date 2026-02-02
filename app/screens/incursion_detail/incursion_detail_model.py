@@ -16,9 +16,12 @@ class IncursionDetailModel:
     index: int
     spirit_1_name: str
     spirit_2_name: str
+    layout_id: str
     board_1_name: str
     board_2_name: str
     layout_name: str
+    board_1_id: str
+    board_2_id: str
     adversary_id: str | None
     adversary_name: str
     adversary_level: str | None

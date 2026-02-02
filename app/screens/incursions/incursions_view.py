@@ -46,14 +46,17 @@ def _incursion_card(
                     ],
                     spacing=4,
                 ),
+                ft.Container(expand=True),
                 ft.Row(
                     [
                         ft.Button("Abrir", on_click=on_open),
                     ],
                     alignment=ft.MainAxisAlignment.END,
+                    expand=True,
                 ),
             ],
             spacing=8,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
     )
 

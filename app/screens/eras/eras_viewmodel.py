@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import flet as ft
 
-from app.screens.eras.eras_model import (
+from screens.eras.eras_model import (
     EraCardModel,
     get_era_status,
     get_incursion_status,
 )
-from app.services.firestore_service import FirestoreService
-from app.utils.logger import get_logger
+from services.firestore_service import FirestoreService
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

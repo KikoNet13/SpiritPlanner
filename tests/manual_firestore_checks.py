@@ -3,8 +3,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
+sys.path.append(str(ROOT / "app"))
 
-from app.services.firestore_service import FirestoreService
+from services.firestore_service import FirestoreService
 
 # ========= CONFIGURACIÓN =========
 

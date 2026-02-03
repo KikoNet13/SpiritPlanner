@@ -30,14 +30,14 @@ ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 LAYOUTS_DIR = ASSETS_DIR / "layouts"
 CALIBRATION_PATH = LAYOUTS_DIR / "calibration.json"
 BOARDS_DIR = ASSETS_DIR / "boards"
-DEFAULT_BOARD_HEIGHT_PCT = 0.90
+DEFAULT_BOARD_HEIGHT_PCT = 0.80
 CENTER_ALIGN = ft.Alignment(0, 0)
 PREVIEW_TEXT_COLOR = ft.Colors.BLUE_GREY_100
 PREVIEW_BG_COLOR = ft.Colors.BLUE_GREY_700
 CONTENT_SECTION_PADDING = 16.0
 DARK_SECTION_PADDING = 20.0
-LAYOUT_PLACEHOLDER_WIDTH = 240.0
-LAYOUT_PLACEHOLDER_HEIGHT = 140.0
+LAYOUT_PLACEHOLDER_WIDTH = 400.0
+LAYOUT_PLACEHOLDER_HEIGHT = 200.0
 LAYOUT_PLACEHOLDER_MAX_WIDTH = 960.0
 LAYOUT_PLACEHOLDER_RATIO = LAYOUT_PLACEHOLDER_HEIGHT / LAYOUT_PLACEHOLDER_WIDTH
 LAYOUT_PREVIEW_PADDING = 6.0
@@ -149,11 +149,7 @@ def _apply_board_layout(
 def layout_preview(detail: IncursionDetailModel) -> ft.Control:
     page = ft.context.page
     page_width, set_page_width = ft.use_state(
-        float(
-            page.width
-            or getattr(getattr(page, "window", None), "width", 0)
-            or 900.0
-        )
+        float(page.width or getattr(getattr(page, "window", None), "width", 0) or 900.0)
     )
 
     preview_width, preview_height = _compute_layout_preview_size(page_width)
@@ -195,8 +191,7 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
 
     inner_preview_width = max(
         0.0,
-        preview_width
-        - ((LAYOUT_PREVIEW_PADDING + LAYOUT_PREVIEW_INNER_PADDING) * 2.0),
+        preview_width - ((LAYOUT_PREVIEW_PADDING + LAYOUT_PREVIEW_INNER_PADDING) * 2.0),
     )
     inner_preview_height = max(
         0.0,
@@ -213,9 +208,7 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             padding=LAYOUT_PREVIEW_PADDING,
             border=(
-                ft.Border.all(1, ft.Colors.ORANGE_400)
-                if DEBUG_LAYOUT_PREVIEW
-                else None
+                ft.Border.all(1, ft.Colors.ORANGE_400) if DEBUG_LAYOUT_PREVIEW else None
             ),
             alignment=ft.Alignment.CENTER,
             content=ft.Container(
@@ -698,6 +691,7 @@ def incursion_detail_view(
 
         grid_gap = 12
         grid_vertical_spacing = 10
+
         def _result_dropdown() -> ft.Dropdown:
             return ft.Dropdown(
                 label="Resultado",
@@ -772,33 +766,26 @@ def incursion_detail_view(
         def _grid_placeholder() -> ft.Container:
             return ft.Container(expand=1, height=RESULT_FIELD_HEIGHT)
 
-        remaining_cell = _cards_remaining_field() if is_win else _grid_placeholder()
-        out_of_deck_cell = (
-            _cards_out_of_deck_field() if is_loss else _grid_placeholder()
-        )
+        if is_win:
+            _invaders_cards = _cards_remaining_field()
+        elif is_loss:
+            _invaders_cards = _cards_out_of_deck_field()
+        else:
+            _invaders_cards = _grid_placeholder()
 
-        result_dropdown_row = ft.Row(
-            [
-                ft.Container(
-                    expand=1,
-                    content=_result_dropdown(),
-                )
-            ]
-        )
         result_fields_grid = ft.Column(
             [
-                result_dropdown_row,
                 ft.Row(
                     [
+                        _grid_cell(_result_dropdown()),
                         _grid_cell(_dahan_alive_field()),
-                        _grid_cell(_blight_field()),
                     ],
                     spacing=grid_gap,
                 ),
                 ft.Row(
                     [
-                        _grid_cell(remaining_cell),
-                        _grid_cell(out_of_deck_cell),
+                        _grid_cell(_blight_field()),
+                        _grid_cell(_invaders_cards),
                     ],
                     spacing=grid_gap,
                 ),
@@ -867,9 +854,7 @@ def incursion_detail_view(
             view_model.timer_now or datetime.now(timezone.utc),
         )
         time_color = (
-            ft.Colors.BLUE_600
-            if view_model.open_session
-            else ft.Colors.BLUE_GREY_900
+            ft.Colors.BLUE_600 if view_model.open_session else ft.Colors.BLUE_GREY_900
         )
         time_text = ft.Text(
             f"⏱ {_format_total_time(total_seconds_value)}",
@@ -1045,7 +1030,11 @@ def incursion_detail_view(
                         ),
                         ft.Container(
                             content=ft.Column(
-                                [control for control in [primary_button, finalize_button] if control],
+                                [
+                                    control
+                                    for control in [primary_button, finalize_button]
+                                    if control
+                                ],
                                 spacing=10,
                                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                             ),

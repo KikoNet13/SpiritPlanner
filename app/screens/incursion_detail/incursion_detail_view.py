@@ -39,6 +39,7 @@ DARK_SECTION_PADDING = 20.0
 LAYOUT_PLACEHOLDER_WIDTH = 240.0
 LAYOUT_PLACEHOLDER_HEIGHT = 140.0
 LAYOUT_PLACEHOLDER_MAX_WIDTH = 960.0
+DEBUG_LAYOUT_PREVIEW = False
 
 _CALIBRATION_CACHE: dict[str, dict[str, dict[str, float]]] | None = None
 _BOARD_ASPECT_CACHE: dict[str, float] = {}
@@ -129,7 +130,7 @@ def _compute_layout_preview_size(
 
 
 def _apply_board_layout(
-    board_control: ft.Image,
+    board_frame: ft.Container,
     board_aspect: float,
     slot_data: dict[str, object],
     preview_width: float,
@@ -150,16 +151,21 @@ def _apply_board_layout(
     center_x = (preview_width / 2) + translate_x_px
     center_y = (preview_height / 2) + translate_y_px
 
-    board_control.width = board_width_px
-    board_control.height = board_height_px
-    board_control.left = center_x - (board_width_px / 2)
-    board_control.top = center_y - (board_height_px / 2)
+    board_frame.width = board_width_px
+    board_frame.height = board_height_px
+    board_frame.left = center_x - (board_width_px / 2)
+    board_frame.top = center_y - (board_height_px / 2)
 
 
 @ft.component
 def layout_preview(detail: IncursionDetailModel) -> ft.Control:
     page = ft.context.page
-    page_width, set_page_width = ft.use_state(float(page.width or 900.0))
+    frame_ref = ft.use_ref(None)
+    stack_ref = ft.use_ref(None)
+    board_controls_ref: ft.Ref[
+        list[tuple[ft.Container, ft.Image, float, dict[str, object]]]
+    ] = ft.use_ref([])
+    page_width = float(page.width or 900.0)
     layout_aspect = (
         _get_layout_aspect(detail.layout_id)
         if detail.layout_id
@@ -196,6 +202,11 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
             bgcolor=PREVIEW_BG_COLOR,
             border_radius=12,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            border=(
+                ft.Border.all(1, ft.Colors.ORANGE_400)
+                if DEBUG_LAYOUT_PREVIEW
+                else None
+            ),
             alignment=ft.Alignment.CENTER,
             content=ft.Text(
                 message,
@@ -205,7 +216,10 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
         )
 
     if not detail.layout_id or not detail.board_1_id or not detail.board_2_id:
-        return build_fallback("Preview no disponible")
+        preview_frame = build_fallback("Preview no disponible")
+        board_controls_data: list[
+            tuple[ft.Container, ft.Image, float, dict[str, object]]
+        ] = []
     else:
         calibration = _load_layout_calibration()
         layout_data = calibration.get(detail.layout_id)
@@ -226,29 +240,52 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
                         board_id: str,
                         board_aspect: float,
                         slot_data: dict[str, object],
-                    ) -> ft.Image:
+                    ) -> ft.Container:
                         transform = {
                             "dx": _safe_float(slot_data.get("dx"), 0.0),
                             "dy": _safe_float(slot_data.get("dy"), 0.0),
                             "rot_deg": _safe_float(slot_data.get("rot_deg"), 0.0),
                         }
 
-                        board_control = ft.Image(
+                        board_image = ft.Image(
                             src=f"boards/{board_id}.png",
                             fit=ft.BoxFit.CONTAIN,
+                            expand=True,
+                        )
+                        board_image_container = ft.Container(
+                            content=board_image,
+                            alignment=ft.Alignment.CENTER,
+                            expand=True,
+                            border=(
+                                ft.Border.all(1, ft.Colors.YELLOW_400)
+                                if DEBUG_LAYOUT_PREVIEW
+                                else None
+                            ),
+                        )
+                        board_frame = ft.Container(
+                            content=board_image_container,
+                            alignment=ft.Alignment.CENTER,
+                            border=(
+                                ft.Border.all(1, ft.Colors.GREEN_400)
+                                if DEBUG_LAYOUT_PREVIEW
+                                else None
+                            ),
                             rotate=ft.Rotate(
                                 angle=math.radians(transform["rot_deg"]),
                                 alignment=CENTER_ALIGN,
                             ),
                         )
+                        board_controls_data.append(
+                            (board_frame, board_image, board_aspect, slot_data)
+                        )
                         _apply_board_layout(
-                            board_control,
+                            board_frame,
                             board_aspect,
                             slot_data,
                             preview_width,
                             preview_height,
                         )
-                        return board_control
+                        return board_frame
 
                     preview_frame = ft.Container(
                         width=preview_width,
@@ -256,6 +293,11 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
                         bgcolor=PREVIEW_BG_COLOR,
                         border_radius=12,
                         clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                        border=(
+                            ft.Border.all(1, ft.Colors.ORANGE_400)
+                            if DEBUG_LAYOUT_PREVIEW
+                            else None
+                        ),
                         alignment=ft.Alignment.CENTER,
                         content=ft.Stack(
                             width=preview_width,
@@ -270,6 +312,75 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
                             ],
                         ),
                     )
+
+    board_controls_ref.current = board_controls_data
+
+    def log_debug_layout(target_width: float, target_height: float) -> None:
+        if not DEBUG_LAYOUT_PREVIEW:
+            return
+        logger.debug(
+            "Layout preview frame width=%s height=%s",
+            target_width,
+            target_height,
+        )
+        for board_frame, board_image, _, _ in board_controls_ref.current:
+            logger.debug(
+                "Layout preview board frame width=%s height=%s left=%s top=%s",
+                board_frame.width,
+                board_frame.height,
+                board_frame.left,
+                board_frame.top,
+            )
+            logger.debug(
+                "Layout preview image width=%s height=%s expand=%s fit=%s",
+                board_image.width,
+                board_image.height,
+                board_image.expand,
+                board_image.fit,
+            )
+
+    def apply_preview_size(target_width: float, target_height: float) -> None:
+        frame = frame_ref.current
+        if not frame:
+            return
+        frame.width = target_width
+        frame.height = target_height
+        if preview_stack := stack_ref.current:
+            preview_stack.width = target_width
+            preview_stack.height = target_height
+        for board_frame, _, board_aspect, slot_data in board_controls_ref.current:
+            _apply_board_layout(
+                board_frame,
+                board_aspect,
+                slot_data,
+                target_width,
+                target_height,
+            )
+        log_debug_layout(target_width, target_height)
+        frame.update()
+
+    def register_resize_handler():
+        def on_resize(_: ft.ControlEvent) -> None:
+            updated_width, updated_height = _compute_layout_preview_size(
+                float(page.width or 900.0),
+                layout_aspect,
+            )
+            apply_preview_size(updated_width, updated_height)
+
+        page.on_resize = on_resize
+        updated_width, updated_height = _compute_layout_preview_size(
+            float(page.width or 900.0),
+            layout_aspect,
+        )
+        apply_preview_size(updated_width, updated_height)
+
+        def cleanup() -> None:
+            if page.on_resize == on_resize:
+                page.on_resize = None
+
+        return cleanup
+
+    ft.use_effect(register_resize_handler, [])
 
     return preview_frame
 

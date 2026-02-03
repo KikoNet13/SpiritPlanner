@@ -4,8 +4,9 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 DEFAULT_SPIRITS_PATH = Path("pc/data/input/spirits.tsv")
 DEFAULT_BOARDS_PATH = Path("pc/data/input/boards.tsv")
@@ -27,6 +28,14 @@ def _load_generate_function() -> Any:
     else:
         from generate_era import run_generate_era
     return run_generate_era
+
+
+def _load_list_eras_function() -> Any:
+    if __package__:
+        from .firestore_service import list_eras
+    else:
+        from firestore_service import list_eras
+    return list_eras
 
 
 def _print_help() -> None:
@@ -93,6 +102,83 @@ def _confirm_delete(era_id: str) -> bool:
     return True
 
 
+def _is_credentials_error(exc: Exception) -> bool:
+    error_text = f"{exc.__class__.__name__}: {exc}".lower()
+    return (
+        "defaultcredentialserror" in error_text
+        or "application default credentials" in error_text
+        or "could not automatically determine credentials" in error_text
+        or "google_application_credentials" in error_text
+    )
+
+
+def _format_operation_error(exc: Exception) -> str:
+    error_text = f"{exc.__class__.__name__}: {exc}".lower()
+
+    if _is_credentials_error(exc):
+        return (
+            "No se encontraron credenciales de Google Cloud (ADC). "
+            "Configura GOOGLE_APPLICATION_CREDENTIALS o inicia ADC con gcloud."
+        )
+    if "no module named 'firebase_admin'" in error_text:
+        return "Falta la dependencia 'firebase-admin' en este entorno."
+    if str(exc).strip():
+        return str(exc).strip()
+    return "Error inesperado al operar con Firestore."
+
+
+def _print_error(prefix: str, exc: Exception) -> None:
+    print(f"{prefix}: {_format_operation_error(exc)}")
+
+
+def _format_timestamp(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    if value is None:
+        return "-"
+    return str(value)
+
+
+def _build_era_row_label(row: dict[str, Any]) -> str:
+    era_id = str(row["era_id"])
+    updated_at = _format_timestamp(row.get("updated_at"))
+    created_at = _format_timestamp(row.get("created_at"))
+    return f"{era_id} (updated_at: {updated_at}, created_at: {created_at})"
+
+
+def select_era_interactively(action_label_es: str) -> Optional[str]:
+    while True:
+        try:
+            list_eras = _load_list_eras_function()
+            rows: list[dict[str, Any]] = list_eras()
+        except Exception as exc:
+            _print_error("No se pudo cargar la lista de eras", exc)
+            return None
+
+        if not rows:
+            print("No hay eras en Firestore.")
+            return None
+
+        print(f"\nSelecciona una era para {action_label_es}:")
+        for index, row in enumerate(rows, start=1):
+            print(f"{index}) {_build_era_row_label(row)}")
+        print("0) Cancelar")
+        print("R) Refrescar lista")
+
+        option = input("Elige una opcion: ").strip()
+        if option.lower() == "r":
+            continue
+        if option == "0":
+            print("Operacion cancelada.")
+            return None
+        if option.isdigit():
+            selected_index = int(option)
+            if 1 <= selected_index <= len(rows):
+                return str(rows[selected_index - 1]["era_id"])
+
+        print("Opcion invalida. Escribe un numero de la lista, 0 o R.")
+
+
 def _run_generate_flow() -> None:
     print("\n=== Generar era ===")
     era_id = _prompt_text("Era ID", default="1")
@@ -113,7 +199,7 @@ def _run_generate_flow() -> None:
             print_generated_seed=False,
         )
     except Exception as exc:
-        print(f"Error al generar la era '{era_id}': {exc}")
+        _print_error(f"Error al generar la era '{era_id}'", exc)
         return
 
     print(f"Era '{era_id}' generada correctamente.")
@@ -122,12 +208,14 @@ def _run_generate_flow() -> None:
 
 def _run_delete_flow() -> None:
     print("\n=== Eliminar era ===")
-    era_id = _prompt_text("Era ID", required=True)
+    era_id = select_era_interactively("eliminar")
+    if era_id is None:
+        return
 
     try:
         counts = _count_era(era_id)
     except Exception as exc:
-        print(f"Error al contar la era '{era_id}': {exc}")
+        _print_error(f"Error al contar la era '{era_id}'", exc)
         return
 
     _print_counts(era_id, counts)
@@ -138,13 +226,13 @@ def _run_delete_flow() -> None:
         _delete_era(era_id)
     except Exception as exc:
         print("Error durante el borrado. La era puede haber quedado eliminada de forma parcial.")
-        print(f"Detalle: {exc}")
+        print(f"Detalle: {_format_operation_error(exc)}")
         return
 
     try:
         remaining = _count_era(era_id)
     except Exception as exc:
-        print(f"La era se borro, pero fallo la verificacion final: {exc}")
+        _print_error("La era se borro, pero fallo la verificacion final", exc)
         return
 
     if (
@@ -162,12 +250,14 @@ def _run_delete_flow() -> None:
 
 def _run_reset_flow() -> None:
     print("\n=== Reiniciar era ===")
-    era_id = _prompt_text("Era ID", required=True)
+    era_id = select_era_interactively("reiniciar")
+    if era_id is None:
+        return
 
     try:
         counts = _count_era(era_id)
     except Exception as exc:
-        print(f"Error al contar la era '{era_id}': {exc}")
+        _print_error(f"Error al contar la era '{era_id}'", exc)
         return
 
     _print_counts(era_id, counts)
@@ -180,7 +270,7 @@ def _run_reset_flow() -> None:
         _delete_era(era_id)
     except Exception as exc:
         print("Error durante el borrado. La era puede haber quedado eliminada de forma parcial.")
-        print(f"Detalle: {exc}")
+        print(f"Detalle: {_format_operation_error(exc)}")
         return
 
     try:
@@ -199,7 +289,7 @@ def _run_reset_flow() -> None:
         )
     except Exception as exc:
         print("Error al regenerar la era despues del borrado.")
-        print(f"Detalle: {exc}")
+        print(f"Detalle: {_format_operation_error(exc)}")
         return
 
     print(f"Era '{era_id}' reiniciada correctamente.")

@@ -21,6 +21,8 @@ Status: Accepted
   - Boton principal `width=320` y `height=52`.
   - Placeholder de layout `height=140` y `width=240`.
 
+Nota: el tamaño fijo del placeholder de layout queda superseded por ADR 0008.
+
 ## Decision - Interacciones
 
 - Flujo formal: `start_session` -> `end_session` -> `finalize_incursion`.

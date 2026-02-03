@@ -155,7 +155,7 @@
 - `ft.AppBar` con titulo "Incursion" y `center_title=True`.
 - Contenedor principal: `ft.Container` con `padding=16`, `scroll=ft.ScrollMode.AUTO`, `expand=True`, y `ft.Column([setup_section, bottom_section], spacing=16)`.
 - `setup_section` usa `dark_section` (padding 20, border_radius 20, `bgcolor=ft.Colors.BLUE_GREY_900`).
-- Orden interno de `setup_section`: texto pequeno con "Incursion {index} · {period_label}" -> fila con spirits/boards -> texto de `layout_name` -> placeholder de layout (`height=140`, `width=240`, `bgcolor=ft.Colors.BLUE_GREY_700`, `border_radius=12`) -> `ft.Divider` -> `adversary_level_block`.
+- Orden interno de `setup_section`: texto pequeno con "Incursion {index} · {period_label}" -> fila con spirits/boards -> texto de `layout_name` -> placeholder de layout responsive (ancho segun espacio disponible, alto = ancho * 140/240, `bgcolor=ft.Colors.BLUE_GREY_700`, `border_radius=12`, `clip_behavior` para recorte) -> `ft.Divider` -> `adversary_level_block`.
 - `adversary_level_block` es un `ft.Container` centrado con `bgcolor=ft.Colors.BLUE_GREY_50`, `border_radius=8` y muestra `adversary_name` + selector o texto con "Nivel ... · Dificultad ..." en la misma linea.
 - `bottom_section` usa `light_section` (padding 16, border_radius 16, borde gris, fondo blanco).
 - Orden en `bottom_section`: `time_text` grande con prefijo de reloj (emoji) -> columna con boton principal `ft.FilledButton` (`width=320`, `height=52`, `bgcolor=ft.Colors.BLUE_700`) -> `result_summary` (si finalizado) -> `finalize_panel` -> `sessions_detail`.

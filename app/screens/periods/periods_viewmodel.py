@@ -26,6 +26,8 @@ class PeriodsViewModel:
         self.assignment_selections: dict[str, str | None] = {}
         self.assignment_errors: dict[str, bool] = {}
         self.assignment_open = False
+        self.assignment_viewport_width: float | None = None
+        self.assignment_viewport_height: float | None = None
         self.assignment_version = 0
         self.toast_message: str | None = None
         self.toast_version = 0
@@ -89,6 +91,16 @@ class PeriodsViewModel:
         }
         self.assignment_errors = {}
         self.assignment_open = True
+        self.assignment_version += 1
+
+    def set_assignment_viewport(self, width: float, height: float) -> None:
+        if (
+            self.assignment_viewport_width == width
+            and self.assignment_viewport_height == height
+        ):
+            return
+        self.assignment_viewport_width = width
+        self.assignment_viewport_height = height
         self.assignment_version += 1
 
     def reveal_period(self, service: FirestoreService, period_id: str) -> None:

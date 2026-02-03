@@ -58,9 +58,7 @@ jobs:
 
       - name: Build APK
         run: |
-          pipenv run flet build apk \
-            --module-name "${{ inputs.module_name }}" \
-            --output "${{ inputs.build_dir }}"
+          pipenv run flet build apk --module-name "app.main" --output "dist_ci"
 
       - name: Collect APKs
         id: collect

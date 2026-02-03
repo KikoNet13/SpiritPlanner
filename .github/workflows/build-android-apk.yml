@@ -1,0 +1,82 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      module_name:
+        description: "Módulo principal para Flet (ej: app.main)"
+        required: true
+        default: "app.main"
+      build_dir:
+        description: "Directorio de salida para APKs"
+        required: true
+        default: "dist_ci"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    env:
+      PIPENV_VENV_IN_PROJECT: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install pipenv
+        run: python -m pip install --upgrade pip pipenv
+
+      - name: Install Python dependencies
+        run: pipenv sync --dev
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Build APK
+        run: |
+          pipenv run flet build apk \
+            --module-name "${{ inputs.module_name }}" \
+            --output "${{ inputs.build_dir }}"
+
+      - name: Collect APKs
+        id: collect
+        run: |
+          mkdir -p "${{ inputs.build_dir }}/artifacts"
+          find "${{ inputs.build_dir }}" -type f -name "*.apk" -print \
+            -exec cp {} "${{ inputs.build_dir }}/artifacts/" \;
+          echo "apk_dir=${{ inputs.build_dir }}/artifacts" >> "$GITHUB_OUTPUT"
+
+      - name: Short SHA
+        id: vars
+        run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpiritPlanner-apk-${{ steps.vars.outputs.short_sha }}
+          path: ${{ steps.collect.outputs.apk_dir }}
+          if-no-files-found: error

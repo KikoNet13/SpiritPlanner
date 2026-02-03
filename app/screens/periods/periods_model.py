@@ -83,7 +83,10 @@ def build_period_rows(
         incursion_count = get_incursion_count(period, incursions)
         preview_lines: list[str] = []
         if period.get("revealed_at") and incursions:
-            for incursion in incursions:
+            for incursion in sorted(
+                incursions,
+                key=lambda item: item.get("index", 0),
+            ):
                 spirit_1 = get_spirit_name(incursion.get("spirit_1_id"))
                 spirit_2 = get_spirit_name(incursion.get("spirit_2_id"))
                 preview_lines.append(

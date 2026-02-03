@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 *.env
 *.pdf
+*.exe
 
 # Pipenv
 .venv/

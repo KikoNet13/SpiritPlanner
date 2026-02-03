@@ -21,10 +21,14 @@ EXECUTABLE_DIR = (
     Path(sys.executable).resolve().parent if IS_FROZEN else REPO_ROOT
 )
 
-DEFAULT_SPIRITS_PATH = Path("pc/data/input/spirits.tsv")
-DEFAULT_BOARDS_PATH = Path("pc/data/input/boards.tsv")
-DEFAULT_ADVERSARIES_PATH = Path("pc/data/input/adversaries.tsv")
-DEFAULT_LAYOUTS_PATH = Path("pc/data/input/layouts.tsv")
+CATALOG_FILENAMES: dict[str, str] = {
+    "spirits": "spirits.tsv",
+    "boards": "boards.tsv",
+    "adversaries": "adversaries.tsv",
+    "layouts": "layouts.tsv",
+}
+CATALOG_PRIMARY_RELATIVE_DIR = Path("app") / "assets" / "catalogs"
+CATALOG_FALLBACK_RELATIVE_DIR = Path("pc") / "data" / "input"
 
 
 def _build_dotenv_candidates() -> list[Path]:
@@ -137,6 +141,65 @@ def _ensure_credentials_configured() -> bool:
         return True
     _print_missing_credentials_message()
     return False
+
+
+def _catalog_search_dirs(base_dir: Path) -> tuple[Path, Path]:
+    primary_dir = (base_dir / CATALOG_PRIMARY_RELATIVE_DIR).resolve()
+    fallback_dir = (base_dir / CATALOG_FALLBACK_RELATIVE_DIR).resolve()
+    return primary_dir, fallback_dir
+
+
+def resolve_catalog_paths(base_dir: Path) -> dict[str, Path]:
+    primary_dir, fallback_dir = _catalog_search_dirs(base_dir)
+    resolved: dict[str, Path] = {}
+
+    for catalog_key, filename in CATALOG_FILENAMES.items():
+        primary_path = primary_dir / filename
+        fallback_path = fallback_dir / filename
+        if primary_path.is_file():
+            resolved[catalog_key] = primary_path
+            continue
+        if fallback_path.is_file():
+            resolved[catalog_key] = fallback_path
+
+    return resolved
+
+
+def _print_catalog_resolution_debug(base_dir: Path, resolved_paths: dict[str, Path]) -> None:
+    primary_dir, fallback_dir = _catalog_search_dirs(base_dir)
+    print("[DEBUG] Catálogos TSV (resolución):")
+    print(f"[DEBUG] ruta primaria: {primary_dir}")
+    print(f"[DEBUG] ruta fallback: {fallback_dir}")
+    for catalog_key, filename in CATALOG_FILENAMES.items():
+        final_path = resolved_paths.get(catalog_key)
+        if final_path is None:
+            print(f"[DEBUG] - {filename}: no encontrado")
+        else:
+            print(f"[DEBUG] - {filename}: {final_path}")
+
+
+def _print_missing_catalogs_message(base_dir: Path, missing_filenames: list[str]) -> None:
+    primary_dir, fallback_dir = _catalog_search_dirs(base_dir)
+    print("No se encontraron los catálogos TSV necesarios.")
+    print(f"Busqué en: {primary_dir} y {fallback_dir}")
+    print(f"Faltan: {', '.join(missing_filenames)}")
+
+
+def _resolve_required_catalog_paths(base_dir: Path) -> dict[str, Path] | None:
+    resolved_paths = resolve_catalog_paths(base_dir)
+    if _is_debug_enabled():
+        _print_catalog_resolution_debug(base_dir, resolved_paths)
+
+    missing_filenames = [
+        filename
+        for catalog_key, filename in CATALOG_FILENAMES.items()
+        if catalog_key not in resolved_paths
+    ]
+    if missing_filenames:
+        _print_missing_catalogs_message(base_dir, missing_filenames)
+        return None
+
+    return resolved_paths
 
 
 def _load_era_admin_functions() -> tuple[Any, Any]:
@@ -312,6 +375,10 @@ def _run_generate_flow() -> None:
     if not _ensure_credentials_configured():
         return
 
+    catalog_paths = _resolve_required_catalog_paths(EXECUTABLE_DIR)
+    if catalog_paths is None:
+        return
+
     era_id = _prompt_text("Era ID", default="1")
     seed = _prompt_seed()
 
@@ -320,10 +387,10 @@ def _run_generate_flow() -> None:
         resolved_seed = run_generate_era(
             era_id=era_id,
             seed=seed,
-            spirits_path=DEFAULT_SPIRITS_PATH,
-            boards_path=DEFAULT_BOARDS_PATH,
-            adversaries_path=DEFAULT_ADVERSARIES_PATH,
-            layouts_path=DEFAULT_LAYOUTS_PATH,
+            spirits_path=catalog_paths["spirits"],
+            boards_path=catalog_paths["boards"],
+            adversaries_path=catalog_paths["adversaries"],
+            layouts_path=catalog_paths["layouts"],
             debug_tsv_path=None,
             write_firestore=True,
             write_tsv=False,
@@ -387,6 +454,10 @@ def _run_reset_flow() -> None:
     if not _ensure_credentials_configured():
         return
 
+    catalog_paths = _resolve_required_catalog_paths(EXECUTABLE_DIR)
+    if catalog_paths is None:
+        return
+
     era_id = select_era_interactively("reiniciar")
     if era_id is None:
         return
@@ -415,10 +486,10 @@ def _run_reset_flow() -> None:
         resolved_seed = run_generate_era(
             era_id=era_id,
             seed=seed,
-            spirits_path=DEFAULT_SPIRITS_PATH,
-            boards_path=DEFAULT_BOARDS_PATH,
-            adversaries_path=DEFAULT_ADVERSARIES_PATH,
-            layouts_path=DEFAULT_LAYOUTS_PATH,
+            spirits_path=catalog_paths["spirits"],
+            boards_path=catalog_paths["boards"],
+            adversaries_path=catalog_paths["adversaries"],
+            layouts_path=catalog_paths["layouts"],
             debug_tsv_path=None,
             write_firestore=True,
             write_tsv=False,

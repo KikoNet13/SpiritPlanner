@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from pathlib import Path
 
 import flet as ft
 
@@ -16,8 +15,6 @@ from app.utils.navigation import navigate
 from app.utils.router import register_route_loader
 
 logger = get_logger(__name__)
-ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
-LAYOUTS_DIR = ASSETS_DIR / "layouts"
 
 
 def _period_card(
@@ -87,37 +84,6 @@ def _assignment_card(
     show_error: bool,
     on_select,
 ) -> ft.Card:
-    layout_image_path = LAYOUTS_DIR / f"{incursion.layout_id}.png"
-    preview_size = ft.Size(96, 72)
-    if incursion.layout_id and layout_image_path.exists():
-        layout_preview: ft.Control = ft.Container(
-            width=preview_size.width,
-            height=preview_size.height,
-            alignment=ft.Alignment.CENTER,
-            content=ft.Image(
-                src=f"layouts/{incursion.layout_id}.png",
-                fit=ft.BoxFit.CONTAIN,
-                width=preview_size.width,
-                height=preview_size.height,
-            ),
-        )
-    else:
-        layout_preview = ft.Container(
-            width=preview_size.width,
-            height=preview_size.height,
-            border=ft.Border.all(1, ft.Colors.BLUE_GREY_200),
-            border_radius=10,
-            alignment=ft.Alignment.CENTER,
-            padding=6,
-            content=ft.Text(
-                incursion.layout_name,
-                size=10,
-                color=ft.Colors.BLUE_GREY_600,
-                text_align=ft.TextAlign.CENTER,
-                max_lines=2,
-                overflow=ft.TextOverflow.ELLIPSIS,
-            ),
-        )
     dropdown_width = 220
     dropdown = ft.Dropdown(
         options=options,
@@ -125,6 +91,7 @@ def _assignment_card(
         error_text="Selecciona un adversario" if show_error else None,
         on_select=on_select,
         height=40,
+        width=280,
         width=dropdown_width,
     )
     spirits_column = ft.Column(
@@ -141,19 +108,6 @@ def _assignment_card(
             ),
         ],
         spacing=1,
-    )
-    assignment_row = ft.Row(
-        [
-            ft.Container(content=spirits_column, expand=True),
-            ft.Container(
-                width=dropdown_width,
-                alignment=ft.Alignment.CENTER,
-                content=dropdown,
-            ),
-        ],
-        spacing=12,
-        expand=True,
-        vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
     layout_info = ft.Column(
         [
@@ -197,7 +151,8 @@ def _assignment_card(
                         [
                             ft.Column(
                                 [
-                                    assignment_row,
+                                    spirits_column,
+                                    dropdown,
                                 ],
                                 col={"xs": 12, "md": 8},
                                 spacing=6,
@@ -214,7 +169,6 @@ def _assignment_card(
                 ],
                 spacing=6,
             ),
-            padding=12,
         )
     )
 
@@ -261,9 +215,7 @@ def periods_view(
             try:
                 await navigate(page, target)
             except Exception as exc:
-                logger.exception(
-                    "Navigation failed target=%s error=%s", target, exc
-                )
+                logger.exception("Navigation failed target=%s error=%s", target, exc)
 
         logger.info("Scheduling navigation target=%s", target)
         if hasattr(page, "run_task"):
@@ -295,7 +247,11 @@ def periods_view(
             return
         if view_model.assignment_open:
             configure_assignment_dialog(dialog)
-            dialog.update()
+            if dialog.open:
+                # Refresh in-place (dialog stays open) to show validation errors.
+                page.update()
+                return
+            page.show_dialog(dialog)
             return
         if dialog.open:
             page.pop_dialog()
@@ -357,15 +313,6 @@ def periods_view(
             ),
         ]
 
-    def refresh_assignment_dialog() -> None:
-        dialog = dialog_ref.current
-        if dialog is None or not view_model.assignment_open or not dialog.open:
-            return
-        configure_assignment_dialog(dialog)
-        dialog.update()
-
-    ft.use_effect(refresh_assignment_dialog, [view_model.assignment_version])
-
     def register_resize_handler():
         def update_viewport(
             width: float | None,
@@ -405,6 +352,7 @@ def periods_view(
     def build_period_card(row: PeriodRowModel) -> ft.Control:
         action = None
         if row.action in {"results", "incursions"}:
+
             def handle_open_incursions(
                 event: ft.ControlEvent,
                 period_id: str = row.period_id,
@@ -430,6 +378,7 @@ def periods_view(
                 on_click=handle_open_incursions,
             )
         elif row.action == "assign":
+
             def handle_assign_adversaries(
                 event: ft.ControlEvent,
                 period_id: str = row.period_id,
@@ -451,7 +400,9 @@ def periods_view(
                     page.show_dialog(dialog)
                 except RuntimeError as exc:
                     if "already opened" in str(exc).lower():
-                        logger.warning("Assignment dialog already open; skipping reopen")
+                        logger.warning(
+                            "Assignment dialog already open; skipping reopen"
+                        )
                         return
                     raise
                 except Exception as exc:
@@ -467,6 +418,7 @@ def periods_view(
                 on_click=handle_assign_adversaries,
             )
         elif row.action == "reveal":
+
             def handle_reveal_period(
                 event: ft.ControlEvent,
                 period_id: str = row.period_id,
@@ -492,6 +444,7 @@ def periods_view(
                 on_click=handle_reveal_period,
             )
         elif row.status_label == "Pendiente":
+
             def handle_reveal_pending_period(
                 event: ft.ControlEvent,
                 period_id: str = row.period_id,

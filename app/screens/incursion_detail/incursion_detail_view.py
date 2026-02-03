@@ -39,13 +39,14 @@ DARK_SECTION_PADDING = 20.0
 LAYOUT_PLACEHOLDER_WIDTH = 240.0
 LAYOUT_PLACEHOLDER_HEIGHT = 140.0
 LAYOUT_PLACEHOLDER_MAX_WIDTH = 960.0
+LAYOUT_PLACEHOLDER_RATIO = LAYOUT_PLACEHOLDER_HEIGHT / LAYOUT_PLACEHOLDER_WIDTH
 LAYOUT_PREVIEW_PADDING = 6.0
+LAYOUT_PREVIEW_INNER_PADDING = 10.0
 RESULT_FIELD_HEIGHT = 52.0
 DEBUG_LAYOUT_PREVIEW = False
 
 _CALIBRATION_CACHE: dict[str, dict[str, dict[str, float]]] | None = None
 _BOARD_ASPECT_CACHE: dict[str, float] = {}
-_LAYOUT_ASPECT_CACHE: dict[str, float] = {}
 
 
 def _safe_float(value: object, default: float) -> float:
@@ -104,30 +105,15 @@ def _get_board_aspect(board_id: str) -> float | None:
     return aspect
 
 
-def _get_layout_aspect(layout_id: str) -> float:
-    if layout_id in _LAYOUT_ASPECT_CACHE:
-        return _LAYOUT_ASPECT_CACHE[layout_id]
-
-    layout_path = LAYOUTS_DIR / f"{layout_id}.png"
-    if not layout_path.exists():
-        return LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
-
-    width, height = _read_png_size(layout_path)
-    aspect = width / height if height else LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
-    _LAYOUT_ASPECT_CACHE[layout_id] = aspect
-    return aspect
-
-
 def _compute_layout_preview_size(
     page_width: float,
-    layout_aspect: float,
 ) -> tuple[float, float]:
     available_width = max(
         0.0,
         page_width - ((CONTENT_SECTION_PADDING + DARK_SECTION_PADDING) * 2.0),
     )
     preview_width = min(LAYOUT_PLACEHOLDER_MAX_WIDTH, available_width)
-    preview_height = preview_width / layout_aspect if layout_aspect else 0.0
+    preview_height = preview_width * LAYOUT_PLACEHOLDER_RATIO
     return preview_width, preview_height
 
 
@@ -162,24 +148,64 @@ def _apply_board_layout(
 @ft.component
 def layout_preview(detail: IncursionDetailModel) -> ft.Control:
     page = ft.context.page
-    frame_ref = ft.use_ref(None)
-    stack_ref = ft.use_ref(None)
-    board_controls_ref: ft.Ref[
-        list[tuple[ft.Container, ft.Image, float, dict[str, object]]]
-    ] = ft.use_ref([])
-    page_width = float(page.width or 900.0)
-    layout_aspect = LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
-    preview_width, preview_height = _compute_layout_preview_size(
-        page_width,
-        layout_aspect,
+    page_width, set_page_width = ft.use_state(
+        float(
+            page.width
+            or getattr(getattr(page, "window", None), "width", 0)
+            or 900.0
+        )
     )
-    inner_width = max(0.0, preview_width - (LAYOUT_PREVIEW_PADDING * 2.0))
-    inner_height = max(0.0, preview_height - (LAYOUT_PREVIEW_PADDING * 2.0))
 
-    def build_fallback(message: str) -> ft.Container:
-        stack_ref.current = None
+    preview_width, preview_height = _compute_layout_preview_size(page_width)
+
+    def register_resize_handler():
+        previous_handler = page.on_resize
+
+        def on_resize(event: ft.ControlEvent) -> None:
+            if previous_handler and previous_handler is not on_resize:
+                try:
+                    previous_handler(event)
+                except Exception:
+                    logger.exception("Previous page.on_resize handler failed")
+
+            updated_width = float(
+                getattr(event, "width", None)
+                or page.width
+                or getattr(getattr(page, "window", None), "width", 0)
+                or 900.0
+            )
+            set_page_width(updated_width)
+
+        page.on_resize = on_resize
+        set_page_width(
+            float(
+                page.width
+                or getattr(getattr(page, "window", None), "width", 0)
+                or 900.0
+            )
+        )
+
+        def cleanup() -> None:
+            if page.on_resize == on_resize:
+                page.on_resize = previous_handler
+
+        return cleanup
+
+    ft.use_effect(register_resize_handler, [])
+
+    inner_preview_width = max(
+        0.0,
+        preview_width
+        - ((LAYOUT_PREVIEW_PADDING + LAYOUT_PREVIEW_INNER_PADDING) * 2.0),
+    )
+    inner_preview_height = max(
+        0.0,
+        preview_height
+        - ((LAYOUT_PREVIEW_PADDING + LAYOUT_PREVIEW_INNER_PADDING) * 2.0),
+    )
+
+    def build_preview_frame(content: ft.Control) -> ft.Container:
         return ft.Container(
-            ref=frame_ref,
             width=preview_width,
             height=preview_height,
             bgcolor=PREVIEW_BG_COLOR,
@@ -192,206 +218,113 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
                 else None
             ),
             alignment=ft.Alignment.CENTER,
-            content=ft.Text(
-                message,
-                color=PREVIEW_TEXT_COLOR,
-                size=12,
+            content=ft.Container(
+                content=content,
+                padding=LAYOUT_PREVIEW_INNER_PADDING,
+                alignment=ft.Alignment.CENTER,
             ),
         )
 
-    board_controls_data: list[
-        tuple[ft.Container, ft.Image, float, dict[str, object]]
-    ] = []
-    preview_frame = build_fallback("Preview no disponible")
+    def build_fallback(message: str) -> ft.Container:
+        return build_preview_frame(
+            ft.Container(
+                width=inner_preview_width,
+                height=inner_preview_height,
+                alignment=ft.Alignment.CENTER,
+                content=ft.Text(
+                    message,
+                    color=PREVIEW_TEXT_COLOR,
+                    size=12,
+                ),
+            )
+        )
 
     try:
-        if detail.layout_id and detail.board_1_id and detail.board_2_id:
-            calibration = _load_layout_calibration()
-            layout_data = calibration.get(detail.layout_id)
-            if isinstance(layout_data, dict):
-                left_slot = layout_data.get("left")
-                right_slot = layout_data.get("right")
-                if isinstance(left_slot, dict) and isinstance(right_slot, dict):
-                    left_aspect = _get_board_aspect(detail.board_1_id)
-                    right_aspect = _get_board_aspect(detail.board_2_id)
-                    if left_aspect is not None and right_aspect is not None:
+        if not detail.layout_id or not detail.board_1_id or not detail.board_2_id:
+            return build_fallback("Preview no disponible")
 
-                        def build_board_control(
-                            controls_data: list[
-                                tuple[ft.Container, ft.Image, float, dict[str, object]]
-                            ],
-                            board_id: str,
-                            board_aspect: float,
-                            slot_data: dict[str, object],
-                        ) -> ft.Container:
-                            transform = {
-                                "dx": _safe_float(slot_data.get("dx"), 0.0),
-                                "dy": _safe_float(slot_data.get("dy"), 0.0),
-                                "rot_deg": _safe_float(slot_data.get("rot_deg"), 0.0),
-                            }
+        calibration = _load_layout_calibration()
+        layout_data = calibration.get(detail.layout_id)
+        if not isinstance(layout_data, dict):
+            return build_fallback("Preview no disponible")
 
-                            board_image = ft.Image(
-                                src=f"boards/{board_id}.png",
-                                fit=ft.BoxFit.CONTAIN,
-                                expand=True,
-                            )
-                            board_image_container = ft.Container(
-                                content=board_image,
-                                alignment=ft.Alignment.CENTER,
-                                expand=True,
-                                border=(
-                                    ft.Border.all(1, ft.Colors.YELLOW_400)
-                                    if DEBUG_LAYOUT_PREVIEW
-                                    else None
-                                ),
-                            )
-                            board_frame = ft.Container(
-                                content=board_image_container,
-                                alignment=ft.Alignment.CENTER,
-                                border=(
-                                    ft.Border.all(1, ft.Colors.GREEN_400)
-                                    if DEBUG_LAYOUT_PREVIEW
-                                    else None
-                                ),
-                                rotate=ft.Rotate(
-                                    angle=math.radians(transform["rot_deg"]),
-                                    alignment=CENTER_ALIGN,
-                                ),
-                            )
-                            controls_data.append(
-                                (board_frame, board_image, board_aspect, slot_data)
-                            )
-                            _apply_board_layout(
-                                board_frame,
-                                board_aspect,
-                                slot_data,
-                                inner_width,
-                                inner_height,
-                            )
-                            return board_frame
+        left_slot = layout_data.get("left")
+        right_slot = layout_data.get("right")
+        if not isinstance(left_slot, dict) or not isinstance(right_slot, dict):
+            return build_fallback("Preview no disponible")
 
-                        preview_stack = ft.Stack(
-                            ref=stack_ref,
-                            width=inner_width,
-                            height=inner_height,
-                            controls=[
-                                build_board_control(
-                                    board_controls_data,
-                                    detail.board_1_id,
-                                    left_aspect,
-                                    left_slot,
-                                ),
-                                build_board_control(
-                                    board_controls_data,
-                                    detail.board_2_id,
-                                    right_aspect,
-                                    right_slot,
-                                ),
-                            ],
-                        )
+        left_aspect = _get_board_aspect(detail.board_1_id)
+        right_aspect = _get_board_aspect(detail.board_2_id)
+        if left_aspect is None or right_aspect is None:
+            return build_fallback("Preview no disponible")
 
-                        preview_frame = ft.Container(
-                            ref=frame_ref,
-                            width=preview_width,
-                            height=preview_height,
-                            bgcolor=PREVIEW_BG_COLOR,
-                            border_radius=12,
-                            clip_behavior=ft.ClipBehavior.HARD_EDGE,
-                            padding=LAYOUT_PREVIEW_PADDING,
-                            border=(
-                                ft.Border.all(1, ft.Colors.ORANGE_400)
-                                if DEBUG_LAYOUT_PREVIEW
-                                else None
-                            ),
-                            alignment=ft.Alignment.CENTER,
-                            content=preview_stack,
-                        )
-    except Exception:
-        logger.exception(
-            "Failed to build incursion layout preview layout_id=%s board_1_id=%s board_2_id=%s",
-            detail.layout_id,
-            detail.board_1_id,
-            detail.board_2_id,
-        )
-        board_controls_data = []
-        preview_frame = build_fallback("Preview no disponible")
+        def build_board_control(
+            board_id: str,
+            board_aspect: float,
+            slot_data: dict[str, object],
+        ) -> ft.Container:
+            transform = {
+                "dx": _safe_float(slot_data.get("dx"), 0.0),
+                "dy": _safe_float(slot_data.get("dy"), 0.0),
+                "rot_deg": _safe_float(slot_data.get("rot_deg"), 0.0),
+            }
 
-    board_controls_ref.current = board_controls_data
-
-    def log_debug_layout(target_width: float, target_height: float) -> None:
-        if not DEBUG_LAYOUT_PREVIEW:
-            return
-        logger.debug(
-            "Layout preview frame width=%s height=%s",
-            target_width,
-            target_height,
-        )
-        for board_frame, board_image, _, _ in board_controls_ref.current:
-            logger.debug(
-                "Layout preview board frame width=%s height=%s left=%s top=%s",
-                board_frame.width,
-                board_frame.height,
-                board_frame.left,
-                board_frame.top,
+            board_image = ft.Image(
+                src=f"boards/{board_id}.png",
+                fit=ft.BoxFit.CONTAIN,
+                expand=True,
             )
-            logger.debug(
-                "Layout preview image width=%s height=%s expand=%s fit=%s",
-                board_image.width,
-                board_image.height,
-                board_image.expand,
-                board_image.fit,
+            board_image_container = ft.Container(
+                content=board_image,
+                alignment=ft.Alignment.CENTER,
+                expand=True,
+                border=(
+                    ft.Border.all(1, ft.Colors.YELLOW_400)
+                    if DEBUG_LAYOUT_PREVIEW
+                    else None
+                ),
             )
-
-    def apply_preview_size(target_width: float, target_height: float) -> None:
-        frame = frame_ref.current
-        if not frame:
-            return
-        target_inner_width = max(
-            0.0, target_width - (LAYOUT_PREVIEW_PADDING * 2.0)
-        )
-        target_inner_height = max(
-            0.0, target_height - (LAYOUT_PREVIEW_PADDING * 2.0)
-        )
-        frame.width = target_width
-        frame.height = target_height
-        if preview_stack := stack_ref.current:
-            preview_stack.width = target_inner_width
-            preview_stack.height = target_inner_height
-        for board_frame, _, board_aspect, slot_data in board_controls_ref.current:
+            board_frame = ft.Container(
+                content=board_image_container,
+                alignment=ft.Alignment.CENTER,
+                border=(
+                    ft.Border.all(1, ft.Colors.GREEN_400)
+                    if DEBUG_LAYOUT_PREVIEW
+                    else None
+                ),
+                rotate=ft.Rotate(
+                    angle=math.radians(transform["rot_deg"]),
+                    alignment=CENTER_ALIGN,
+                ),
+            )
             _apply_board_layout(
                 board_frame,
                 board_aspect,
                 slot_data,
-                target_inner_width,
-                target_inner_height,
+                inner_preview_width,
+                inner_preview_height,
             )
-        log_debug_layout(target_width, target_height)
-        frame.update()
+            return board_frame
 
-    def register_resize_handler():
-        def on_resize(_: ft.ControlEvent) -> None:
-            updated_width, updated_height = _compute_layout_preview_size(
-                float(page.width or 900.0),
-                layout_aspect,
+        return build_preview_frame(
+            ft.Stack(
+                width=inner_preview_width,
+                height=inner_preview_height,
+                controls=[
+                    build_board_control(detail.board_1_id, left_aspect, left_slot),
+                    build_board_control(detail.board_2_id, right_aspect, right_slot),
+                ],
             )
-            apply_preview_size(updated_width, updated_height)
-
-        page.on_resize = on_resize
-        updated_width, updated_height = _compute_layout_preview_size(
-            float(page.width or 900.0),
-            layout_aspect,
         )
-        apply_preview_size(updated_width, updated_height)
-
-        def cleanup() -> None:
-            if page.on_resize == on_resize:
-                page.on_resize = None
-
-        return cleanup
-
-    ft.use_effect(register_resize_handler, [])
-
-    return preview_frame
+    except Exception as exc:
+        logger.exception(
+            "Failed to build incursion layout preview layout_id=%s board_1_id=%s board_2_id=%s error=%s",
+            detail.layout_id,
+            detail.board_1_id,
+            detail.board_2_id,
+            exc,
+        )
+        return build_fallback("Preview no disponible")
 
 
 def _dark_section(content: ft.Control) -> ft.Container:

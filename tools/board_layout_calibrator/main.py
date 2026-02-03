@@ -59,13 +59,11 @@ class SliderInputControl:
     decimals: int
 
 
-
 def _safe_float(value: Any, default: float) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return default
-
 
 
 def _read_png_size(path: Path) -> tuple[int, int]:
@@ -127,7 +125,9 @@ class BoardLayoutCalibrator:
 
         self.left_transform = SlotTransform(**DEFAULT_LEFT_SLOT)
         self.right_transform = SlotTransform(**DEFAULT_RIGHT_SLOT)
-        self.layout_ids = _load_layout_ids_from_pc_tsv() or _load_layout_ids_from_calibration_file()
+        self.layout_ids = (
+            _load_layout_ids_from_pc_tsv() or _load_layout_ids_from_calibration_file()
+        )
 
         self.board_aspects = self._load_board_aspects()
         self.viewport_width = 960.0
@@ -201,7 +201,10 @@ class BoardLayoutCalibrator:
 
         self.left_values_text = ft.Text(size=12, selectable=True)
         self.right_values_text = ft.Text(size=12, selectable=True)
-        self.slot_editor_controls: dict[str, dict[str, SliderInputControl]] = {"left": {}, "right": {}}
+        self.slot_editor_controls: dict[str, dict[str, SliderInputControl]] = {
+            "left": {},
+            "right": {},
+        }
         self.group_editor_controls: dict[str, SliderInputControl] = {}
         self.group_deltas: dict[str, float] = {"dx": 0.0, "dy": 0.0, "rot_deg": 0.0}
         self._syncing_editor_values = False
@@ -226,8 +229,12 @@ class BoardLayoutCalibrator:
             content=self.viewport_frame,
         )
 
-        self.left_panel = self._build_slot_panel(slot="left", title="Left", readout=self.left_values_text)
-        self.right_panel = self._build_slot_panel(slot="right", title="Right", readout=self.right_values_text)
+        self.left_panel = self._build_slot_panel(
+            slot="left", title="Left", readout=self.left_values_text
+        )
+        self.right_panel = self._build_slot_panel(
+            slot="right", title="Right", readout=self.right_values_text
+        )
         self.controls_pane_container: ft.Container | None = None
 
     def mount(self) -> None:
@@ -260,7 +267,9 @@ class BoardLayoutCalibrator:
                     ft.Row(
                         controls=[
                             ft.Text("Opacidad guia"),
-                            ft.Container(content=self.guide_opacity_slider, expand=True),
+                            ft.Container(
+                                content=self.guide_opacity_slider, expand=True
+                            ),
                             self.guide_opacity_value_text,
                         ],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -318,7 +327,11 @@ class BoardLayoutCalibrator:
             padding=8,
             content=ft.Column(
                 controls=[
-                    ft.Container(content=self.viewport_wrapper, expand=True, alignment=CENTER_ALIGN),
+                    ft.Container(
+                        content=self.viewport_wrapper,
+                        expand=True,
+                        alignment=CENTER_ALIGN,
+                    ),
                     self.guide_warning_text,
                     self.help_text,
                 ],
@@ -341,7 +354,9 @@ class BoardLayoutCalibrator:
             )
         )
 
-    def _build_slot_panel(self, slot: str, title: str, readout: ft.Text) -> ft.Container:
+    def _build_slot_panel(
+        self, slot: str, title: str, readout: ft.Text
+    ) -> ft.Container:
         return ft.Container(
             padding=8,
             border=ft.Border.all(1, "#cbd5e1"),
@@ -377,7 +392,9 @@ class BoardLayoutCalibrator:
                         divisions=360,
                         decimals=0,
                     ),
-                    ft.OutlinedButton("Reset", on_click=lambda _e, s=slot: self._reset_slot(s)),
+                    ft.OutlinedButton(
+                        "Reset", on_click=lambda _e, s=slot: self._reset_slot(s)
+                    ),
                     readout,
                 ],
                 spacing=5,
@@ -392,7 +409,9 @@ class BoardLayoutCalibrator:
             bgcolor="#f8fafc",
             content=ft.Column(
                 controls=[
-                    ft.Text("Conjunto (Left+Right)", size=14, weight=ft.FontWeight.BOLD),
+                    ft.Text(
+                        "Conjunto (Left+Right)", size=14, weight=ft.FontWeight.BOLD
+                    ),
                     self._build_group_slider_input_row(
                         key="dx",
                         label="Delta X (dx)",
@@ -420,7 +439,9 @@ class BoardLayoutCalibrator:
                     ft.Row(
                         controls=[
                             ft.Button("Aplicar", on_click=self._apply_group_deltas),
-                            ft.OutlinedButton("Reset deltas", on_click=self._reset_group_deltas),
+                            ft.OutlinedButton(
+                                "Reset deltas", on_click=self._reset_group_deltas
+                            ),
                         ],
                         wrap=True,
                         spacing=8,
@@ -495,7 +516,9 @@ class BoardLayoutCalibrator:
             max_value=max_value,
             divisions=divisions,
             decimals=decimals,
-            on_slider_change=lambda event, s=slot, k=key: self._on_slot_slider_change(s, k, event),
+            on_slider_change=lambda event, s=slot, k=key: self._on_slot_slider_change(
+                s, k, event
+            ),
             on_input_commit=lambda s=slot, k=key: self._commit_slot_input_value(s, k),
         )
         self.slot_editor_controls[slot][key] = control
@@ -517,13 +540,17 @@ class BoardLayoutCalibrator:
             max_value=max_value,
             divisions=divisions,
             decimals=decimals,
-            on_slider_change=lambda event, k=key: self._on_group_slider_change(k, event),
+            on_slider_change=lambda event, k=key: self._on_group_slider_change(
+                k, event
+            ),
             on_input_commit=lambda k=key: self._commit_group_input_value(k),
         )
         self.group_editor_controls[key] = control
         return row
 
-    def _on_slot_slider_change(self, slot: str, key: str, event: ft.ControlEvent) -> None:
+    def _on_slot_slider_change(
+        self, slot: str, key: str, event: ft.ControlEvent
+    ) -> None:
         if self._syncing_editor_values:
             return
         raw_value = _safe_float(event.control.value, self._get_slot_value(slot, key))
@@ -566,7 +593,9 @@ class BoardLayoutCalibrator:
                 for key, control in slot_controls.items():
                     value = self._get_slot_value(slot, key)
                     control.slider.value = value
-                    control.input_field.value = self._format_editor_value(value, control.decimals)
+                    control.input_field.value = self._format_editor_value(
+                        value, control.decimals
+                    )
                     if update:
                         if control.slider.page is not None:
                             control.slider.update()
@@ -581,7 +610,9 @@ class BoardLayoutCalibrator:
             for key, control in self.group_editor_controls.items():
                 value = self.group_deltas[key]
                 control.slider.value = value
-                control.input_field.value = self._format_editor_value(value, control.decimals)
+                control.input_field.value = self._format_editor_value(
+                    value, control.decimals
+                )
                 if update:
                     if control.slider.page is not None:
                         control.slider.update()
@@ -592,7 +623,9 @@ class BoardLayoutCalibrator:
 
     @staticmethod
     def _read_numeric_text_field(raw_value: Any) -> float | None:
-        text = (str(raw_value) if raw_value is not None else "").strip().replace(",", ".")
+        text = (
+            (str(raw_value) if raw_value is not None else "").strip().replace(",", ".")
+        )
         if text == "":
             return None
         try:
@@ -643,16 +676,24 @@ class BoardLayoutCalibrator:
         center_x = (left_x + right_x) / 2
         center_y = (left_y + right_y) / 2
 
-        left_x, left_y = self._rotate_point_around_center(left_x, left_y, center_x, center_y, delta_rot)
-        right_x, right_y = self._rotate_point_around_center(right_x, right_y, center_x, center_y, delta_rot)
+        left_x, left_y = self._rotate_point_around_center(
+            left_x, left_y, center_x, center_y, delta_rot
+        )
+        right_x, right_y = self._rotate_point_around_center(
+            right_x, right_y, center_x, center_y, delta_rot
+        )
 
         self.left_transform.dx = self._normalize_slot_value("dx", left_x)
         self.left_transform.dy = self._normalize_slot_value("dy", left_y)
         self.right_transform.dx = self._normalize_slot_value("dx", right_x)
         self.right_transform.dy = self._normalize_slot_value("dy", right_y)
 
-        self.left_transform.rot_deg = self._normalize_slot_value("rot_deg", self.left_transform.rot_deg + delta_rot)
-        self.right_transform.rot_deg = self._normalize_slot_value("rot_deg", self.right_transform.rot_deg + delta_rot)
+        self.left_transform.rot_deg = self._normalize_slot_value(
+            "rot_deg", self.left_transform.rot_deg + delta_rot
+        )
+        self.right_transform.rot_deg = self._normalize_slot_value(
+            "rot_deg", self.right_transform.rot_deg + delta_rot
+        )
 
         self._reset_group_delta_values()
         self._refresh_preview(update=True)
@@ -676,7 +717,9 @@ class BoardLayoutCalibrator:
 
     @property
     def board_height_pct(self) -> float:
-        value = _safe_float(self.board_size_slider.value, DEFAULT_BOARD_HEIGHT_PCT * 100)
+        value = _safe_float(
+            self.board_size_slider.value, DEFAULT_BOARD_HEIGHT_PCT * 100
+        )
         return value / 100.0
 
     @property
@@ -703,7 +746,9 @@ class BoardLayoutCalibrator:
         self._refresh_preview(update=True)
 
     def _on_layout_change(self, _event: ft.ControlEvent) -> None:
-        self._set_status("Layout cambiado. Pulsa Cargar si quieres traer calibracion guardada.")
+        self._set_status(
+            "Layout cambiado. Pulsa Cargar si quieres traer calibracion guardada."
+        )
         self._refresh_preview(update=True)
 
     def _on_board_change(self, _event: ft.ControlEvent) -> None:
@@ -738,12 +783,19 @@ class BoardLayoutCalibrator:
             self.guide_warning_text.update()
             self.guide_opacity_slider.update()
             self.viewport_frame.update()
-            if self.controls_pane_container is not None and self.controls_pane_container.page is not None:
+            if (
+                self.controls_pane_container is not None
+                and self.controls_pane_container.page is not None
+            ):
                 self.controls_pane_container.update()
 
     def _update_scalar_labels(self) -> None:
-        self.board_size_value_text.value = f"{int(round(self.board_size_slider.value or 0))}%"
-        self.guide_opacity_value_text.value = f"{int(round(self.guide_opacity_slider.value or 0))}%"
+        self.board_size_value_text.value = (
+            f"{int(round(self.board_size_slider.value or 0))}%"
+        )
+        self.guide_opacity_value_text.value = (
+            f"{int(round(self.guide_opacity_slider.value or 0))}%"
+        )
 
     def _update_slot_readouts(self) -> None:
         self.left_values_text.value = self._format_slot_text(self.left_transform)
@@ -751,11 +803,7 @@ class BoardLayoutCalibrator:
 
     @staticmethod
     def _format_slot_text(slot: SlotTransform) -> str:
-        return (
-            f"dx={slot.dx:.3f}  "
-            f"dy={slot.dy:.3f}  "
-            f"rot_deg={slot.rot_deg:.0f}"
-        )
+        return f"dx={slot.dx:.3f}  " f"dy={slot.dy:.3f}  " f"rot_deg={slot.rot_deg:.0f}"
 
     def _update_viewport_size(self) -> None:
         page_width = float(self.page.width or 1200)
@@ -823,7 +871,11 @@ class BoardLayoutCalibrator:
 
     def _build_board_image(self, slot: str) -> ft.Image:
         transform = self._active_slot_transform(slot)
-        board_id = self.left_board_dropdown.value if slot == "left" else self.right_board_dropdown.value
+        board_id = (
+            self.left_board_dropdown.value
+            if slot == "left"
+            else self.right_board_dropdown.value
+        )
         board_id = board_id if board_id in BOARD_IDS else BOARD_IDS[0]
 
         board_aspect = self.board_aspects.get(board_id, 1.0)
@@ -845,7 +897,9 @@ class BoardLayoutCalibrator:
             height=board_height_px,
             left=center_x - (board_width_px / 2),
             top=center_y - (board_height_px / 2),
-            rotate=ft.Rotate(angle=math.radians(transform.rot_deg), alignment=CENTER_ALIGN),
+            rotate=ft.Rotate(
+                angle=math.radians(transform.rot_deg), alignment=CENTER_ALIGN
+            ),
         )
 
     def _build_grid_controls(self) -> list[ft.Control]:
@@ -857,11 +911,23 @@ class BoardLayoutCalibrator:
         for index in range(1, steps):
             x = (width / steps) * index
             y = (height / steps) * index
-            controls.append(ft.Container(left=x, top=0, width=1, height=height, bgcolor="#cbd5e1"))
-            controls.append(ft.Container(left=0, top=y, width=width, height=1, bgcolor="#cbd5e1"))
+            controls.append(
+                ft.Container(left=x, top=0, width=1, height=height, bgcolor="#cbd5e1")
+            )
+            controls.append(
+                ft.Container(left=0, top=y, width=width, height=1, bgcolor="#cbd5e1")
+            )
 
-        controls.append(ft.Container(left=width / 2, top=0, width=2, height=height, bgcolor="#64748b"))
-        controls.append(ft.Container(left=0, top=height / 2, width=width, height=2, bgcolor="#64748b"))
+        controls.append(
+            ft.Container(
+                left=width / 2, top=0, width=2, height=height, bgcolor="#64748b"
+            )
+        )
+        controls.append(
+            ft.Container(
+                left=0, top=height / 2, width=width, height=2, bgcolor="#64748b"
+            )
+        )
         return controls
 
     def _has_guide_image(self) -> bool:
@@ -925,16 +991,24 @@ class BoardLayoutCalibrator:
             return
         layout_data = layouts.get(layout_id)
         if not isinstance(layout_data, dict):
-            self._set_status(f"No hay calibracion guardada para '{layout_id}'.", error=True)
+            self._set_status(
+                f"No hay calibracion guardada para '{layout_id}'.", error=True
+            )
             return
 
-        self.left_transform = self._parse_slot(layout_data.get("left"), DEFAULT_LEFT_SLOT)
-        self.right_transform = self._parse_slot(layout_data.get("right"), DEFAULT_RIGHT_SLOT)
+        self.left_transform = self._parse_slot(
+            layout_data.get("left"), DEFAULT_LEFT_SLOT
+        )
+        self.right_transform = self._parse_slot(
+            layout_data.get("right"), DEFAULT_RIGHT_SLOT
+        )
 
         self._refresh_preview(update=True)
         self._set_status(f"Cargado: {layout_id}")
 
-    def _read_calibration_file(self, migrate_legacy: bool = False) -> dict[str, Any] | None:
+    def _read_calibration_file(
+        self, migrate_legacy: bool = False
+    ) -> dict[str, Any] | None:
         if not CALIBRATION_PATH.exists():
             return {"schema_version": 1, "layouts": {}}
 
@@ -946,7 +1020,10 @@ class BoardLayoutCalibrator:
             return None
 
         if not isinstance(data, dict):
-            self._set_status("Formato invalido en calibration.json (se esperaba un objeto).", error=True)
+            self._set_status(
+                "Formato invalido en calibration.json (se esperaba un objeto).",
+                error=True,
+            )
             return None
 
         if migrate_legacy and self._migrate_legacy_calibration_data(data):
@@ -960,7 +1037,9 @@ class BoardLayoutCalibrator:
                 json.dump(data, file, indent=2, sort_keys=True)
                 file.write("\n")
         except OSError as error:
-            self._set_status(f"No se pudo guardar calibration.json: {error}", error=True)
+            self._set_status(
+                f"No se pudo guardar calibration.json: {error}", error=True
+            )
             return False
         return True
 
@@ -990,9 +1069,15 @@ class BoardLayoutCalibrator:
     def _parse_slot(self, raw_slot: Any, defaults: dict[str, float]) -> SlotTransform:
         slot = SlotTransform(**defaults)
         if isinstance(raw_slot, dict):
-            slot.dx = self._normalize_slot_value("dx", _safe_float(raw_slot.get("dx"), slot.dx))
-            slot.dy = self._normalize_slot_value("dy", _safe_float(raw_slot.get("dy"), slot.dy))
-            slot.rot_deg = self._normalize_slot_value("rot_deg", _safe_float(raw_slot.get("rot_deg"), slot.rot_deg))
+            slot.dx = self._normalize_slot_value(
+                "dx", _safe_float(raw_slot.get("dx"), slot.dx)
+            )
+            slot.dy = self._normalize_slot_value(
+                "dy", _safe_float(raw_slot.get("dy"), slot.dy)
+            )
+            slot.rot_deg = self._normalize_slot_value(
+                "rot_deg", _safe_float(raw_slot.get("rot_deg"), slot.rot_deg)
+            )
         return slot
 
     def _set_status(self, message: str, error: bool = False) -> None:
@@ -1002,10 +1087,8 @@ class BoardLayoutCalibrator:
             self.status_text.update()
 
 
-
 def main(page: ft.Page) -> None:
     BoardLayoutCalibrator(page).mount()
-
 
 
 ft.run(main, assets_dir=str(ASSETS_DIR))

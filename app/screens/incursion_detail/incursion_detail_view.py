@@ -176,25 +176,6 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
         layout_aspect,
     )
 
-    def register_resize_handler():
-        previous_handler = page.on_resize
-
-        def on_resize(event: ft.ControlEvent) -> None:
-            if previous_handler and previous_handler is not on_resize:
-                previous_handler(event)
-            set_page_width(float(page.width or 900.0))
-
-        page.on_resize = on_resize
-        set_page_width(float(page.width or 900.0))
-
-        def cleanup() -> None:
-            if page.on_resize == on_resize:
-                page.on_resize = previous_handler
-
-        return cleanup
-
-    ft.use_effect(register_resize_handler, [])
-
     def build_fallback(message: str) -> ft.Container:
         return ft.Container(
             width=preview_width,

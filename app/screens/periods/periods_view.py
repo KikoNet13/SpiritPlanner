@@ -313,7 +313,7 @@ def periods_view(
                 dialog_ref.current = dialog
                 page.show_dialog(dialog)
             else:
-                dialog.update()
+                page.show_dialog(dialog)
         else:
             if dialog_ref.current:
                 page.pop_dialog()

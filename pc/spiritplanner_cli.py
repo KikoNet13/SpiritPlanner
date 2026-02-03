@@ -143,33 +143,50 @@ def _ensure_credentials_configured() -> bool:
     return False
 
 
-def _catalog_search_dirs(base_dir: Path) -> tuple[Path, Path]:
-    primary_dir = (base_dir / CATALOG_PRIMARY_RELATIVE_DIR).resolve()
-    fallback_dir = (base_dir / CATALOG_FALLBACK_RELATIVE_DIR).resolve()
-    return primary_dir, fallback_dir
+def _catalog_base_dirs(base_dir: Path) -> list[Path]:
+    root = base_dir.resolve()
+    base_dirs: list[Path] = [root]
+    if IS_FROZEN:
+        parent = root.parent.resolve()
+        if parent not in base_dirs:
+            base_dirs.append(parent)
+    return base_dirs
+
+
+def _catalog_search_dirs(base_dir: Path) -> list[tuple[Path, Path]]:
+    search_dirs: list[tuple[Path, Path]] = []
+    for candidate_root in _catalog_base_dirs(base_dir):
+        primary_dir = (candidate_root / CATALOG_PRIMARY_RELATIVE_DIR).resolve()
+        fallback_dir = (candidate_root / CATALOG_FALLBACK_RELATIVE_DIR).resolve()
+        search_dirs.append((primary_dir, fallback_dir))
+    return search_dirs
 
 
 def resolve_catalog_paths(base_dir: Path) -> dict[str, Path]:
-    primary_dir, fallback_dir = _catalog_search_dirs(base_dir)
+    search_dirs = _catalog_search_dirs(base_dir)
     resolved: dict[str, Path] = {}
 
     for catalog_key, filename in CATALOG_FILENAMES.items():
-        primary_path = primary_dir / filename
-        fallback_path = fallback_dir / filename
-        if primary_path.is_file():
-            resolved[catalog_key] = primary_path
-            continue
-        if fallback_path.is_file():
-            resolved[catalog_key] = fallback_path
+        for primary_dir, fallback_dir in search_dirs:
+            primary_path = primary_dir / filename
+            fallback_path = fallback_dir / filename
+            if primary_path.is_file():
+                resolved[catalog_key] = primary_path
+                break
+            if fallback_path.is_file():
+                resolved[catalog_key] = fallback_path
+                break
 
     return resolved
 
 
 def _print_catalog_resolution_debug(base_dir: Path, resolved_paths: dict[str, Path]) -> None:
-    primary_dir, fallback_dir = _catalog_search_dirs(base_dir)
     print("[DEBUG] Catálogos TSV (resolución):")
-    print(f"[DEBUG] ruta primaria: {primary_dir}")
-    print(f"[DEBUG] ruta fallback: {fallback_dir}")
+    for index, (primary_dir, fallback_dir) in enumerate(
+        _catalog_search_dirs(base_dir), start=1
+    ):
+        print(f"[DEBUG] ruta primaria #{index}: {primary_dir}")
+        print(f"[DEBUG] ruta fallback #{index}: {fallback_dir}")
     for catalog_key, filename in CATALOG_FILENAMES.items():
         final_path = resolved_paths.get(catalog_key)
         if final_path is None:
@@ -179,9 +196,15 @@ def _print_catalog_resolution_debug(base_dir: Path, resolved_paths: dict[str, Pa
 
 
 def _print_missing_catalogs_message(base_dir: Path, missing_filenames: list[str]) -> None:
-    primary_dir, fallback_dir = _catalog_search_dirs(base_dir)
     print("No se encontraron los catálogos TSV necesarios.")
-    print(f"Busqué en: {primary_dir} y {fallback_dir}")
+    searched_paths: list[Path] = []
+    for primary_dir, fallback_dir in _catalog_search_dirs(base_dir):
+        for path in (primary_dir, fallback_dir):
+            if path not in searched_paths:
+                searched_paths.append(path)
+    print("Busqué en:")
+    for path in searched_paths:
+        print(f"- {path}")
     print(f"Faltan: {', '.join(missing_filenames)}")
 
 

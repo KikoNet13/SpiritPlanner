@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import flet as ft
 
-from app.screens.data_lookup import get_spirit_name
+from app.screens.data_lookup import get_board_name, get_layout_name, get_spirit_name
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,10 @@ class AssignmentIncursionModel:
     index: int
     spirit_1_name: str
     spirit_2_name: str
+    board_1_name: str
+    board_2_name: str
+    layout_id: str
+    layout_name: str
 
 
 def can_reveal(periods: list[dict], index: int) -> bool:
@@ -116,6 +120,10 @@ def build_assignment_incursions(incursions: list[dict]) -> list[AssignmentIncurs
                 index=incursion.get("index", 0),
                 spirit_1_name=get_spirit_name(incursion.get("spirit_1_id")),
                 spirit_2_name=get_spirit_name(incursion.get("spirit_2_id")),
+                board_1_name=get_board_name(incursion.get("board_1")),
+                board_2_name=get_board_name(incursion.get("board_2")),
+                layout_id=incursion.get("board_layout") or "",
+                layout_name=get_layout_name(incursion.get("board_layout")),
             )
         )
     return items

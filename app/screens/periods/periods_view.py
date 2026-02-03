@@ -118,12 +118,14 @@ def _assignment_card(
                 overflow=ft.TextOverflow.ELLIPSIS,
             ),
         )
+    dropdown_width = 220
     dropdown = ft.Dropdown(
         options=options,
         value=selection,
         error_text="Selecciona un adversario" if show_error else None,
         on_select=on_select,
         height=40,
+        width=dropdown_width,
     )
     spirits_column = ft.Column(
         [
@@ -139,6 +141,19 @@ def _assignment_card(
             ),
         ],
         spacing=1,
+    )
+    assignment_row = ft.Row(
+        [
+            ft.Container(content=spirits_column, expand=True),
+            ft.Container(
+                width=dropdown_width,
+                alignment=ft.Alignment.CENTER,
+                content=dropdown,
+            ),
+        ],
+        spacing=12,
+        expand=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
     layout_info = ft.Column(
         [
@@ -182,8 +197,7 @@ def _assignment_card(
                         [
                             ft.Column(
                                 [
-                                    spirits_column,
-                                    dropdown,
+                                    assignment_row,
                                 ],
                                 col={"xs": 12, "md": 8},
                                 spacing=6,

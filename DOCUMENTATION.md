@@ -38,7 +38,7 @@ app/
 └─ utils/                       # Utilidades (logging, navegación, fechas)
 
 pc/                             # Tooling PC y CLI
-├─ spiritplanner_cli.py         # CLI Typer (entrypoint principal)
+├─ spiritplanner_cli.py         # Consola interactiva (entrypoint principal)
 ├─ generate_era.py              # Generación de Era reutilizable
 ├─ era_admin.py                 # Conteo y borrado en cascada de eras
 ├─ firestore_service.py         # Operaciones base Firestore para tooling
@@ -216,10 +216,11 @@ pc/                             # Tooling PC y CLI
   - `count_era_tree(era_id)`: recorre la rama completa y devuelve conteos (`periods`, `incursions`, `sessions`) y existencia del doc de Era.
   - `delete_era_tree(era_id)`: elimina en cascada sesiones → incursiones → periodos → era.
 - `pc/spiritplanner_cli.py`:
-  - CLI Typer con comando raíz `spiritplanner` y grupo `era`.
-  - `era generate`: genera una Era reutilizando `run_generate_era(...)`.
-  - `era delete`: conteo + borrado seguro con `--dry-run/--apply`, `--force` y `--confirm`.
-  - `era reset`: `delete` (apply) + `generate` en un solo flujo.
+  - Consola interactiva por menú numérico (sin subcomandos).
+  - Opción 1: generar Era reutilizando `run_generate_era(...)`.
+  - Opción 2: eliminar Era con dry-run previo, confirmación por `era_id` y borrado en cascada.
+  - Opción 3: reiniciar Era (`delete` + `generate`) con el mismo flujo de seguridad.
+  - Al cierre muestra `Pulsa Enter para salir...` para soportar ejecución por doble click.
 - `pc/firestore_test.py`:
   - Script mínimo para verificar conexión a Firestore y listar colecciones.
 
@@ -246,24 +247,26 @@ pc/                             # Tooling PC y CLI
 
 ## 9. CLI PC
 
-La pata PC tiene una CLI unica con Typer para evitar el flujo de scripts sueltos.
+La pata PC tiene una consola interactiva para evitar el flujo de scripts sueltos.
 
-Comandos principales:
+Ejecución interactiva:
 
-- `era generate`: crea una Era en Firestore desde TSV.
-- `era delete`: muestra conteos y permite borrado en cascada con protecciones.
-- `era reset`: borra y regenera la misma Era para iterar rapido.
+- `pipenv run python -m pc.spiritplanner_cli`
 
-Ejemplos de uso:
+Opciones del menú:
 
-- `python -m pc.spiritplanner_cli era generate --era-id era_demo`
-- `python -m pc.spiritplanner_cli era delete --era-id era_demo --dry-run`
-- `python -m pc.spiritplanner_cli era delete --era-id era_demo --force --confirm era_demo --apply`
-- `python -m pc.spiritplanner_cli era reset --era-id era_demo --force --confirm era_demo --apply`
+- `1) Generar era`
+- `2) Eliminar era (con recuento previo)`
+- `3) Reiniciar era (eliminar + generar)`
+- `0) Salir`
 
 Empaquetado local (exe) en `tools/`:
 
 - `pyinstaller -F pc\spiritplanner_cli.py -n spiritplanner --clean --distpath tools --workpath build/pyinstaller --specpath build/pyinstaller`
+
+Nota:
+
+- Al hacer doble click en el `.exe` se abre el menú y se elige opción por número.
 
 ## 10. Nota final
 

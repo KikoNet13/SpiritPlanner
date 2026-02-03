@@ -5,13 +5,13 @@ import re
 
 import flet as ft
 
-from screens.incursions.incursions_model import IncursionCardModel
-from screens.incursions.incursions_viewmodel import IncursionsViewModel
-from screens.shared_components import section_card, status_chip
-from services.service_registry import get_firestore_service
-from utils.logger import get_logger
-from utils.navigation import navigate
-from utils.router import register_route_loader
+from app.screens.incursions.incursions_model import IncursionCardModel
+from app.screens.incursions.incursions_viewmodel import IncursionsViewModel
+from app.screens.shared_components import section_card, status_chip
+from app.services.service_registry import get_firestore_service
+from app.utils.logger import get_logger
+from app.utils.navigation import navigate
+from app.utils.router import register_route_loader
 
 logger = get_logger(__name__)
 

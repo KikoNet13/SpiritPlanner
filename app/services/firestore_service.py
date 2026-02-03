@@ -6,8 +6,8 @@ from typing import Any
 
 import firebase_admin
 from firebase_admin import firestore
-from services.score_service import calculate_score
-from utils.logger import get_logger
+from app.services.score_service import calculate_score
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from services.firestore_service import FirestoreService
-from utils.logger import get_logger
+from app.services.firestore_service import FirestoreService
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import flet as ft
 
-from services.firestore_service import ActiveIncursion
+from app.services.firestore_service import ActiveIncursion
 
 
 @dataclass(frozen=True)

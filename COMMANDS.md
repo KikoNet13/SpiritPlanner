@@ -92,19 +92,19 @@ Volver a “Home” en la app Flet:
 Generar APK release:
 
 ```powershell
-flet build apk app
+flet build apk . --module-name "app.main" --product "SpiritPlanner"
 ```
 
 Generar AAB release (Play Store):
 
 ```powershell
-flet build aab app\main.py
+flet build aab . --module-name "app.main" --product "SpiritPlanner"
 ```
 
 Logs verbosos (si algo falla):
 
 ```powershell
-flet build apk -vv app\main.py
+flet build apk -vv . --module-name "app.main" --product "SpiritPlanner"
 ```
 
 ## 6) Tooling PC (menú interactivo) — modo Python

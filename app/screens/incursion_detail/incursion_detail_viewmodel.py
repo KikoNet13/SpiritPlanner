@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import flet as ft
 
-from screens.data_lookup import (
+from app.screens.data_lookup import (
     get_adversary_difficulty,
     get_adversary_name,
     get_adversary_levels,
@@ -13,7 +13,7 @@ from screens.data_lookup import (
     get_layout_name,
     get_spirit_name,
 )
-from screens.incursion_detail.incursion_detail_model import (
+from app.screens.incursion_detail.incursion_detail_model import (
     FinalizeFormData,
     IncursionDetailModel,
     SessionEntryModel,
@@ -23,8 +23,8 @@ from screens.incursion_detail.incursion_detail_model import (
     compute_score_preview,
     resolve_session_state,
 )
-from services.firestore_service import FirestoreService
-from utils.logger import get_logger
+from app.services.firestore_service import FirestoreService
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

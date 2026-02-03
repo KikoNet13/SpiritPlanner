@@ -213,7 +213,7 @@ def periods_view(
     page = ft.context.page
     service = get_firestore_service(page.session)
     view_model, _ = ft.use_state(PeriodsViewModel())
-    dialog_ref = ft.use_ref(None)
+    dialog_ref: ft.Ref[ft.AlertDialog | None] = ft.use_ref(None)
 
     def load() -> None:
         view_model.ensure_loaded(service, era_id)
@@ -265,7 +265,39 @@ def periods_view(
         for item in sorted(get_adversary_catalog().values(), key=lambda item: item.name)
     ]
 
-    def build_assignment_dialog() -> ft.AlertDialog:
+    def close_assignment_dialog_ui(_: ft.ControlEvent | None = None) -> None:
+        view_model.close_assignment_dialog()
+        dialog = dialog_ref.current
+        if dialog and dialog.open:
+            page.pop_dialog()
+
+    def handle_assignment_dialog_dismiss(_: ft.ControlEvent) -> None:
+        view_model.close_assignment_dialog()
+
+    def handle_save_assignment(_: ft.ControlEvent | None = None) -> None:
+        view_model.save_assignment(service)
+        dialog = dialog_ref.current
+        if not dialog:
+            return
+        if view_model.assignment_open:
+            configure_assignment_dialog(dialog)
+            dialog.update()
+            return
+        if dialog.open:
+            page.pop_dialog()
+
+    def ensure_assignment_dialog() -> ft.AlertDialog:
+        dialog = dialog_ref.current
+        if dialog is None:
+            dialog = ft.AlertDialog(
+                modal=True,
+                inset_padding=ft.padding.symmetric(horizontal=12, vertical=16),
+                on_dismiss=handle_assignment_dialog_dismiss,
+            )
+            dialog_ref.current = dialog
+        return dialog
+
+    def configure_assignment_dialog(dialog: ft.AlertDialog) -> None:
         page_width = float(
             view_model.assignment_viewport_width
             or page.width
@@ -294,10 +326,6 @@ def periods_view(
                     ),
                 )
             )
-        dialog = dialog_ref.current or ft.AlertDialog(
-            modal=True,
-            inset_padding=ft.padding.symmetric(horizontal=12, vertical=16),
-        )
         dialog.title = ft.Text("Asignar adversarios")
         dialog.content = ft.Container(
             content=list_view,
@@ -307,29 +335,22 @@ def periods_view(
         dialog.actions = [
             ft.TextButton(
                 "Cancelar",
-                on_click=lambda _: view_model.close_assignment_dialog(),
+                on_click=close_assignment_dialog_ui,
             ),
             ft.Button(
                 "Guardar",
-                on_click=lambda _: view_model.save_assignment(service),
+                on_click=handle_save_assignment,
             ),
         ]
-        return dialog
 
-    def sync_dialog() -> None:
-        if view_model.assignment_open:
-            dialog = build_assignment_dialog()
-            if dialog_ref.current is None:
-                dialog_ref.current = dialog
-                page.show_dialog(dialog)
-            else:
-                page.show_dialog(dialog)
-        else:
-            if dialog_ref.current:
-                page.pop_dialog()
-                dialog_ref.current = None
+    def refresh_assignment_dialog() -> None:
+        dialog = dialog_ref.current
+        if dialog is None or not view_model.assignment_open or not dialog.open:
+            return
+        configure_assignment_dialog(dialog)
+        dialog.update()
 
-    ft.use_effect(sync_dialog, [view_model.assignment_open, view_model.assignment_version])
+    ft.use_effect(refresh_assignment_dialog, [view_model.assignment_version])
 
     def register_resize_handler():
         def update_viewport(
@@ -407,6 +428,18 @@ def periods_view(
                 )
                 try:
                     view_model.open_assignment_dialog(service, period_id)
+                    if not view_model.assignment_open:
+                        return
+                    dialog = ensure_assignment_dialog()
+                    configure_assignment_dialog(dialog)
+                    if dialog.open:
+                        return
+                    page.show_dialog(dialog)
+                except RuntimeError as exc:
+                    if "already opened" in str(exc).lower():
+                        logger.warning("Assignment dialog already open; skipping reopen")
+                        return
+                    raise
                 except Exception as exc:
                     logger.exception(
                         "Failed to handle assign adversaries era_id=%s period_id=%s error=%s",

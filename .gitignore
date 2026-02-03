@@ -23,8 +23,10 @@ pc/data/output/*.tsv
 tools/spiritplanner*
 tools/*.exe
 
+# Builds
+build/
+
 # PyInstaller
-build/pyinstaller/
 dist/
 *.spec
 

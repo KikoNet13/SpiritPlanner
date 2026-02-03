@@ -25,6 +25,8 @@ class AssignmentIncursionModel:
     index: int
     spirit_1_name: str
     spirit_2_name: str
+    board_1_id: str
+    board_2_id: str
     board_1_name: str
     board_2_name: str
     layout_id: str
@@ -120,6 +122,8 @@ def build_assignment_incursions(incursions: list[dict]) -> list[AssignmentIncurs
                 index=incursion.get("index", 0),
                 spirit_1_name=get_spirit_name(incursion.get("spirit_1_id")),
                 spirit_2_name=get_spirit_name(incursion.get("spirit_2_id")),
+                board_1_id=incursion.get("board_1") or "",
+                board_2_id=incursion.get("board_2") or "",
                 board_1_name=get_board_name(incursion.get("board_1")),
                 board_2_name=get_board_name(incursion.get("board_2")),
                 layout_id=incursion.get("board_layout") or "",

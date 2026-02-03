@@ -20,8 +20,8 @@ pipenv install --dev
 Verificar versiones:
 
 ```powershell
-pipenv run python --version
-pipenv run python -c "import flet; print(flet.__version__)"
+python --version
+python -c "import flet; print(flet.__version__)"
 ```
 
 ## 2) Credenciales Firestore (ADC)
@@ -38,7 +38,7 @@ SPIRITPLANNER_DEBUG=1
 Verificar desde PowerShell:
 
 ```powershell
-pipenv run python -c "import os; print(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))"
+python -c "import os; print(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))"
 ```
 
 ### 2.2) Tooling PC compilado (doble click)
@@ -60,7 +60,7 @@ Notas:
 Ejecutar en modo desktop:
 
 ```powershell
-pipenv run flet run app\main.py
+flet run app\main.py
 ```
 
 ## 4) Probar en Android (modo “server + QR”)
@@ -73,7 +73,7 @@ Requisitos:
 Arrancar servidor de desarrollo (aparece QR en la terminal):
 
 ```powershell
-pipenv run flet run --android app\main.py
+flet run --android app\main.py
 ```
 
 Pasos en el móvil:
@@ -92,19 +92,19 @@ Volver a “Home” en la app Flet:
 Generar APK release:
 
 ```powershell
-pipenv run flet build apk app\main.py
+flet build apk app
 ```
 
 Generar AAB release (Play Store):
 
 ```powershell
-pipenv run flet build aab app\main.py
+flet build aab app\main.py
 ```
 
 Logs verbosos (si algo falla):
 
 ```powershell
-pipenv run flet build apk -vv app\main.py
+flet build apk -vv app\main.py
 ```
 
 ## 6) Tooling PC (menú interactivo) — modo Python
@@ -112,7 +112,7 @@ pipenv run flet build apk -vv app\main.py
 Ejecutar la herramienta PC sin compilar:
 
 ```powershell
-pipenv run python -m pc.spiritplanner_cli
+python -m pc.spiritplanner_cli
 ```
 
 ## 7) Compilar tooling PC a .exe (PyInstaller → tools\)
@@ -120,7 +120,7 @@ pipenv run python -m pc.spiritplanner_cli
 ### 7.1) Instalar PyInstaller si falta
 
 ```powershell
-pipenv run pyinstaller --version
+pyinstaller --version
 ```
 
 Si falla:
@@ -132,7 +132,7 @@ pipenv install --dev pyinstaller
 ### 7.2) Compilar el .exe en tools\
 
 ```powershell
-pipenv run pyinstaller -F pc\spiritplanner_cli.py -n spiritplanner --clean --distpath tools --workpath build\pyinstaller --specpath build\pyinstaller
+pyinstaller -F pc\spiritplanner_cli.py -n spiritplanner --clean --distpath tools --workpath build\pyinstaller --specpath build\pyinstaller
 ```
 
 Ejecutar:

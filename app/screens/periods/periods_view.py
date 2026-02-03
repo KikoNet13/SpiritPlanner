@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import math
 import re
+import struct
+from pathlib import Path
 
 import flet as ft
 
@@ -15,6 +19,23 @@ from app.utils.navigation import navigate
 from app.utils.router import register_route_loader
 
 logger = get_logger(__name__)
+
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+LAYOUTS_DIR = ASSETS_DIR / "layouts"
+CALIBRATION_PATH = LAYOUTS_DIR / "calibration.json"
+BOARDS_DIR = ASSETS_DIR / "boards"
+CENTER_ALIGN = ft.Alignment(0, 0)
+DEFAULT_BOARD_HEIGHT_PCT = 0.90
+LAYOUT_PLACEHOLDER_WIDTH = 240.0
+LAYOUT_PLACEHOLDER_HEIGHT = 140.0
+LAYOUT_PLACEHOLDER_RATIO = LAYOUT_PLACEHOLDER_HEIGHT / LAYOUT_PLACEHOLDER_WIDTH
+LAYOUT_PREVIEW_PADDING = 6.0
+LAYOUT_PREVIEW_INNER_PADDING = 10.0
+PREVIEW_TEXT_COLOR = ft.Colors.BLUE_GREY_100
+PREVIEW_BG_COLOR = ft.Colors.BLUE_GREY_700
+
+_CALIBRATION_CACHE: dict[str, dict[str, dict[str, float]]] | None = None
+_BOARD_ASPECT_CACHE: dict[str, float] = {}
 
 
 def _period_card(
@@ -77,6 +98,218 @@ def _extract_index(value: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _safe_float(value: object, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _read_png_size(path: Path) -> tuple[int, int]:
+    if not path.exists():
+        return (1, 1)
+
+    with path.open("rb") as file:
+        header = file.read(24)
+
+    png_sig = b"\x89PNG\r\n\x1a\n"
+    if len(header) < 24 or header[:8] != png_sig:
+        return (1, 1)
+
+    width = struct.unpack(">I", header[16:20])[0]
+    height = struct.unpack(">I", header[20:24])[0]
+    return width, height
+
+
+def _get_board_aspect(board_id: str) -> float | None:
+    if board_id in _BOARD_ASPECT_CACHE:
+        return _BOARD_ASPECT_CACHE[board_id]
+
+    board_path = BOARDS_DIR / f"{board_id}.png"
+    if not board_path.exists():
+        return None
+
+    width, height = _read_png_size(board_path)
+    aspect = width / height if height else 1.0
+    _BOARD_ASPECT_CACHE[board_id] = aspect
+    return aspect
+
+
+def _load_layout_calibration() -> dict[str, dict[str, dict[str, float]]]:
+    global _CALIBRATION_CACHE
+    if _CALIBRATION_CACHE is not None:
+        return _CALIBRATION_CACHE
+
+    if not CALIBRATION_PATH.exists():
+        _CALIBRATION_CACHE = {}
+        return _CALIBRATION_CACHE
+
+    try:
+        data = json.loads(CALIBRATION_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        logger.exception("Failed to read layout calibration file: %s", CALIBRATION_PATH)
+        _CALIBRATION_CACHE = {}
+        return _CALIBRATION_CACHE
+
+    layouts = data.get("layouts") if isinstance(data, dict) else None
+    if not isinstance(layouts, dict):
+        _CALIBRATION_CACHE = {}
+        return _CALIBRATION_CACHE
+
+    parsed: dict[str, dict[str, dict[str, float]]] = {}
+    for key, layout_data in layouts.items():
+        if not isinstance(key, str) or not isinstance(layout_data, dict):
+            continue
+        left = layout_data.get("left")
+        right = layout_data.get("right")
+        if not isinstance(left, dict) or not isinstance(right, dict):
+            continue
+        parsed[key] = {
+            "left": {
+                "dx": _safe_float(left.get("dx"), 0.0),
+                "dy": _safe_float(left.get("dy"), 0.0),
+                "rot_deg": _safe_float(left.get("rot_deg"), 0.0),
+            },
+            "right": {
+                "dx": _safe_float(right.get("dx"), 0.0),
+                "dy": _safe_float(right.get("dy"), 0.0),
+                "rot_deg": _safe_float(right.get("rot_deg"), 0.0),
+            },
+        }
+
+    _CALIBRATION_CACHE = parsed
+    return _CALIBRATION_CACHE
+
+
+def _apply_board_layout(
+    board_frame: ft.Container,
+    board_aspect: float,
+    slot_data: dict[str, object],
+    preview_width: float,
+    preview_height: float,
+) -> None:
+    board_base_height_px = preview_height * DEFAULT_BOARD_HEIGHT_PCT
+    translate_x_px = _safe_float(slot_data.get("dx"), 0.0) * board_base_height_px
+    translate_y_px = _safe_float(slot_data.get("dy"), 0.0) * board_base_height_px
+    board_height_px = board_base_height_px
+    board_width_px = board_height_px * board_aspect
+
+    center_x = (preview_width / 2) + translate_x_px
+    center_y = (preview_height / 2) + translate_y_px
+
+    board_frame.width = board_width_px
+    board_frame.height = board_height_px
+    board_frame.left = center_x - (board_width_px / 2)
+    board_frame.top = center_y - (board_height_px / 2)
+
+
+def _build_assignment_layout_preview(incursion: AssignmentIncursionModel) -> ft.Control:
+    preview_width = 220.0
+    preview_height = preview_width * LAYOUT_PLACEHOLDER_RATIO
+
+    inner_preview_width = max(
+        0.0,
+        preview_width - ((LAYOUT_PREVIEW_PADDING + LAYOUT_PREVIEW_INNER_PADDING) * 2.0),
+    )
+    inner_preview_height = max(
+        0.0,
+        preview_height
+        - ((LAYOUT_PREVIEW_PADDING + LAYOUT_PREVIEW_INNER_PADDING) * 2.0),
+    )
+
+    def build_preview_frame(content: ft.Control) -> ft.Container:
+        return ft.Container(
+            width=preview_width,
+            height=preview_height,
+            bgcolor=PREVIEW_BG_COLOR,
+            border_radius=12,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            padding=LAYOUT_PREVIEW_PADDING,
+            alignment=ft.Alignment.CENTER,
+            content=ft.Container(
+                content=content,
+                padding=LAYOUT_PREVIEW_INNER_PADDING,
+                alignment=ft.Alignment.CENTER,
+            ),
+        )
+
+    def build_fallback(message: str) -> ft.Container:
+        return build_preview_frame(
+            ft.Container(
+                width=inner_preview_width,
+                height=inner_preview_height,
+                alignment=ft.Alignment.CENTER,
+                content=ft.Text(
+                    message,
+                    color=PREVIEW_TEXT_COLOR,
+                    size=11,
+                    text_align=ft.TextAlign.CENTER,
+                ),
+            )
+        )
+
+    layout_id = incursion.layout_id
+    if not layout_id or not incursion.board_1_id or not incursion.board_2_id:
+        return build_fallback("Preview no disponible")
+
+    calibration = _load_layout_calibration()
+    layout_data = calibration.get(layout_id)
+    if not isinstance(layout_data, dict):
+        return build_fallback("Preview no disponible")
+
+    left_slot = layout_data.get("left")
+    right_slot = layout_data.get("right")
+    if not isinstance(left_slot, dict) or not isinstance(right_slot, dict):
+        return build_fallback("Preview no disponible")
+
+    left_aspect = _get_board_aspect(incursion.board_1_id)
+    right_aspect = _get_board_aspect(incursion.board_2_id)
+    if left_aspect is None or right_aspect is None:
+        return build_fallback("Preview no disponible")
+
+    def build_board_control(
+        board_id: str,
+        board_aspect: float,
+        slot_data: dict[str, object],
+    ) -> ft.Container:
+        board_image = ft.Image(
+            src=f"boards/{board_id}.png",
+            fit=ft.BoxFit.CONTAIN,
+            expand=True,
+        )
+        board_frame = ft.Container(
+            content=ft.Container(
+                content=board_image,
+                alignment=ft.Alignment.CENTER,
+                expand=True,
+            ),
+            alignment=ft.Alignment.CENTER,
+            rotate=ft.Rotate(
+                angle=math.radians(_safe_float(slot_data.get("rot_deg"), 0.0)),
+                alignment=CENTER_ALIGN,
+            ),
+        )
+        _apply_board_layout(
+            board_frame,
+            board_aspect,
+            slot_data,
+            inner_preview_width,
+            inner_preview_height,
+        )
+        return board_frame
+
+    return build_preview_frame(
+        ft.Stack(
+            width=inner_preview_width,
+            height=inner_preview_height,
+            controls=[
+                build_board_control(incursion.board_1_id, left_aspect, left_slot),
+                build_board_control(incursion.board_2_id, right_aspect, right_slot),
+            ],
+        )
+    )
+
+
 def _assignment_card(
     incursion: AssignmentIncursionModel,
     selection: str | None,
@@ -84,6 +317,7 @@ def _assignment_card(
     show_error: bool,
     on_select,
 ) -> ft.Card:
+    layout_preview_control = _build_assignment_layout_preview(incursion)
     dropdown_width = 220
     dropdown = ft.Dropdown(
         options=options,
@@ -91,7 +325,6 @@ def _assignment_card(
         error_text="Selecciona un adversario" if show_error else None,
         on_select=on_select,
         height=40,
-        width=280,
         width=dropdown_width,
     )
     spirits_column = ft.Column(
@@ -131,7 +364,7 @@ def _assignment_card(
     )
     right_column = ft.Column(
         [
-            layout_preview,
+            layout_preview_control,
             layout_info,
         ],
         spacing=4,

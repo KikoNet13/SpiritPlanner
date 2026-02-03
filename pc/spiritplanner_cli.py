@@ -3,15 +3,140 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - dotenv is expected in production
+    load_dotenv = None
+
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EXECUTABLE_DIR = (
+    Path(sys.executable).resolve().parent if IS_FROZEN else REPO_ROOT
+)
 
 DEFAULT_SPIRITS_PATH = Path("pc/data/input/spirits.tsv")
 DEFAULT_BOARDS_PATH = Path("pc/data/input/boards.tsv")
 DEFAULT_ADVERSARIES_PATH = Path("pc/data/input/adversaries.tsv")
 DEFAULT_LAYOUTS_PATH = Path("pc/data/input/layouts.tsv")
+
+
+def _build_dotenv_candidates() -> list[Path]:
+    candidates: list[Path] = [
+        EXECUTABLE_DIR / ".env",
+        EXECUTABLE_DIR.parent / ".env",
+    ]
+    if not IS_FROZEN:
+        candidates.append(REPO_ROOT / ".env")
+
+    unique_candidates: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique_candidates.append(resolved)
+    return unique_candidates
+
+
+def _load_runtime_dotenv() -> Path | None:
+    if load_dotenv is None:
+        return None
+
+    for dotenv_path in _build_dotenv_candidates():
+        if not dotenv_path.is_file():
+            continue
+        load_dotenv(dotenv_path, override=False)
+        return dotenv_path
+    return None
+
+
+def _resolve_credentials_path(raw_value: str | None) -> Path | None:
+    if not raw_value:
+        return None
+
+    expanded = Path(raw_value).expanduser()
+    if expanded.is_absolute():
+        return expanded
+
+    cwd_candidate = (Path.cwd() / expanded).resolve()
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    return (EXECUTABLE_DIR / expanded).resolve()
+
+
+def _is_debug_enabled() -> bool:
+    return os.getenv("SPIRITPLANNER_DEBUG") == "1"
+
+
+def _configure_runtime_warnings(debug_enabled: bool) -> None:
+    if debug_enabled:
+        return
+    warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning,
+        module="google.api_core._python_version_support",
+    )
+
+
+def _print_runtime_debug(dotenv_loaded: Path | None) -> None:
+    credentials_value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    credentials_path = _resolve_credentials_path(credentials_value)
+
+    print("\n[DEBUG] Diagnostico de entorno")
+    print(f"[DEBUG] cwd: {Path.cwd()}")
+    print(f"[DEBUG] exe_dir: {EXECUTABLE_DIR}")
+    print(
+        "[DEBUG] .env cargado: "
+        f"{dotenv_loaded if dotenv_loaded is not None else 'ninguno'}"
+    )
+    print(
+        "[DEBUG] GOOGLE_APPLICATION_CREDENTIALS: "
+        f"{credentials_value if credentials_value else 'no definido'}"
+    )
+    if credentials_path is None:
+        print("[DEBUG] fichero de credenciales en disco: no (ruta no definida)")
+    else:
+        print(
+            "[DEBUG] fichero de credenciales en disco: "
+            f"{'si' if credentials_path.is_file() else 'no'} ({credentials_path})"
+        )
+
+
+def _bootstrap_runtime_environment() -> None:
+    dotenv_loaded = _load_runtime_dotenv()
+    debug_enabled = _is_debug_enabled()
+    _configure_runtime_warnings(debug_enabled)
+    if debug_enabled:
+        _print_runtime_debug(dotenv_loaded)
+
+
+def _has_credentials_configured() -> bool:
+    value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+    return bool(value)
+
+
+def _print_missing_credentials_message() -> None:
+    print("No se encontraron credenciales (GOOGLE_APPLICATION_CREDENTIALS).")
+    print(
+        "Coloca un .env junto al .exe (misma carpeta) o configura la "
+        "variable de entorno en Windows."
+    )
+
+
+def _ensure_credentials_configured() -> bool:
+    if _has_credentials_configured():
+        return True
+    _print_missing_credentials_message()
+    return False
 
 
 def _load_era_admin_functions() -> tuple[Any, Any]:
@@ -147,6 +272,9 @@ def _build_era_row_label(row: dict[str, Any]) -> str:
 
 
 def select_era_interactively(action_label_es: str) -> Optional[str]:
+    if not _ensure_credentials_configured():
+        return None
+
     while True:
         try:
             list_eras = _load_list_eras_function()
@@ -181,6 +309,9 @@ def select_era_interactively(action_label_es: str) -> Optional[str]:
 
 def _run_generate_flow() -> None:
     print("\n=== Generar era ===")
+    if not _ensure_credentials_configured():
+        return
+
     era_id = _prompt_text("Era ID", default="1")
     seed = _prompt_seed()
 
@@ -208,6 +339,9 @@ def _run_generate_flow() -> None:
 
 def _run_delete_flow() -> None:
     print("\n=== Eliminar era ===")
+    if not _ensure_credentials_configured():
+        return
+
     era_id = select_era_interactively("eliminar")
     if era_id is None:
         return
@@ -250,6 +384,9 @@ def _run_delete_flow() -> None:
 
 def _run_reset_flow() -> None:
     print("\n=== Reiniciar era ===")
+    if not _ensure_credentials_configured():
+        return
+
     era_id = select_era_interactively("reiniciar")
     if era_id is None:
         return
@@ -343,6 +480,8 @@ def _run_interactive_menu() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _bootstrap_runtime_environment()
+
     args = sys.argv[1:] if argv is None else argv
     interactive_mode = len(args) == 0
 

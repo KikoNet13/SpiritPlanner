@@ -45,7 +45,7 @@ class _RingBufferHandler(logging.Handler):
 _LOGGER_CONFIGURED = False
 _RING_BUFFER: Deque[str] = deque(maxlen=_DEFAULT_BUFFER_SIZE)
 _QUIET_LOGGERS: tuple[str, ...] = (
-    "app.screens.data_lookup",
+    "screens.data_lookup",
     "google",
     "google.api_core",
     "google.cloud",

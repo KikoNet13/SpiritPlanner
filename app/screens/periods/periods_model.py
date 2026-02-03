@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import flet as ft
 
-from app.screens.data_lookup import get_board_name, get_layout_name, get_spirit_name
+from screens.data_lookup import get_board_name, get_layout_name, get_spirit_name
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ from weakref import WeakKeyDictionary
 
 import flet as ft
 
-from app.utils.logger import get_logger
+from utils.logger import get_logger
 
 _ROUTER_REGISTRY: WeakKeyDictionary[ft.Page, "RouterCoordinator"] = WeakKeyDictionary()
 _ROUTE_LOADERS: WeakKeyDictionary[

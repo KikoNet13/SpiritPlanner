@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import flet as ft
 
-from app.screens.periods.periods_model import (
+from screens.periods.periods_model import (
     AssignmentIncursionModel,
     PeriodRowModel,
     build_assignment_incursions,
     build_period_rows,
 )
-from app.services.firestore_service import FirestoreService
-from app.utils.logger import get_logger
+from services.firestore_service import FirestoreService
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -39,6 +39,8 @@ DARK_SECTION_PADDING = 20.0
 LAYOUT_PLACEHOLDER_WIDTH = 240.0
 LAYOUT_PLACEHOLDER_HEIGHT = 140.0
 LAYOUT_PLACEHOLDER_MAX_WIDTH = 960.0
+LAYOUT_PREVIEW_PADDING = 6.0
+RESULT_FIELD_HEIGHT = 52.0
 DEBUG_LAYOUT_PREVIEW = False
 
 _CALIBRATION_CACHE: dict[str, dict[str, dict[str, float]]] | None = None
@@ -166,15 +168,13 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
         list[tuple[ft.Container, ft.Image, float, dict[str, object]]]
     ] = ft.use_ref([])
     page_width = float(page.width or 900.0)
-    layout_aspect = (
-        _get_layout_aspect(detail.layout_id)
-        if detail.layout_id
-        else LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
-    )
+    layout_aspect = LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
     preview_width, preview_height = _compute_layout_preview_size(
         page_width,
         layout_aspect,
     )
+    inner_width = max(0.0, preview_width - (LAYOUT_PREVIEW_PADDING * 2.0))
+    inner_height = max(0.0, preview_height - (LAYOUT_PREVIEW_PADDING * 2.0))
 
     def build_fallback(message: str) -> ft.Container:
         stack_ref.current = None
@@ -185,6 +185,7 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
             bgcolor=PREVIEW_BG_COLOR,
             border_radius=12,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            padding=LAYOUT_PREVIEW_PADDING,
             border=(
                 ft.Border.all(1, ft.Colors.ORANGE_400)
                 if DEBUG_LAYOUT_PREVIEW
@@ -264,15 +265,15 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
                                 board_frame,
                                 board_aspect,
                                 slot_data,
-                                preview_width,
-                                preview_height,
+                                inner_width,
+                                inner_height,
                             )
                             return board_frame
 
                         preview_stack = ft.Stack(
                             ref=stack_ref,
-                            width=preview_width,
-                            height=preview_height,
+                            width=inner_width,
+                            height=inner_height,
                             controls=[
                                 build_board_control(
                                     board_controls_data,
@@ -296,6 +297,7 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
                             bgcolor=PREVIEW_BG_COLOR,
                             border_radius=12,
                             clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                            padding=LAYOUT_PREVIEW_PADDING,
                             border=(
                                 ft.Border.all(1, ft.Colors.ORANGE_400)
                                 if DEBUG_LAYOUT_PREVIEW
@@ -344,18 +346,24 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
         frame = frame_ref.current
         if not frame:
             return
+        target_inner_width = max(
+            0.0, target_width - (LAYOUT_PREVIEW_PADDING * 2.0)
+        )
+        target_inner_height = max(
+            0.0, target_height - (LAYOUT_PREVIEW_PADDING * 2.0)
+        )
         frame.width = target_width
         frame.height = target_height
         if preview_stack := stack_ref.current:
-            preview_stack.width = target_width
-            preview_stack.height = target_height
+            preview_stack.width = target_inner_width
+            preview_stack.height = target_inner_height
         for board_frame, _, board_aspect, slot_data in board_controls_ref.current:
             _apply_board_layout(
                 board_frame,
                 board_aspect,
                 slot_data,
-                target_width,
-                target_height,
+                target_inner_width,
+                target_inner_height,
             )
         log_debug_layout(target_width, target_height)
         frame.update()
@@ -757,11 +765,7 @@ def incursion_detail_view(
 
         grid_gap = 12
         grid_vertical_spacing = 10
-        use_single_column_grid = result_panel_width < 520.0
-        single_column_width = max(220.0, result_panel_width - 24.0)
-        grid_column_width = max(150.0, (result_panel_width - 24.0 - grid_gap) / 2.0)
-
-        def _result_dropdown(field_width: float) -> ft.Dropdown:
+        def _result_dropdown() -> ft.Dropdown:
             return ft.Dropdown(
                 label="Resultado",
                 options=[
@@ -769,100 +773,105 @@ def incursion_detail_view(
                     ft.dropdown.Option("loss", "Derrota"),
                 ],
                 value=result_value,
-                width=field_width,
+                height=RESULT_FIELD_HEIGHT,
+                expand=True,
                 disabled=finalize_readonly,
                 on_select=lambda event: view_model.update_finalize_field(
                     "result", event.control.value
                 ),
             )
 
-        def _dahan_alive_field(field_width: float) -> ft.TextField:
+        def _dahan_alive_field() -> ft.TextField:
             return ft.TextField(
                 label="Dahan vivos",
                 value=view_model.finalize_form.dahan_alive,
                 keyboard_type=ft.KeyboardType.NUMBER,
-                width=field_width,
+                height=RESULT_FIELD_HEIGHT,
+                expand=True,
                 disabled=finalize_readonly,
                 on_change=lambda event: view_model.update_finalize_field(
                     "dahan_alive", event.control.value
                 ),
             )
 
-        def _blight_field(field_width: float) -> ft.TextField:
+        def _blight_field() -> ft.TextField:
             return ft.TextField(
                 label="Plaga en la isla",
                 value=view_model.finalize_form.blight_on_island,
                 keyboard_type=ft.KeyboardType.NUMBER,
-                width=field_width,
+                height=RESULT_FIELD_HEIGHT,
+                expand=True,
                 disabled=finalize_readonly,
                 on_change=lambda event: view_model.update_finalize_field(
                     "blight_on_island", event.control.value
                 ),
             )
 
-        def _cards_field(field_width: float) -> ft.Control:
-            if is_win:
-                return ft.TextField(
-                    label="Cartas en el mazo",
-                    value=view_model.finalize_form.invader_cards_remaining,
-                    keyboard_type=ft.KeyboardType.NUMBER,
-                    width=field_width,
-                    disabled=finalize_readonly,
-                    on_change=lambda event: view_model.update_finalize_field(
-                        "invader_cards_remaining", event.control.value
-                    ),
-                )
-            if is_loss:
-                return ft.TextField(
-                    label="Cartas fuera del mazo",
-                    value=view_model.finalize_form.invader_cards_out_of_deck,
-                    keyboard_type=ft.KeyboardType.NUMBER,
-                    width=field_width,
-                    disabled=finalize_readonly,
-                    on_change=lambda event: view_model.update_finalize_field(
-                        "invader_cards_out_of_deck", event.control.value
-                    ),
-                )
-            return ft.Container(width=field_width)
+        def _cards_remaining_field() -> ft.TextField:
+            return ft.TextField(
+                label="Cartas en el mazo",
+                value=view_model.finalize_form.invader_cards_remaining,
+                keyboard_type=ft.KeyboardType.NUMBER,
+                height=RESULT_FIELD_HEIGHT,
+                expand=True,
+                disabled=finalize_readonly,
+                on_change=lambda event: view_model.update_finalize_field(
+                    "invader_cards_remaining", event.control.value
+                ),
+            )
 
-        if use_single_column_grid:
-            stacked_controls: list[ft.Control] = [
-                _result_dropdown(single_column_width),
-                _dahan_alive_field(single_column_width),
-                _blight_field(single_column_width),
+        def _cards_out_of_deck_field() -> ft.TextField:
+            return ft.TextField(
+                label="Cartas fuera del mazo",
+                value=view_model.finalize_form.invader_cards_out_of_deck,
+                keyboard_type=ft.KeyboardType.NUMBER,
+                height=RESULT_FIELD_HEIGHT,
+                expand=True,
+                disabled=finalize_readonly,
+                on_change=lambda event: view_model.update_finalize_field(
+                    "invader_cards_out_of_deck", event.control.value
+                ),
+            )
+
+        def _grid_cell(control: ft.Control) -> ft.Container:
+            return ft.Container(expand=1, content=control)
+
+        def _grid_placeholder() -> ft.Container:
+            return ft.Container(expand=1, height=RESULT_FIELD_HEIGHT)
+
+        remaining_cell = _cards_remaining_field() if is_win else _grid_placeholder()
+        out_of_deck_cell = (
+            _cards_out_of_deck_field() if is_loss else _grid_placeholder()
+        )
+
+        result_dropdown_row = ft.Row(
+            [
+                ft.Container(
+                    expand=1,
+                    content=_result_dropdown(),
+                )
             ]
-            if is_win or is_loss:
-                stacked_controls.append(_cards_field(single_column_width))
-            result_fields_grid: ft.Control = ft.Column(
-                stacked_controls,
-                spacing=grid_vertical_spacing,
-            )
-        else:
-            left_column = ft.Container(
-                width=grid_column_width,
-                content=ft.Column(
+        )
+        result_fields_grid = ft.Column(
+            [
+                result_dropdown_row,
+                ft.Row(
                     [
-                        _result_dropdown(grid_column_width),
-                        _blight_field(grid_column_width),
+                        _grid_cell(_dahan_alive_field()),
+                        _grid_cell(_blight_field()),
                     ],
-                    spacing=grid_vertical_spacing,
+                    spacing=grid_gap,
                 ),
-            )
-            right_column = ft.Container(
-                width=grid_column_width,
-                content=ft.Column(
+                ft.Row(
                     [
-                        _dahan_alive_field(grid_column_width),
-                        _cards_field(grid_column_width),
+                        _grid_cell(remaining_cell),
+                        _grid_cell(out_of_deck_cell),
                     ],
-                    spacing=grid_vertical_spacing,
+                    spacing=grid_gap,
                 ),
-            )
-            result_fields_grid = ft.Row(
-                [left_column, right_column],
-                spacing=grid_gap,
-                alignment=ft.MainAxisAlignment.START,
-            )
+            ],
+            spacing=grid_vertical_spacing,
+        )
 
         result_panel = ft.Container(
             width=result_panel_width,

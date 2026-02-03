@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import math
 import struct
@@ -12,14 +13,8 @@ import flet as ft
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 CALIBRATION_PATH = Path(__file__).resolve().parent / "calibration.json"
-
-LAYOUT_IDS = [
-    "alternating_shores",
-    "coastline",
-    "opposite_shores",
-    "sunrise_fragment",
-    "circle_fragment",
-]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PC_LAYOUTS_TSV_PATH = PROJECT_ROOT / "pc" / "data" / "input" / "layouts.tsv"
 BOARD_IDS = ["a", "b", "c", "d"]
 VIEWPORT_ASPECT_RATIO = 16 / 9
 CONTROLS_PANE_WIDTH = 460.0
@@ -90,12 +85,49 @@ def _read_png_size(path: Path) -> tuple[int, int]:
     return width, height
 
 
+def _load_layout_ids_from_pc_tsv() -> list[str]:
+    if not PC_LAYOUTS_TSV_PATH.exists():
+        return []
+
+    layout_ids: list[str] = []
+    try:
+        with PC_LAYOUTS_TSV_PATH.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            for row in reader:
+                layout_id = (row.get("layout_id") or "").strip()
+                player_count = (row.get("player_count") or "").strip()
+                if not layout_id:
+                    continue
+                if player_count and player_count != "2":
+                    continue
+                if layout_id not in layout_ids:
+                    layout_ids.append(layout_id)
+    except OSError:
+        return []
+
+    return layout_ids
+
+
+def _load_layout_ids_from_calibration_file() -> list[str]:
+    try:
+        data = json.loads(CALIBRATION_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return []
+
+    layouts = data.get("layouts")
+    if not isinstance(layouts, dict):
+        return []
+
+    return sorted(str(layout_id) for layout_id in layouts.keys())
+
+
 class BoardLayoutCalibrator:
     def __init__(self, page: ft.Page):
         self.page = page
 
         self.left_transform = SlotTransform(**DEFAULT_LEFT_SLOT)
         self.right_transform = SlotTransform(**DEFAULT_RIGHT_SLOT)
+        self.layout_ids = _load_layout_ids_from_pc_tsv() or _load_layout_ids_from_calibration_file()
 
         self.board_aspects = self._load_board_aspects()
         self.viewport_width = 960.0
@@ -103,9 +135,10 @@ class BoardLayoutCalibrator:
 
         self.layout_dropdown = ft.Dropdown(
             label="Layout",
-            value=LAYOUT_IDS[0],
+            value=self.layout_ids[0] if self.layout_ids else None,
             width=200,
-            options=[ft.dropdown.Option(layout_id) for layout_id in LAYOUT_IDS],
+            options=[ft.dropdown.Option(layout_id) for layout_id in self.layout_ids],
+            disabled=not self.layout_ids,
             dense=True,
             on_select=self._on_layout_change,
         )
@@ -845,7 +878,13 @@ class BoardLayoutCalibrator:
         if data is None:
             return
 
-        layout_id = self.layout_dropdown.value or LAYOUT_IDS[0]
+        layout_id = self.layout_dropdown.value
+        if not layout_id:
+            self._set_status(
+                "No hay layouts disponibles en pc/data/input/layouts.tsv.",
+                error=True,
+            )
+            return
 
         layouts = data.get("layouts")
         if not isinstance(layouts, dict):
@@ -877,7 +916,13 @@ class BoardLayoutCalibrator:
             self._set_status("Formato invalido: 'layouts' no es un objeto.", error=True)
             return
 
-        layout_id = self.layout_dropdown.value or LAYOUT_IDS[0]
+        layout_id = self.layout_dropdown.value
+        if not layout_id:
+            self._set_status(
+                "No hay layouts disponibles en pc/data/input/layouts.tsv.",
+                error=True,
+            )
+            return
         layout_data = layouts.get(layout_id)
         if not isinstance(layout_data, dict):
             self._set_status(f"No hay calibracion guardada para '{layout_id}'.", error=True)

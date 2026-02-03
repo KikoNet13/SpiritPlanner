@@ -10,7 +10,7 @@ Herramienta one-shot en Flet para calibrar `translate / rotate` de dos slots de 
 
 - Coloca las imagenes guia en `tools/board_layout_calibrator/assets/layouts/`.
 - Nombre esperado por layout: `<layout_id>.png`.
-- Layout IDs hardcoded: `alternating_shores`, `coastline`, `opposite_shores`, `sunrise_fragment`, `circle_fragment`.
+- Los layouts se cargan desde `pc/data/input/layouts.tsv` filtrando `player_count=2`.
 - Si falta la imagen de un layout, la app sigue funcionando y muestra el aviso correspondiente.
 
 ## calibration.json
@@ -24,7 +24,7 @@ Herramienta one-shot en Flet para calibrar `translate / rotate` de dos slots de 
 {
   "schema_version": 1,
   "layouts": {
-    "alternating_shores": {
+    "alternating_shores_2p": {
       "left": {
         "dx": -0.45,
         "dy": 0.0,

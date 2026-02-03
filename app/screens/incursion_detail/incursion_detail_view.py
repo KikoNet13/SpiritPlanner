@@ -98,13 +98,13 @@ def _get_board_aspect(board_id: str) -> float | None:
 def _build_layout_preview(detail: IncursionDetailModel) -> ft.Control:
     page = ft.context.page
     page_width = float(page.width or 900.0)
-    preview_width = max(200.0, min(320.0, page_width * 0.3))
+    preview_width = max(220.0, min(960.0, page_width - 112.0))
     preview_height = preview_width / VIEWPORT_ASPECT_RATIO
 
     def build_fallback(message: str) -> ft.Container:
         return ft.Container(
-            aspect_ratio=VIEWPORT_ASPECT_RATIO,
             width=preview_width,
+            height=preview_height,
             bgcolor=PREVIEW_BG_COLOR,
             border_radius=12,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
@@ -178,8 +178,8 @@ def _build_layout_preview(detail: IncursionDetailModel) -> ft.Control:
     )
 
     return ft.Container(
-        aspect_ratio=VIEWPORT_ASPECT_RATIO,
         width=preview_width,
+        height=preview_height,
         bgcolor=PREVIEW_BG_COLOR,
         border_radius=12,
         clip_behavior=ft.ClipBehavior.HARD_EDGE,

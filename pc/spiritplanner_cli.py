@@ -3,14 +3,226 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import warnings
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-DEFAULT_SPIRITS_PATH = Path("pc/data/input/spirits.tsv")
-DEFAULT_BOARDS_PATH = Path("pc/data/input/boards.tsv")
-DEFAULT_ADVERSARIES_PATH = Path("pc/data/input/adversaries.tsv")
-DEFAULT_LAYOUTS_PATH = Path("pc/data/input/layouts.tsv")
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - dotenv is expected in production
+    load_dotenv = None
+
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+REPO_ROOT = Path(__file__).resolve().parents[1]
+EXECUTABLE_DIR = (
+    Path(sys.executable).resolve().parent if IS_FROZEN else REPO_ROOT
+)
+
+CATALOG_FILENAMES: dict[str, str] = {
+    "spirits": "spirits.tsv",
+    "boards": "boards.tsv",
+    "adversaries": "adversaries.tsv",
+    "layouts": "layouts.tsv",
+}
+CATALOG_PRIMARY_RELATIVE_DIR = Path("app") / "assets" / "catalogs"
+CATALOG_FALLBACK_RELATIVE_DIR = Path("pc") / "data" / "input"
+
+
+def _build_dotenv_candidates() -> list[Path]:
+    candidates: list[Path] = [
+        EXECUTABLE_DIR / ".env",
+        EXECUTABLE_DIR.parent / ".env",
+    ]
+    if not IS_FROZEN:
+        candidates.append(REPO_ROOT / ".env")
+
+    unique_candidates: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique_candidates.append(resolved)
+    return unique_candidates
+
+
+def _load_runtime_dotenv() -> Path | None:
+    if load_dotenv is None:
+        return None
+
+    for dotenv_path in _build_dotenv_candidates():
+        if not dotenv_path.is_file():
+            continue
+        load_dotenv(dotenv_path, override=False)
+        return dotenv_path
+    return None
+
+
+def _resolve_credentials_path(raw_value: str | None) -> Path | None:
+    if not raw_value:
+        return None
+
+    expanded = Path(raw_value).expanduser()
+    if expanded.is_absolute():
+        return expanded
+
+    cwd_candidate = (Path.cwd() / expanded).resolve()
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    return (EXECUTABLE_DIR / expanded).resolve()
+
+
+def _is_debug_enabled() -> bool:
+    return os.getenv("SPIRITPLANNER_DEBUG") == "1"
+
+
+def _configure_runtime_warnings(debug_enabled: bool) -> None:
+    if debug_enabled:
+        return
+    warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning,
+        module="google.api_core._python_version_support",
+    )
+
+
+def _print_runtime_debug(dotenv_loaded: Path | None) -> None:
+    credentials_value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    credentials_path = _resolve_credentials_path(credentials_value)
+
+    print("\n[DEBUG] Diagnostico de entorno")
+    print(f"[DEBUG] cwd: {Path.cwd()}")
+    print(f"[DEBUG] exe_dir: {EXECUTABLE_DIR}")
+    print(
+        "[DEBUG] .env cargado: "
+        f"{dotenv_loaded if dotenv_loaded is not None else 'ninguno'}"
+    )
+    print(
+        "[DEBUG] GOOGLE_APPLICATION_CREDENTIALS: "
+        f"{credentials_value if credentials_value else 'no definido'}"
+    )
+    if credentials_path is None:
+        print("[DEBUG] fichero de credenciales en disco: no (ruta no definida)")
+    else:
+        print(
+            "[DEBUG] fichero de credenciales en disco: "
+            f"{'si' if credentials_path.is_file() else 'no'} ({credentials_path})"
+        )
+
+
+def _bootstrap_runtime_environment() -> None:
+    dotenv_loaded = _load_runtime_dotenv()
+    debug_enabled = _is_debug_enabled()
+    _configure_runtime_warnings(debug_enabled)
+    if debug_enabled:
+        _print_runtime_debug(dotenv_loaded)
+
+
+def _has_credentials_configured() -> bool:
+    value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+    return bool(value)
+
+
+def _print_missing_credentials_message() -> None:
+    print("No se encontraron credenciales (GOOGLE_APPLICATION_CREDENTIALS).")
+    print(
+        "Coloca un .env junto al .exe (misma carpeta) o configura la "
+        "variable de entorno en Windows."
+    )
+
+
+def _ensure_credentials_configured() -> bool:
+    if _has_credentials_configured():
+        return True
+    _print_missing_credentials_message()
+    return False
+
+
+def _catalog_base_dirs(base_dir: Path) -> list[Path]:
+    root = base_dir.resolve()
+    base_dirs: list[Path] = [root]
+    if IS_FROZEN:
+        parent = root.parent.resolve()
+        if parent not in base_dirs:
+            base_dirs.append(parent)
+    return base_dirs
+
+
+def _catalog_search_dirs(base_dir: Path) -> list[tuple[Path, Path]]:
+    search_dirs: list[tuple[Path, Path]] = []
+    for candidate_root in _catalog_base_dirs(base_dir):
+        primary_dir = (candidate_root / CATALOG_PRIMARY_RELATIVE_DIR).resolve()
+        fallback_dir = (candidate_root / CATALOG_FALLBACK_RELATIVE_DIR).resolve()
+        search_dirs.append((primary_dir, fallback_dir))
+    return search_dirs
+
+
+def resolve_catalog_paths(base_dir: Path) -> dict[str, Path]:
+    search_dirs = _catalog_search_dirs(base_dir)
+    resolved: dict[str, Path] = {}
+
+    for catalog_key, filename in CATALOG_FILENAMES.items():
+        for primary_dir, fallback_dir in search_dirs:
+            primary_path = primary_dir / filename
+            fallback_path = fallback_dir / filename
+            if primary_path.is_file():
+                resolved[catalog_key] = primary_path
+                break
+            if fallback_path.is_file():
+                resolved[catalog_key] = fallback_path
+                break
+
+    return resolved
+
+
+def _print_catalog_resolution_debug(base_dir: Path, resolved_paths: dict[str, Path]) -> None:
+    print("[DEBUG] Catálogos TSV (resolución):")
+    for index, (primary_dir, fallback_dir) in enumerate(
+        _catalog_search_dirs(base_dir), start=1
+    ):
+        print(f"[DEBUG] ruta primaria #{index}: {primary_dir}")
+        print(f"[DEBUG] ruta fallback #{index}: {fallback_dir}")
+    for catalog_key, filename in CATALOG_FILENAMES.items():
+        final_path = resolved_paths.get(catalog_key)
+        if final_path is None:
+            print(f"[DEBUG] - {filename}: no encontrado")
+        else:
+            print(f"[DEBUG] - {filename}: {final_path}")
+
+
+def _print_missing_catalogs_message(base_dir: Path, missing_filenames: list[str]) -> None:
+    print("No se encontraron los catálogos TSV necesarios.")
+    searched_paths: list[Path] = []
+    for primary_dir, fallback_dir in _catalog_search_dirs(base_dir):
+        for path in (primary_dir, fallback_dir):
+            if path not in searched_paths:
+                searched_paths.append(path)
+    print("Busqué en:")
+    for path in searched_paths:
+        print(f"- {path}")
+    print(f"Faltan: {', '.join(missing_filenames)}")
+
+
+def _resolve_required_catalog_paths(base_dir: Path) -> dict[str, Path] | None:
+    resolved_paths = resolve_catalog_paths(base_dir)
+    if _is_debug_enabled():
+        _print_catalog_resolution_debug(base_dir, resolved_paths)
+
+    missing_filenames = [
+        filename
+        for catalog_key, filename in CATALOG_FILENAMES.items()
+        if catalog_key not in resolved_paths
+    ]
+    if missing_filenames:
+        _print_missing_catalogs_message(base_dir, missing_filenames)
+        return None
+
+    return resolved_paths
 
 
 def _load_era_admin_functions() -> tuple[Any, Any]:
@@ -27,6 +239,14 @@ def _load_generate_function() -> Any:
     else:
         from generate_era import run_generate_era
     return run_generate_era
+
+
+def _load_list_eras_function() -> Any:
+    if __package__:
+        from .firestore_service import list_eras
+    else:
+        from firestore_service import list_eras
+    return list_eras
 
 
 def _print_help() -> None:
@@ -93,8 +313,95 @@ def _confirm_delete(era_id: str) -> bool:
     return True
 
 
+def _is_credentials_error(exc: Exception) -> bool:
+    error_text = f"{exc.__class__.__name__}: {exc}".lower()
+    return (
+        "defaultcredentialserror" in error_text
+        or "application default credentials" in error_text
+        or "could not automatically determine credentials" in error_text
+        or "google_application_credentials" in error_text
+    )
+
+
+def _format_operation_error(exc: Exception) -> str:
+    error_text = f"{exc.__class__.__name__}: {exc}".lower()
+
+    if _is_credentials_error(exc):
+        return (
+            "No se encontraron credenciales de Google Cloud (ADC). "
+            "Configura GOOGLE_APPLICATION_CREDENTIALS o inicia ADC con gcloud."
+        )
+    if "no module named 'firebase_admin'" in error_text:
+        return "Falta la dependencia 'firebase-admin' en este entorno."
+    if str(exc).strip():
+        return str(exc).strip()
+    return "Error inesperado al operar con Firestore."
+
+
+def _print_error(prefix: str, exc: Exception) -> None:
+    print(f"{prefix}: {_format_operation_error(exc)}")
+
+
+def _format_timestamp(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    if value is None:
+        return "-"
+    return str(value)
+
+
+def _build_era_row_label(row: dict[str, Any]) -> str:
+    era_id = str(row["era_id"])
+    updated_at = _format_timestamp(row.get("updated_at"))
+    created_at = _format_timestamp(row.get("created_at"))
+    return f"{era_id} (updated_at: {updated_at}, created_at: {created_at})"
+
+
+def select_era_interactively(action_label_es: str) -> Optional[str]:
+    if not _ensure_credentials_configured():
+        return None
+
+    while True:
+        try:
+            list_eras = _load_list_eras_function()
+            rows: list[dict[str, Any]] = list_eras()
+        except Exception as exc:
+            _print_error("No se pudo cargar la lista de eras", exc)
+            return None
+
+        if not rows:
+            print("No hay eras en Firestore.")
+            return None
+
+        print(f"\nSelecciona una era para {action_label_es}:")
+        for index, row in enumerate(rows, start=1):
+            print(f"{index}) {_build_era_row_label(row)}")
+        print("0) Cancelar")
+        print("R) Refrescar lista")
+
+        option = input("Elige una opcion: ").strip()
+        if option.lower() == "r":
+            continue
+        if option == "0":
+            print("Operacion cancelada.")
+            return None
+        if option.isdigit():
+            selected_index = int(option)
+            if 1 <= selected_index <= len(rows):
+                return str(rows[selected_index - 1]["era_id"])
+
+        print("Opcion invalida. Escribe un numero de la lista, 0 o R.")
+
+
 def _run_generate_flow() -> None:
     print("\n=== Generar era ===")
+    if not _ensure_credentials_configured():
+        return
+
+    catalog_paths = _resolve_required_catalog_paths(EXECUTABLE_DIR)
+    if catalog_paths is None:
+        return
+
     era_id = _prompt_text("Era ID", default="1")
     seed = _prompt_seed()
 
@@ -103,17 +410,17 @@ def _run_generate_flow() -> None:
         resolved_seed = run_generate_era(
             era_id=era_id,
             seed=seed,
-            spirits_path=DEFAULT_SPIRITS_PATH,
-            boards_path=DEFAULT_BOARDS_PATH,
-            adversaries_path=DEFAULT_ADVERSARIES_PATH,
-            layouts_path=DEFAULT_LAYOUTS_PATH,
+            spirits_path=catalog_paths["spirits"],
+            boards_path=catalog_paths["boards"],
+            adversaries_path=catalog_paths["adversaries"],
+            layouts_path=catalog_paths["layouts"],
             debug_tsv_path=None,
             write_firestore=True,
             write_tsv=False,
             print_generated_seed=False,
         )
     except Exception as exc:
-        print(f"Error al generar la era '{era_id}': {exc}")
+        _print_error(f"Error al generar la era '{era_id}'", exc)
         return
 
     print(f"Era '{era_id}' generada correctamente.")
@@ -122,12 +429,17 @@ def _run_generate_flow() -> None:
 
 def _run_delete_flow() -> None:
     print("\n=== Eliminar era ===")
-    era_id = _prompt_text("Era ID", required=True)
+    if not _ensure_credentials_configured():
+        return
+
+    era_id = select_era_interactively("eliminar")
+    if era_id is None:
+        return
 
     try:
         counts = _count_era(era_id)
     except Exception as exc:
-        print(f"Error al contar la era '{era_id}': {exc}")
+        _print_error(f"Error al contar la era '{era_id}'", exc)
         return
 
     _print_counts(era_id, counts)
@@ -138,13 +450,13 @@ def _run_delete_flow() -> None:
         _delete_era(era_id)
     except Exception as exc:
         print("Error durante el borrado. La era puede haber quedado eliminada de forma parcial.")
-        print(f"Detalle: {exc}")
+        print(f"Detalle: {_format_operation_error(exc)}")
         return
 
     try:
         remaining = _count_era(era_id)
     except Exception as exc:
-        print(f"La era se borro, pero fallo la verificacion final: {exc}")
+        _print_error("La era se borro, pero fallo la verificacion final", exc)
         return
 
     if (
@@ -162,12 +474,21 @@ def _run_delete_flow() -> None:
 
 def _run_reset_flow() -> None:
     print("\n=== Reiniciar era ===")
-    era_id = _prompt_text("Era ID", required=True)
+    if not _ensure_credentials_configured():
+        return
+
+    catalog_paths = _resolve_required_catalog_paths(EXECUTABLE_DIR)
+    if catalog_paths is None:
+        return
+
+    era_id = select_era_interactively("reiniciar")
+    if era_id is None:
+        return
 
     try:
         counts = _count_era(era_id)
     except Exception as exc:
-        print(f"Error al contar la era '{era_id}': {exc}")
+        _print_error(f"Error al contar la era '{era_id}'", exc)
         return
 
     _print_counts(era_id, counts)
@@ -180,7 +501,7 @@ def _run_reset_flow() -> None:
         _delete_era(era_id)
     except Exception as exc:
         print("Error durante el borrado. La era puede haber quedado eliminada de forma parcial.")
-        print(f"Detalle: {exc}")
+        print(f"Detalle: {_format_operation_error(exc)}")
         return
 
     try:
@@ -188,10 +509,10 @@ def _run_reset_flow() -> None:
         resolved_seed = run_generate_era(
             era_id=era_id,
             seed=seed,
-            spirits_path=DEFAULT_SPIRITS_PATH,
-            boards_path=DEFAULT_BOARDS_PATH,
-            adversaries_path=DEFAULT_ADVERSARIES_PATH,
-            layouts_path=DEFAULT_LAYOUTS_PATH,
+            spirits_path=catalog_paths["spirits"],
+            boards_path=catalog_paths["boards"],
+            adversaries_path=catalog_paths["adversaries"],
+            layouts_path=catalog_paths["layouts"],
             debug_tsv_path=None,
             write_firestore=True,
             write_tsv=False,
@@ -199,7 +520,7 @@ def _run_reset_flow() -> None:
         )
     except Exception as exc:
         print("Error al regenerar la era despues del borrado.")
-        print(f"Detalle: {exc}")
+        print(f"Detalle: {_format_operation_error(exc)}")
         return
 
     print(f"Era '{era_id}' reiniciada correctamente.")
@@ -253,6 +574,8 @@ def _run_interactive_menu() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _bootstrap_runtime_environment()
+
     args = sys.argv[1:] if argv is None else argv
     interactive_mode = len(args) == 0
 

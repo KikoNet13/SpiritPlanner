@@ -7,6 +7,7 @@ name = "pypi"
 firebase-admin = "*"
 flet = "*"
 python-dotenv = "*"
+typer = "*"
 tzlocal = "*"
 
 [dev-packages]

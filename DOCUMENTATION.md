@@ -37,10 +37,12 @@ app/
 │  └─ score_service.py          # Fórmula de puntuación
 └─ utils/                       # Utilidades (logging, navegación, fechas)
 
-pc/                             # Scripts CLI (generación de Era)
-├─ generate_era.py
-├─ firestore_service.py
-└─ firestore_test.py
+pc/                             # Tooling PC y CLI
+├─ spiritplanner_cli.py         # CLI Typer (entrypoint principal)
+├─ generate_era.py              # Generación de Era reutilizable
+├─ era_admin.py                 # Conteo y borrado en cascada de eras
+├─ firestore_service.py         # Operaciones base Firestore para tooling
+└─ firestore_test.py            # Smoke test de conexión
 ```
 
 ## 4. Flujo general de la app
@@ -208,7 +210,16 @@ pc/                             # Scripts CLI (generación de Era)
   - `write_era_tsv(path, era_id, rounds, boards, layouts, rng)`: genera TSV de incursiones barajadas.
   - `write_era_firestore(...)`: crea Era/Periodos/Incursiones en Firestore según rondas.
   - `parse_args()`: define CLI y rutas por defecto de TSV.
-  - `main()`: orquesta carga de datos, genera rondas y escribe en Firestore/TSV.
+  - `run_generate_era(...)`: orquesta carga de datos y generación reutilizable desde CLI.
+  - `main()`: mantiene compatibilidad del script original y delega en `run_generate_era(...)`.
+- `pc/era_admin.py`:
+  - `count_era_tree(era_id)`: recorre la rama completa y devuelve conteos (`periods`, `incursions`, `sessions`) y existencia del doc de Era.
+  - `delete_era_tree(era_id)`: elimina en cascada sesiones → incursiones → periodos → era.
+- `pc/spiritplanner_cli.py`:
+  - CLI Typer con comando raíz `spiritplanner` y grupo `era`.
+  - `era generate`: genera una Era reutilizando `run_generate_era(...)`.
+  - `era delete`: conteo + borrado seguro con `--dry-run/--apply`, `--force` y `--confirm`.
+  - `era reset`: `delete` (apply) + `generate` en un solo flujo.
 - `pc/firestore_test.py`:
   - Script mínimo para verificar conexión a Firestore y listar colecciones.
 
@@ -233,6 +244,27 @@ pc/                             # Scripts CLI (generación de Era)
 - No mezclar lógica de negocio con UI ni añadir capas adicionales de abstracción.
 - No alterar reglas de asignación, unicidad de incursión activa o cálculo de puntuación sin actualizar `FirestoreService` y `score_service`.
 
-## 9. Nota final
+## 9. CLI PC
+
+La pata PC tiene una CLI unica con Typer para evitar el flujo de scripts sueltos.
+
+Comandos principales:
+
+- `era generate`: crea una Era en Firestore desde TSV.
+- `era delete`: muestra conteos y permite borrado en cascada con protecciones.
+- `era reset`: borra y regenera la misma Era para iterar rapido.
+
+Ejemplos de uso:
+
+- `python -m pc.spiritplanner_cli era generate --era-id era_demo`
+- `python -m pc.spiritplanner_cli era delete --era-id era_demo --dry-run`
+- `python -m pc.spiritplanner_cli era delete --era-id era_demo --force --confirm era_demo --apply`
+- `python -m pc.spiritplanner_cli era reset --era-id era_demo --force --confirm era_demo --apply`
+
+Empaquetado local (exe) en `tools/`:
+
+- `pyinstaller -F pc\spiritplanner_cli.py -n spiritplanner --clean --distpath tools --workpath build/pyinstaller --specpath build/pyinstaller`
+
+## 10. Nota final
 
 Este documento es de apoyo y puede estar desactualizado; lo canónico es TDD + ADR.

@@ -11,7 +11,10 @@ from itertools import cycle
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from firestore_service import create_era, create_incursion, create_period, era_exists
+if __package__:
+    from .firestore_service import create_era, create_incursion, create_period, era_exists
+else:
+    from firestore_service import create_era, create_incursion, create_period, era_exists
 
 from dotenv import load_dotenv
 
@@ -371,24 +374,58 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def run_generate_era(
+    *,
+    era_id: str,
+    seed: int | None = None,
+    spirits_path: Path = Path("pc/data/input/spirits.tsv"),
+    boards_path: Path = Path("pc/data/input/boards.tsv"),
+    adversaries_path: Path = Path("pc/data/input/adversaries.tsv"),
+    layouts_path: Path = Path("pc/data/input/layouts.tsv"),
+    debug_tsv_path: Path | None = None,
+    write_firestore: bool = True,
+    write_tsv: bool | None = None,
+    print_generated_seed: bool = False,
+) -> int:
+    resolved_seed = seed
+    if resolved_seed is None:
+        resolved_seed = random.SystemRandom().randint(0, 2**32 - 1)
+        if print_generated_seed:
+            print(resolved_seed)
+
+    rng = random.Random(resolved_seed)
+    spirits = load_spirits(spirits_path)
+    boards = load_boards(boards_path)
+    validate_adversaries(adversaries_path)
+    layouts = select_layouts(load_layouts(layouts_path))
+    rounds = generate_round_robin(spirits)
+
+    if write_firestore:
+        write_era_firestore(era_id, rounds, boards, layouts, rng)
+
+    should_write_tsv = write_tsv if write_tsv is not None else debug_tsv_path is not None
+    if should_write_tsv:
+        if debug_tsv_path is None:
+            raise ValueError("debug_tsv_path is required when write_tsv is enabled")
+        write_era_tsv(debug_tsv_path, era_id, rounds, boards, layouts, rng)
+
+    return resolved_seed
+
+
 def main() -> None:
     args = parse_args()
-    if args.seed is None:
-        seed = random.SystemRandom().randint(0, 2**32 - 1)
-        print(seed)
-    else:
-        seed = args.seed
-    rng = random.Random(seed)
-
-    spirits = load_spirits(args.spirits)
-    boards = load_boards(args.boards)
-    validate_adversaries(args.adversaries)
-    layouts = select_layouts(load_layouts(args.layouts))
-
-    rounds = generate_round_robin(spirits)
-    write_era_firestore(args.era_id, rounds, boards, layouts, rng)
-    if args.debug_tsv:
-        write_era_tsv(args.debug_tsv, args.era_id, rounds, boards, layouts, rng)
+    run_generate_era(
+        era_id=args.era_id,
+        seed=args.seed,
+        spirits_path=args.spirits,
+        boards_path=args.boards,
+        adversaries_path=args.adversaries,
+        layouts_path=args.layouts,
+        debug_tsv_path=args.debug_tsv,
+        write_firestore=True,
+        write_tsv=None,
+        print_generated_seed=True,
+    )
 
 
 if __name__ == "__main__":

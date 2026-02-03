@@ -266,8 +266,18 @@ def periods_view(
     ]
 
     def build_assignment_dialog() -> ft.AlertDialog:
-        page_width = float(page.window_width or page.width or 960.0)
-        page_height = float(page.window_height or page.height or 720.0)
+        page_width = float(
+            view_model.assignment_viewport_width
+            or page.width
+            or getattr(getattr(page, "window", None), "width", 0)
+            or 900.0
+        )
+        page_height = float(
+            view_model.assignment_viewport_height
+            or page.height
+            or getattr(getattr(page, "window", None), "height", 0)
+            or 700.0
+        )
         dialog_width = min(960.0, max(320.0, page_width - 48.0))
         dialog_height = max(360.0, page_height * 0.9)
         list_view = ft.ListView(spacing=10, expand=True)
@@ -320,6 +330,42 @@ def periods_view(
                 dialog_ref.current = None
 
     ft.use_effect(sync_dialog, [view_model.assignment_open, view_model.assignment_version])
+
+    def register_resize_handler():
+        def update_viewport(
+            width: float | None,
+            height: float | None,
+        ) -> None:
+            resolved_width = float(
+                width
+                or page.width
+                or getattr(getattr(page, "window", None), "width", 0)
+                or 900.0
+            )
+            resolved_height = float(
+                height
+                or page.height
+                or getattr(getattr(page, "window", None), "height", 0)
+                or 700.0
+            )
+            view_model.set_assignment_viewport(resolved_width, resolved_height)
+
+        def on_resize(event: ft.ControlEvent) -> None:
+            update_viewport(
+                getattr(event, "width", None),
+                getattr(event, "height", None),
+            )
+
+        page.on_resize = on_resize
+        update_viewport(page.width, page.height)
+
+        def cleanup() -> None:
+            if page.on_resize == on_resize:
+                page.on_resize = None
+
+        return cleanup
+
+    ft.use_effect(register_resize_handler, [])
 
     def build_period_card(row: PeriodRowModel) -> ft.Control:
         action = None

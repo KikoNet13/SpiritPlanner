@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from pathlib import Path
 
 import flet as ft
 
@@ -15,6 +16,8 @@ from app.utils.navigation import navigate
 from app.utils.router import register_route_loader
 
 logger = get_logger(__name__)
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+LAYOUTS_DIR = ASSETS_DIR / "layouts"
 
 
 def _period_card(
@@ -84,11 +87,43 @@ def _assignment_card(
     show_error: bool,
     on_select,
 ) -> ft.Card:
+    layout_image_path = LAYOUTS_DIR / f"{incursion.layout_id}.png"
+    preview_size = ft.Size(96, 72)
+    if incursion.layout_id and layout_image_path.exists():
+        layout_preview: ft.Control = ft.Container(
+            width=preview_size.width,
+            height=preview_size.height,
+            alignment=ft.Alignment.CENTER,
+            content=ft.Image(
+                src=f"layouts/{incursion.layout_id}.png",
+                fit=ft.BoxFit.CONTAIN,
+                width=preview_size.width,
+                height=preview_size.height,
+            ),
+        )
+    else:
+        layout_preview = ft.Container(
+            width=preview_size.width,
+            height=preview_size.height,
+            border=ft.Border.all(1, ft.Colors.BLUE_GREY_200),
+            border_radius=10,
+            alignment=ft.Alignment.CENTER,
+            padding=6,
+            content=ft.Text(
+                incursion.layout_name,
+                size=10,
+                color=ft.Colors.BLUE_GREY_600,
+                text_align=ft.TextAlign.CENTER,
+                max_lines=2,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            ),
+        )
     dropdown = ft.Dropdown(
         options=options,
         value=selection,
         error_text="Selecciona un adversario" if show_error else None,
         on_select=on_select,
+        height=40,
     )
     spirits_column = ft.Column(
         [
@@ -103,7 +138,35 @@ def _assignment_card(
                 weight=ft.FontWeight.BOLD,
             ),
         ],
-        spacing=2,
+        spacing=1,
+    )
+    layout_info = ft.Column(
+        [
+            ft.Text(
+                f"Boards {incursion.board_1_name} + {incursion.board_2_name}",
+                size=11,
+                color=ft.Colors.BLUE_GREY_600,
+                max_lines=1,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            ),
+            ft.Text(
+                f"Layout {incursion.layout_name}",
+                size=11,
+                color=ft.Colors.BLUE_GREY_600,
+                max_lines=1,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            ),
+        ],
+        spacing=1,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    right_column = ft.Column(
+        [
+            layout_preview,
+            layout_info,
+        ],
+        spacing=4,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
     )
     return ft.Card(
         content=ft.Container(
@@ -112,21 +175,27 @@ def _assignment_card(
                     ft.Text(
                         f"Incursión {incursion.index}",
                         size=12,
-                        weight=ft.FontWeight.BOLD,
+                        weight=ft.FontWeight.W_600,
                         color=ft.Colors.BLUE_GREY_700,
                     ),
                     ft.ResponsiveRow(
                         [
                             ft.Column(
-                                [spirits_column],
+                                [
+                                    spirits_column,
+                                    dropdown,
+                                ],
                                 col={"xs": 12, "md": 8},
+                                spacing=6,
                             ),
                             ft.Column(
-                                [dropdown],
+                                [right_column],
                                 col={"xs": 12, "md": 4},
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                             ),
                         ],
-                        spacing=12,
+                        spacing=10,
+                        run_spacing=6,
                     ),
                 ],
                 spacing=6,
@@ -197,10 +266,11 @@ def periods_view(
     ]
 
     def build_assignment_dialog() -> ft.AlertDialog:
-        dialog_width = 720
-        if page.width:
-            dialog_width = min(page.width * 0.9, 720)
-        list_view = ft.ListView(spacing=12, expand=True)
+        page_width = float(page.window_width or page.width or 960.0)
+        page_height = float(page.window_height or page.height or 720.0)
+        dialog_width = min(960.0, max(320.0, page_width - 48.0))
+        dialog_height = max(360.0, page_height * 0.9)
+        list_view = ft.ListView(spacing=10, expand=True)
         for incursion in view_model.assignment_incursions:
             incursion_id = incursion.incursion_id
             list_view.controls.append(
@@ -214,12 +284,15 @@ def periods_view(
                     ),
                 )
             )
-        dialog = dialog_ref.current or ft.AlertDialog(modal=True)
+        dialog = dialog_ref.current or ft.AlertDialog(
+            modal=True,
+            inset_padding=ft.padding.symmetric(horizontal=12, vertical=16),
+        )
         dialog.title = ft.Text("Asignar adversarios")
         dialog.content = ft.Container(
             content=list_view,
             width=dialog_width,
-            height=420,
+            height=dialog_height,
         )
         dialog.actions = [
             ft.TextButton(

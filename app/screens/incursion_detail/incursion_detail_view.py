@@ -27,7 +27,8 @@ logger = get_logger(__name__)
 
 
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
-CALIBRATION_PATH = ASSETS_DIR / "layouts" / "calibration.json"
+LAYOUTS_DIR = ASSETS_DIR / "layouts"
+CALIBRATION_PATH = LAYOUTS_DIR / "calibration.json"
 BOARDS_DIR = ASSETS_DIR / "boards"
 DEFAULT_BOARD_HEIGHT_PCT = 0.90
 CENTER_ALIGN = ft.Alignment(0, 0)
@@ -41,6 +42,7 @@ LAYOUT_PLACEHOLDER_MAX_WIDTH = 960.0
 
 _CALIBRATION_CACHE: dict[str, dict[str, dict[str, float]]] | None = None
 _BOARD_ASPECT_CACHE: dict[str, float] = {}
+_LAYOUT_ASPECT_CACHE: dict[str, float] = {}
 
 
 def _safe_float(value: object, default: float) -> float:
@@ -99,13 +101,30 @@ def _get_board_aspect(board_id: str) -> float | None:
     return aspect
 
 
-def _compute_layout_preview_size(page_width: float) -> tuple[float, float]:
+def _get_layout_aspect(layout_id: str) -> float:
+    if layout_id in _LAYOUT_ASPECT_CACHE:
+        return _LAYOUT_ASPECT_CACHE[layout_id]
+
+    layout_path = LAYOUTS_DIR / f"{layout_id}.png"
+    if not layout_path.exists():
+        return LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
+
+    width, height = _read_png_size(layout_path)
+    aspect = width / height if height else LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
+    _LAYOUT_ASPECT_CACHE[layout_id] = aspect
+    return aspect
+
+
+def _compute_layout_preview_size(
+    page_width: float,
+    layout_aspect: float,
+) -> tuple[float, float]:
     available_width = max(
         0.0,
         page_width - ((CONTENT_SECTION_PADDING + DARK_SECTION_PADDING) * 2.0),
     )
     preview_width = min(LAYOUT_PLACEHOLDER_MAX_WIDTH, available_width)
-    preview_height = preview_width * (LAYOUT_PLACEHOLDER_HEIGHT / LAYOUT_PLACEHOLDER_WIDTH)
+    preview_height = preview_width / layout_aspect if layout_aspect else 0.0
     return preview_width, preview_height
 
 
@@ -146,7 +165,15 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
         ft.use_ref([])
     )
     page_width = float(page.width or 900.0)
-    preview_width, preview_height = _compute_layout_preview_size(page_width)
+    layout_aspect = (
+        _get_layout_aspect(detail.layout_id)
+        if detail.layout_id
+        else LAYOUT_PLACEHOLDER_WIDTH / LAYOUT_PLACEHOLDER_HEIGHT
+    )
+    preview_width, preview_height = _compute_layout_preview_size(
+        page_width,
+        layout_aspect,
+    )
 
     def build_fallback(message: str) -> ft.Container:
         board_controls_ref.current = []
@@ -270,13 +297,15 @@ def layout_preview(detail: IncursionDetailModel) -> ft.Control:
     def register_resize_handler():
         def on_resize(_: ft.ControlEvent) -> None:
             updated_width, updated_height = _compute_layout_preview_size(
-                float(page.width or 900.0)
+                float(page.width or 900.0),
+                layout_aspect,
             )
             apply_preview_size(updated_width, updated_height)
 
         page.on_resize = on_resize
         updated_width, updated_height = _compute_layout_preview_size(
-            float(page.width or 900.0)
+            float(page.width or 900.0),
+            layout_aspect,
         )
         apply_preview_size(updated_width, updated_height)
 

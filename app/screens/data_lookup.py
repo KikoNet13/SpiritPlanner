@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterable
 
-from utils.logger import get_logger
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import flet as ft
 
-from screens.incursions.incursions_model import (
+from app.screens.incursions.incursions_model import (
     IncursionCardModel,
     get_adversary_info,
     get_board_info,
@@ -10,8 +10,8 @@ from screens.incursions.incursions_model import (
     get_layout_info,
     get_spirit_info,
 )
-from services.firestore_service import FirestoreService
-from utils.logger import get_logger
+from app.services.firestore_service import FirestoreService
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

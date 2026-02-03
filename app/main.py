@@ -12,14 +12,14 @@ warnings.filterwarnings(
     module="google.api_core._python_version_support",
 )
 
-from screens.eras.eras_view import eras_view
-from screens.incursion_detail.incursion_detail_view import incursion_detail_view
-from screens.incursions.incursions_view import incursions_view
-from screens.periods.periods_view import periods_view
-from services.firestore_service import FirestoreService
-from services.service_registry import set_firestore_service
-from utils.logger import configure_logging, get_logger
-from utils.router import build_route_stack, get_router
+from app.screens.eras.eras_view import eras_view
+from app.screens.incursion_detail.incursion_detail_view import incursion_detail_view
+from app.screens.incursions.incursions_view import incursions_view
+from app.screens.periods.periods_view import periods_view
+from app.services.firestore_service import FirestoreService
+from app.services.service_registry import set_firestore_service
+from app.utils.logger import configure_logging, get_logger
+from app.utils.router import build_route_stack, get_router
 
 debug_mode = os.getenv("SPIRITPLANNER_DEBUG") == "1"
 configure_logging(debug=debug_mode)

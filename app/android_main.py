@@ -1,22 +1,54 @@
 from __future__ import annotations
 
+import inspect
 import sys
-import types
 from pathlib import Path
 
 
-root = Path(__file__).resolve().parent
+def _find_flat_root() -> Path:
+    """
+    Locate the directory that contains the flattened app code:
+    - main.py
+    - screens/
+    - services/
+    - utils/
+    This should work both in dev (repo/app/...) and in APK (zip root).
+    """
+    start = Path(__file__).resolve().parent
 
-if "app" not in sys.modules:
-    app_mod = types.ModuleType("app")
-    app_mod.__path__ = [str(root)]
-    sys.modules["app"] = app_mod
+    candidates = [
+        start,
+        start.parent,
+        start / "app",
+        start.parent / "app",
+    ]
 
-from app.main import main as app_main
+    for p in candidates:
+        if (p / "main.py").is_file() and (p / "screens").is_dir():
+            return p
+
+    # Fallback: use current directory
+    return start
+
+
+def _ensure_root_on_syspath(root: Path) -> None:
+    """Ensure `import main`, `import screens`, etc. resolve against `root`."""
+    root_str = str(root)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+
+
+ROOT = _find_flat_root()
+_ensure_root_on_syspath(ROOT)
+
+# Now `main` resolves to ROOT/main.py and `screens` to ROOT/screens/
+from main import main as app_main  # noqa: E402
 
 
 async def main(page) -> None:
-    await app_main(page)
+    result = app_main(page)
+    if inspect.isawaitable(result):
+        await result
 
 
 if __name__ == "__main__":

@@ -9,14 +9,14 @@ from pathlib import Path
 
 import flet as ft
 
-from app.screens.data_lookup import get_adversary_catalog
-from app.screens.periods.periods_model import AssignmentIncursionModel, PeriodRowModel
-from app.screens.periods.periods_viewmodel import PeriodsViewModel
-from app.screens.shared_components import section_card, status_chip
-from app.services.service_registry import get_firestore_service
-from app.utils.logger import get_logger
-from app.utils.navigation import navigate
-from app.utils.router import register_route_loader
+from screens.data_lookup import get_adversary_catalog
+from screens.periods.periods_model import AssignmentIncursionModel, PeriodRowModel
+from screens.periods.periods_viewmodel import PeriodsViewModel
+from screens.shared_components import section_card, status_chip
+from services.service_registry import get_firestore_service
+from utils.logger import get_logger
+from utils.navigation import navigate
+from utils.router import register_route_loader
 
 logger = get_logger(__name__)
 

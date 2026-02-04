@@ -9,19 +9,19 @@ from pathlib import Path
 
 import flet as ft
 
-from app.screens.incursion_detail.incursion_detail_model import (
+from screens.incursion_detail.incursion_detail_model import (
     IncursionDetailModel,
     SESSION_STATE_FINALIZED,
     compute_total_seconds,
     get_result_label,
 )
-from app.screens.incursion_detail.incursion_detail_viewmodel import (
+from screens.incursion_detail.incursion_detail_viewmodel import (
     IncursionDetailViewModel,
 )
-from app.services.service_registry import get_firestore_service
-from app.utils.datetime_format import format_datetime_local
-from app.utils.logger import get_logger
-from app.utils.router import register_route_loader
+from services.service_registry import get_firestore_service
+from utils.datetime_format import format_datetime_local
+from utils.logger import get_logger
+from utils.router import register_route_loader
 
 logger = get_logger(__name__)
 

@@ -32,3 +32,6 @@ dist/
 
 # Logs
 logs/
+
+# Firebase Admin SDK service account (no commitear)
+app/assets/secrets/service_account.json

@@ -6,6 +6,7 @@ from typing import Any
 
 import firebase_admin
 from firebase_admin import firestore
+from services.firebase_init import ensure_firebase_initialized
 from services.score_service import calculate_score
 from utils.logger import get_logger
 
@@ -32,7 +33,7 @@ class FirestoreService:
         logger.debug("Initializing Firestore client")
         if not firebase_admin._apps:
             logger.info("Firebase app not initialized; initializing now")
-            firebase_admin.initialize_app()
+            ensure_firebase_initialized()
         client = firestore.client()
         logger.debug("Firestore client created=%s", client)
         return client

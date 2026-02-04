@@ -5,10 +5,11 @@ name = "pypi"
 
 [packages]
 firebase-admin = "*"
-flet = "*"
 python-dotenv = "*"
 tzlocal = "*"
 pyinstaller = "*"
+flet-cli = "==0.80.4"
+flet = {extras = ["all"], version = "*"}
 
 [dev-packages]
 

@@ -1,0 +1,25 @@
+[project]
+name = "spiritplanner"
+version = "1.0.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Francisco Hernández Ibáñez", email = "kikonet13@gmail.com" }
+]
+dependencies = [
+  "flet==0.80.5",
+  "firebase-admin==7.1.0",
+  "python-dotenv==1.2.1",
+  "repath==0.9.0",
+  "tzlocal==5.3.1",
+  "tzdata==2025.3",
+]
+
+[dependency-groups]
+dev = [
+    "flet-cli>=0.80.5",
+    "flet-desktop>=0.80.5",
+    "flet-web>=0.80.5",
+]
+
+[tool.flet.app]
+path = "."

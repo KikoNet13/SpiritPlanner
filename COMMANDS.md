@@ -92,19 +92,31 @@ Volver a “Home” en la app Flet:
 Generar APK release:
 
 ```powershell
-flet build apk . --module-name "main" --product "SpiritPlanner"
+flet build apk app
 ```
 
 Generar AAB release (Play Store):
 
 ```powershell
-flet build aab . --module-name "main" --product "SpiritPlanner"
+flet build aab app
 ```
 
 Logs verbosos (si algo falla):
 
 ```powershell
 flet build apk -vv . --module-name "main" --product "SpiritPlanner"
+```
+
+Limpiar `\build`:
+
+```powershell
+# Cierra procesos típicos que bloquean build (Gradle/Java/Kotlin daemon)
+Get-Process java, kotlin, gradle, dart, flutter -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# Opcional: si tienes Android Studio abierto, ciérralo también (puede mantener daemons)
+
+# Reintenta borrar
+Remove-Item -Recurse -Force .\app\build
 ```
 
 ## 6) Tooling PC (menú interactivo) — modo Python

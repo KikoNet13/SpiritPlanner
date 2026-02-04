@@ -1,5 +1,5 @@
 [project]
-name = "spiritplanner"
+name = "Spirit Planner"
 version = "1.0.0"
 requires-python = ">=3.10"
 authors = [
@@ -21,5 +21,10 @@ dev = [
     "flet-web>=0.80.5",
 ]
 
+[tool.flet]
+org = "com.kikonet13"
+product = "Spirit Planner"
+
 [tool.flet.app]
 path = "."
+module = "main.py"

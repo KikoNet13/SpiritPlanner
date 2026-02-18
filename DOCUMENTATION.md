@@ -268,6 +268,20 @@ Nota:
 
 - Al hacer doble click en el `.exe` se abre el menú y se elige opción por número.
 
-## 10. Nota final
+## 10. Cambios UI v1.1.0
+
+- Detalle de incursión (`incursion_detail_view`):
+  - El cronómetro principal usa formato `HH:MM:SS`.
+  - La columna de duración de sesiones también usa `HH:MM:SS`.
+- Lista de incursiones (`incursions_view`):
+  - Cada card muestra `Puntuación` con valor numérico o `—` si la incursión no tiene score.
+- Lista de períodos (`periods_view`):
+  - Cada card muestra `Puntuación total` (acumulado parcial) y `Media/incursión` con 2 decimales.
+  - La media se calcula sobre incursiones finalizadas (score presente).
+- Lista de eras (`eras_view`):
+  - Cada card muestra `Puntuación total` y `Media/incursión` agregadas de todos los períodos.
+  - La media usa 2 decimales y muestra `—` cuando no hay incursiones finalizadas.
+
+## 11. Nota final
 
 Este documento es de apoyo y puede estar desactualizado; lo canónico es TDD + ADR.

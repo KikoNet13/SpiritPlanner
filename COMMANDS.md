@@ -169,3 +169,33 @@ Si existe carpeta `logs\` y archivos tipo `spiritplanner-*.log`, abrir el últim
 $log = (Get-ChildItem .\logs\spiritplanner-*.log | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
 notepad $log
 ```
+
+## 10) Release GitHub (tag + APK)
+
+Instalar GitHub CLI (si no existe):
+
+```powershell
+winget install --id GitHub.cli -e --accept-package-agreements --accept-source-agreements
+```
+
+Autenticarse:
+
+```powershell
+gh auth login
+```
+
+Crear tag y subirlo:
+
+```powershell
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+Crear release y adjuntar APK (ajusta la ruta real del APK generado):
+
+```powershell
+gh release create v1.1.0 `
+  --title "v1.1.0" `
+  --notes "Mejoras de tiempo HH:MM:SS y puntuaciones agregadas por nivel." `
+  .\build\apk\app-release.apk
+```

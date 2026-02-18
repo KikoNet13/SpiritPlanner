@@ -179,7 +179,16 @@ Campos observados:
 
 - Firestore almacena timestamps en UTC.
 - La UI convierte a hora local via `format_datetime_local` y usa formato `dd/mm/yy HH:MM`.
+- En `incursion_detail_view`, el cronometro total y la duracion de cada sesion se muestran como `HH:MM:SS`.
 - Si el valor no es parseable, se muestra un placeholder (guion largo en la UI).
+
+## Visibilidad de score en UI
+
+- Lista de incursiones (`incursions_view`): cada tarjeta muestra `Puntuacion` con valor numerico o `—` si no hay score.
+- Lista de periodos (`periods_view`): cada tarjeta muestra:
+  - `Puntuacion total` parcial (suma de incursiones con `score`),
+  - `Media/incursion` calculada sobre incursiones finalizadas (`score` presente), con 2 decimales o `—` si no hay finalizadas.
+- Lista de eras (`eras_view`): cada tarjeta muestra los mismos agregados (`Puntuacion total` y `Media/incursion`) acumulados sobre todos sus periodos.
 
 ## Score
 

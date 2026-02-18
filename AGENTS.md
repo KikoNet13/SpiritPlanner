@@ -68,6 +68,19 @@ Checklist rápido antes de commitear docs:
 - ¿Hay línea en blanco tras cada heading?
 - ¿Hay línea en blanco antes/después de listas?
 
+## Flujo de entrega (release)
+
+- Si la tarea incluye entrega, ejecutar este orden:
+  1) implementar cambios,
+  2) actualizar documentación,
+  3) ejecutar pruebas/validaciones,
+  4) commit(s) con mensajes claros,
+  5) push a remoto,
+  6) generar APK,
+  7) crear tag/release GitHub y adjuntar APK.
+- Si algún paso falla por entorno/herramientas/permisos, documentar el bloqueo y dejar pasos manuales exactos para completarlo.
+- No omitir documentación ni release cuando el alcance solicitado los incluya.
+
 ## Reglas de PR
 
 - PRs en castellano.

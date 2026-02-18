@@ -43,6 +43,7 @@ def _incursion_card(
                         ft.Text(f"Tableros: {model.board_info}"),
                         ft.Text(f"Distribución: {model.layout_info}"),
                         ft.Text(f"Adversario: {model.adversary_info}"),
+                        ft.Text(f"Puntuación: {model.score_label}"),
                     ],
                     spacing=4,
                 ),

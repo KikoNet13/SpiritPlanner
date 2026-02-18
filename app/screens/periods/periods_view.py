@@ -10,7 +10,11 @@ from pathlib import Path
 import flet as ft
 
 from screens.data_lookup import get_adversary_catalog
-from screens.periods.periods_model import AssignmentIncursionModel, PeriodRowModel
+from screens.periods.periods_model import (
+    AssignmentIncursionModel,
+    PeriodRowModel,
+    format_score_average,
+)
 from screens.periods.periods_viewmodel import PeriodsViewModel
 from screens.shared_components import section_card, status_chip
 from services.service_registry import get_firestore_service
@@ -708,7 +712,23 @@ def periods_view(
             if row.incursions_preview
             else []
         )
-        return _period_card(row, action, preview_lines)
+        score_lines = [
+            ft.Text(
+                f"Puntuación total: {row.score_total}",
+                size=12,
+                color=ft.Colors.BLUE_GREY_700,
+            ),
+            ft.Text(
+                (
+                    "Media/incursión: "
+                    f"{format_score_average(row.score_average)} "
+                    f"({row.completed_incursions} finalizadas)"
+                ),
+                size=12,
+                color=ft.Colors.BLUE_GREY_700,
+            ),
+        ]
+        return _period_card(row, action, preview_lines + score_lines)
 
     content_controls: list[ft.Control] = []
     if view_model.loading:

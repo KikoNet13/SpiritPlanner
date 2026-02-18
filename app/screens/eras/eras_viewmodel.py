@@ -4,6 +4,7 @@ import flet as ft
 
 from screens.eras.eras_model import (
     EraCardModel,
+    compute_era_score_summary,
     get_era_status,
     get_incursion_status,
 )
@@ -37,6 +38,16 @@ class ErasViewModel:
             for idx, era in enumerate(eras, start=1):
                 era_id = era["id"]
                 active_incursion = service.get_active_incursion(era_id)
+                periods = service.list_periods(era_id)
+                incursions_by_period: dict[str, list[dict]] = {}
+                for period in periods:
+                    period_id = period["id"]
+                    incursions_by_period[period_id] = service.list_incursions(
+                        era_id, period_id
+                    )
+                score_total, completed_incursions, score_average = (
+                    compute_era_score_summary(incursions_by_period)
+                )
                 status_label, status_color = get_era_status(era)
                 incursion_label, incursion_color = get_incursion_status(
                     active_incursion is not None
@@ -49,6 +60,9 @@ class ErasViewModel:
                         status_color=status_color,
                         incursion_label=incursion_label,
                         incursion_color=incursion_color,
+                        score_total=score_total,
+                        completed_incursions=completed_incursions,
+                        score_average=score_average,
                         active_incursion=active_incursion,
                     )
                 )

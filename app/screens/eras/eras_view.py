@@ -5,7 +5,7 @@ import re
 
 import flet as ft
 
-from screens.eras.eras_model import EraCardModel
+from screens.eras.eras_model import EraCardModel, format_score_average
 from screens.eras.eras_viewmodel import ErasViewModel
 from screens.shared_components import section_card, status_chip
 from services.service_registry import get_firestore_service
@@ -62,6 +62,20 @@ def _era_card(
                 ft.Column(
                     [
                         ft.Text(_active_incursion_line(model)),
+                        ft.Text(
+                            f"Puntuación total: {model.score_total}",
+                            size=12,
+                            color=ft.Colors.BLUE_GREY_700,
+                        ),
+                        ft.Text(
+                            (
+                                "Media/incursión: "
+                                f"{format_score_average(model.score_average)} "
+                                f"({model.completed_incursions} finalizadas)"
+                            ),
+                            size=12,
+                            color=ft.Colors.BLUE_GREY_700,
+                        ),
                     ],
                     spacing=4,
                 ),

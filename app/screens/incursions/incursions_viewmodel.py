@@ -8,6 +8,7 @@ from screens.incursions.incursions_model import (
     get_board_info,
     get_incursion_status,
     get_layout_info,
+    get_score_label,
     get_spirit_info,
 )
 from services.firestore_service import FirestoreService
@@ -59,6 +60,7 @@ class IncursionsViewModel:
                         board_info=get_board_info(incursion),
                         layout_info=get_layout_info(incursion),
                         adversary_info=get_adversary_info(incursion),
+                        score_label=get_score_label(incursion),
                         status_label=status_label,
                         status_color=status_color,
                     )

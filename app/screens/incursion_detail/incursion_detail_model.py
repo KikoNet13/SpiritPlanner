@@ -136,3 +136,10 @@ def compute_total_seconds(
         if started_at and ended_at:
             total_seconds += int((ended_at - started_at).total_seconds())
     return max(total_seconds, 0)
+
+
+def format_duration_hhmmss(total_seconds: int) -> str:
+    normalized_seconds = max(int(total_seconds), 0)
+    hours, remainder = divmod(normalized_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"

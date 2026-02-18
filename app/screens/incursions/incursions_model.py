@@ -20,6 +20,7 @@ class IncursionCardModel:
     board_info: str
     layout_info: str
     adversary_info: str
+    score_label: str
     status_label: str
     status_color: str
 
@@ -52,3 +53,12 @@ def get_layout_info(incursion: dict) -> str:
 
 def get_adversary_info(incursion: dict) -> str:
     return get_adversary_name(incursion.get("adversary_id"))
+
+
+def get_score_label(incursion: dict) -> str:
+    score = incursion.get("score")
+    if isinstance(score, bool):
+        return "—"
+    if isinstance(score, (int, float)):
+        return str(int(score))
+    return "—"

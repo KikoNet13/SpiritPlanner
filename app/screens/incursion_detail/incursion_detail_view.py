@@ -13,6 +13,7 @@ from screens.incursion_detail.incursion_detail_model import (
     IncursionDetailModel,
     SESSION_STATE_FINALIZED,
     compute_total_seconds,
+    format_duration_hhmmss,
     get_result_label,
 )
 from screens.incursion_detail.incursion_detail_viewmodel import (
@@ -340,8 +341,7 @@ def _light_section(content: ft.Control) -> ft.Container:
 
 
 def _format_total_time(total_seconds: int) -> str:
-    minutes, seconds = divmod(total_seconds, 60)
-    return f"{minutes}:{seconds:02d}"
+    return format_duration_hhmmss(total_seconds)
 
 
 def _format_short_datetime(value: datetime | str | None) -> str:
@@ -909,8 +909,8 @@ def incursion_detail_view(
             ):
                 started_at = session.started_at
                 ended_at = session.ended_at
-                duration_minutes = (
-                    int((ended_at - started_at).total_seconds() // 60)
+                duration_seconds = (
+                    int((ended_at - started_at).total_seconds())
                     if started_at and ended_at
                     else 0
                 )
@@ -965,7 +965,7 @@ def incursion_detail_view(
                                             (
                                                 "—"
                                                 if not ended_at
-                                                else f"{duration_minutes}"
+                                                else _format_total_time(duration_seconds)
                                             ),
                                             size=12,
                                             weight=ft.FontWeight.W_600,

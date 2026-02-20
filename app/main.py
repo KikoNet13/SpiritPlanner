@@ -26,6 +26,24 @@ configure_logging(debug=debug_mode)
 
 logger = get_logger(__name__)
 
+APP_BASE_BACKGROUND = "#F2FAF7"
+APP_PATTERN_SRC = "backgrounds/organic_soft_tile.png"
+APP_PATTERN_OPACITY = 0.07
+
+
+def _with_global_background(control: ft.Control) -> ft.Container:
+    return ft.Container(
+        content=control,
+        bgcolor=APP_BASE_BACKGROUND,
+        image=ft.DecorationImage(
+            src=APP_PATTERN_SRC,
+            repeat=ft.ImageRepeat.REPEAT,
+            fit=ft.BoxFit.NONE,
+            opacity=APP_PATTERN_OPACITY,
+        ),
+        expand=True,
+    )
+
 
 def build_view(route: str) -> ft.View:
     parts = [part for part in route.split("/") if part]
@@ -48,7 +66,7 @@ def build_view(route: str) -> ft.View:
         control = eras_view()
         route = "/eras"
 
-    return ft.View(route=route, controls=[control])
+    return ft.View(route=route, controls=[_with_global_background(control)])
 
 
 @ft.component

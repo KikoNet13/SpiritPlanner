@@ -282,6 +282,12 @@ Nota:
   - Cada card muestra `Puntuación total` y `Media/incursión` agregadas de todos los períodos.
   - La media usa 2 decimales y muestra `—` cuando no hay incursiones finalizadas.
 
-## 11. Nota final
+## 11. Cambios UI v1.1.1
+
+- Splash nativa Android: se mantiene el asset `app/assets/splash_android.png` y se configura color de fondo homogéneo para Android en `app/pyproject.toml` (`[tool.flet.splash]`).
+- Fondo global: se aplica una base clara (`#F2FAF7`) y patrón tileable (`app/assets/backgrounds/organic_soft_tile.png`) desde `app/main.py`, envolviendo cada `View`.
+- Legibilidad: `section_card()` usa por defecto fondo semitransparente (`white` al 94%) cuando no se pasa `bgcolor`, para mantener contraste en cards/chips/botones sobre el patrón.
+
+## 12. Nota final
 
 Este documento es de apoyo y puede estar desactualizado; lo canónico es TDD + ADR.

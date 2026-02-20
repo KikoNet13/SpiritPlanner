@@ -1,6 +1,6 @@
 [project]
 name = "Spirit Planner"
-version = "1.1.0"
+version = "1.1.1"
 requires-python = ">=3.10"
 authors = [
     { name = "Francisco Hernández Ibáñez", email = "kikonet13@gmail.com" }
@@ -24,6 +24,12 @@ dev = [
 [tool.flet]
 org = "com.kikonet13"
 product = "Spirit Planner"
+
+[tool.flet.splash]
+color = "#081A33"
+dark_color = "#081A33"
+icon_bgcolor = "#081A33"
+icon_dark_bgcolor = "#081A33"
 
 [tool.flet.app]
 path = "."

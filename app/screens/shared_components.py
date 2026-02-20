@@ -23,12 +23,13 @@ def section_card(
     bgcolor: str | None = None,
     border_color: str = ft.Colors.GREY_300,
 ) -> ft.Container:
+    resolved_bgcolor = bgcolor or ft.Colors.with_opacity(0.94, ft.Colors.WHITE)
     return ft.Container(
         content=content,
         padding=padding,
         border=ft.Border.all(1, border_color),
         border_radius=border_radius,
-        bgcolor=bgcolor,
+        bgcolor=resolved_bgcolor,
     )
 
 

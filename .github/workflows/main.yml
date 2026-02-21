@@ -8,8 +8,8 @@ on:
 
 env:
   # https://flet.dev/docs/publish#versioning
-  BUILD_NUMBER: 3
-  BUILD_VERSION: 1.1.1
+  BUILD_NUMBER: 4
+  BUILD_VERSION: 1.1.2
 
   # Python version to use
   PYTHON_VERSION: 3.12.8

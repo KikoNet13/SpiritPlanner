@@ -288,6 +288,12 @@ Nota:
 - Fondo global: se aplica una base clara (`#F2FAF7`) y patrón tileable (`app/assets/backgrounds/organic_soft_tile.png`) desde `app/main.py`, envolviendo cada `View`.
 - Legibilidad: `section_card()` usa por defecto fondo semitransparente (`white` al 94%) cuando no se pasa `bgcolor`, para mantener contraste en cards/chips/botones sobre el patrón.
 
-## 12. Nota final
+## 12. Cambios UI v1.1.2
+
+- Assets finales aplicados desde archivos reales: `app/assets/splash_android.png` (splash 9:16) y `app/assets/backgrounds/organic_soft_tile.png` (tile 1024x1024).
+- Se elimina la carpeta temporal `tmp/` tras mover los recursos al árbol canónico de assets.
+- Se mantiene el fondo global sutil y la legibilidad de tarjetas definida en `v1.1.1`.
+
+## 13. Nota final
 
 Este documento es de apoyo y puede estar desactualizado; lo canónico es TDD + ADR.
